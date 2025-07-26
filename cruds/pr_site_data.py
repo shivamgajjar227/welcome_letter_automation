@@ -12,6 +12,7 @@ def save_scraped_pr_site_data(scraped_data: dict):
             last_name=scraped_data.get("last_name"),
             first_name=scraped_data.get("first_name"),
             gender=scraped_data.get("gender"),
+            npi_number=scraped_data.get("npi_number"),
             city=scraped_data.get("city"),
             state=scraped_data.get("state"),
             zip_code=scraped_data.get("zip_code"),

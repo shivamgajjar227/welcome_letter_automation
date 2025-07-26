@@ -14,4 +14,5 @@ class PRSiteData(Base):
     state = Column(String(100), nullable=True)
     zip_code = Column(String(20), nullable=True)
     status = Column(Boolean, nullable=True)
+    npi_number = Column(Integer, nullable=False)
 

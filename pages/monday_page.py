@@ -1,3 +1,5 @@
+import time
+
 from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
@@ -18,16 +20,49 @@ class MondayPage(BasePage):
     def click_welcome_letter_qc(self):
         self.click(self.welcome_letter_qc)
 
+    def get_pr_site_npis(self):
+
+        # 1. Find the group with title 'PR Site'
+        time.sleep(8)
+        group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
+
+        # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
+        group_container = group.find_element(By.XPATH,
+                                             "./ancestor::div[contains(@role, 'grid')]")
+
+        # 3. Find all rows in this group
+        rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid, 'item-')]")
+
+        npis = []
+        for row in rows:
+            try:
+            # 4. Find the Status cell in the row
+                status = row.find_element(By.XPATH,
+                                      ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
+                if status.strip() == "Not Started":
+                    # 5. Extract Provider NPI from the correct column
+                    provider_npi = row.find_element(By.XPATH,
+                                                    ".//div[contains(@class, 'col-identifier-text_mkt42ppc')]//div[@data-testid='text']").text
+                    npis.append(provider_npi)
+            except Exception as e:
+                continue
+
+        return npis
+
+
     def get_not_started_npis(self):
         # Locate the "PR Site" section
-        group_container = self.wait.until(
+        group = self.wait.until(
             EC.presence_of_element_located(
-                (By.XPATH, "//text2[text()='PR Site']/ancestor::div[contains(@class,'group-header-component-title-row')]/following-sibling::div")
+                (By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
             )
         )
 
+        # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
+        group_container = group.find_element(By.XPATH, "./ancestor::div[contains(@class, 'group-header-wrapper')]/following-sibling::div")
+
         # Get all row wrappers under this group
-        rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid,'row-wrapper')]")
+        rows = group_container.find_elements(By.XPATH, "")
 
         npis = []
 

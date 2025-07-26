@@ -20,6 +20,7 @@ class PRSitePage(BasePage):
     last_name = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblLName")
     first_name = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblFName")
     gender = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblGender")
+    npi_number = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblIndividualNPI")
     city = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblCity")
     state = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblState")
     zip_code = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblZipCode")
@@ -74,6 +75,9 @@ class PRSitePage(BasePage):
 
     def get_gender(self):
         return self.driver.find_element(*self.gender).text.strip()
+
+    def get_npi_number(self):
+        return self.driver.find_element(*self.npi_number).text.strip()
 
     def get_city(self):
         return self.driver.find_element(*self.city).text.strip()
