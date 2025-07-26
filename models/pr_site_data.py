@@ -13,6 +13,9 @@ class PRSiteData(Base):
     city = Column(String(255), nullable=True)
     state = Column(String(100), nullable=True)
     zip_code = Column(String(20), nullable=True)
-    status = Column(Boolean, nullable=True)
+    status = Column(Integer, nullable=True)
     npi_number = Column(Integer, nullable=False)
+    effective_date = Column(String(500), nullable=True)
+    health_plan = Column(String(500), nullable=True)
+    lines_of_business = Column(String(500), nullable=True)
 

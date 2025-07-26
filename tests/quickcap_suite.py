@@ -1,6 +1,6 @@
 import time
 from time import sleep
-
+from sqlalchemy.orm import Session
 import pytest
 import pages
 from conftest import monday_test
@@ -16,57 +16,65 @@ from cruds import pr_site_data
 global_npis_to_process = []
 
 def test_pr_site(pr_sites_test):
-    time.sleep(3)
-    with open("npis.json", "r") as file:
-        npi_list = json.load(file)
+    db = SessionLocal()
+    try:
+        # Step 1: Get NPI records where status = 0
+        npi_records = db.query(PRSiteData).filter(PRSiteData.status == 0).all()
+        print("📄 Found NPI records with status 0:", [r.npi_number for r in npi_records])
 
-    print("📄 Loaded NPIs:", npi_list)
-    # pr_sites_test.hover_over_provider_menu()
-    pr_sites_test.hover_over_update_menu()
-    time.sleep(3)
-    for npi in npi_list:
-        pr_sites_test.enter_npi_search(npi)
-        pr_sites_test.click_search_npi()
-        time.sleep(3)
-        pr_sites_test.click_search_npi()
-        time.sleep(3)
-        time.sleep(3)
-        last_name = pr_sites_test.get_last_name()
-        first_name = pr_sites_test.get_first_name()
-        gender = pr_sites_test.get_gender()
-        npi_number = pr_sites_test.get_npi_number()
-        city = pr_sites_test.get_city()
-        state = pr_sites_test.get_state()
-        zip_code = pr_sites_test.get_zip_code()
+        pr_sites_test.hover_over_update_menu()
         time.sleep(3)
 
-        print("Last Name:", last_name)
-        print("First Name:", first_name)
-        print("Gender:", gender)
-        print("NPI Number:", npi_number)
-        print("City:", city)
-        print("State:", state)
-        print("Zip Code:", zip_code)
+        for record in npi_records:
+            npi = str(record.npi_number)
 
-        scraped_data = {
-            "last_name": last_name,
-            "first_name": first_name,
-            "gender": gender,
-            "npi_number": npi_number,
-            "city": city,
-            "state": state,
-            "zip_code": zip_code
-        }
+            pr_sites_test.enter_npi_search(npi)
+            pr_sites_test.click_search_npi()
+            time.sleep(3)
+            pr_sites_test.click_search_npi()
+            time.sleep(3)
 
-        pr_site_data.save_scraped_pr_site_data(scraped_data)
+            last_name = pr_sites_test.get_last_name()
+            first_name = pr_sites_test.get_first_name()
+            gender = pr_sites_test.get_gender()
+            npi_number = pr_sites_test.get_npi_number()
+            city = pr_sites_test.get_city()
+            state = pr_sites_test.get_state()
+            zip_code = pr_sites_test.get_zip_code()
+
+            print("✅ Updating:", npi)
+            print("Last Name:", last_name)
+            print("First Name:", first_name)
+            print("Gender:", gender)
+            print("City:", city)
+            print("State:", state)
+            print("Zip Code:", zip_code)
+
+            # Step 2: Update the existing DB row
+            record.last_name = last_name
+            record.first_name = first_name
+            record.gender = gender
+            record.city = city
+            record.state = state
+            record.zip_code = zip_code
+            record.status = 1  # mark as completed
+
+        db.commit()
+        print("✅ All records updated successfully.")
+
+    except Exception as e:
+        db.rollback()
+        print("❌ Error in test_pr_site:", e)
+    finally:
+        db.close()
 
 def test_qc(quickcap_test):
     db = SessionLocal()
     try:
-        data_list = db.query(PRSiteData).filter(PRSiteData.status == 0).all()
+        data_list = db.query(PRSiteData).filter(PRSiteData.status == 1).all()
 
         if not data_list:
-            print("No data found with status = 0")
+            print("No data found with status = 1")
             return
 
         quickcap_test.choose_company()
@@ -133,7 +141,7 @@ def test_qc(quickcap_test):
             time.sleep(5)
             quickcap_test.driver.close()
             quickcap_test.switch_to_new_window()
-            data.status = 1
+            data.status = 2
             db.commit()
 
             print("Data added to QC and status updated.")
@@ -149,9 +157,27 @@ def test_monday(monday_test):
     print(npis)
     time.sleep(3)
 
-    with open("npis.json", "w") as file:
-        json.dump(npis, file)
-        print("NPIs saved to npis.json")
+    db: Session = SessionLocal()
+
+    try:
+        for entry in npis:
+            new_row = PRSiteData(
+                npi_number=entry.get("npi_number"),
+                effective_date=entry.get("effective_date"),
+                health_plan=entry.get("health_plan"),
+                lines_of_business=entry.get("lines_of_business"),
+                status=0
+            )
+            db.add(new_row)
+            print(f"Inserted row: {entry}")
+
+        db.commit()
+        print("All NPIs inserted into pr_site_data table.")
+    except Exception as e:
+        db.rollback()
+        print(" Error inserting data:", e)
+    finally:
+        db.close()
 
 
 

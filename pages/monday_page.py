@@ -23,7 +23,7 @@ class MondayPage(BasePage):
     def get_pr_site_npis(self):
 
         # 1. Find the group with title 'PR Site'
-        time.sleep(8)
+        time.sleep(2)
         group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
 
         # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
@@ -36,19 +36,28 @@ class MondayPage(BasePage):
         npis = []
         for row in rows:
             try:
-            # 4. Find the Status cell in the row
                 status = row.find_element(By.XPATH,
-                                      ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
+                                          ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
                 if status.strip() == "Not Started":
-                    # 5. Extract Provider NPI from the correct column
-                    provider_npi = row.find_element(By.XPATH,
+                    npi_number = row.find_element(By.XPATH,
                                                     ".//div[contains(@class, 'col-identifier-text_mkt42ppc')]//div[@data-testid='text']").text
-                    npis.append(provider_npi)
+                    effective_date = row.find_element(By.XPATH,
+                                                      ".//div[contains(@class, 'col-identifier-date4')]//span[contains(@class,'ds-text-component-content-text')]").text
+                    health_plan = row.find_element(By.XPATH,
+                                                   ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
+                    lines_of_business = row.find_element(By.XPATH,
+                                                         ".//div[contains(@class, 'col-identifier-dropdown_mkt4r6zg')]//div[@class='chips-list-module_chips__CTQcD']").text
+
+                    npis.append({
+                        "npi_number": npi_number.strip(),
+                        "effective_date": effective_date.strip(),
+                        "health_plan": health_plan.strip(),
+                        "lines_of_business": lines_of_business.strip()
+                    })
             except Exception as e:
                 continue
 
         return npis
-
 
     def get_not_started_npis(self):
         # Locate the "PR Site" section
