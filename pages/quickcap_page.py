@@ -23,6 +23,7 @@ class QuickcapPage(BasePage):
     primary_specialist =  (By.XPATH,"//a[@class='chosen-single chosen-default trackAtt']")
     last_name = (By.XPATH, "//textarea[@id='TaRara_last_name']")
     first_name = (By.XPATH, "//input[@id='Tatxt_first_name']")
+    suffix = (By.XPATH, "//select[@id='Taslt_prof_suffix']")
     gender = (By.XPATH, "//select[@id='Taslt_sex']")
     birthdate = (By.XPATH, "//input[@id='Dttxt_date_of_birth']")
     contract_type = (By.XPATH, "//select[@id='Rslt_contract_type']")

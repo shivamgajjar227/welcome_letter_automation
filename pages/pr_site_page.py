@@ -24,7 +24,7 @@ class PRSitePage(BasePage):
     city = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblCity")
     state = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblState")
     zip_code = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblZipCode")
-
+    category = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblDegree")
 
     def hover_over_provider_menu(self):
         provide_webelement = self.driver.find_element(*self.provider_menu)
@@ -87,6 +87,10 @@ class PRSitePage(BasePage):
 
     def get_zip_code(self):
         return self.driver.find_element(*self.zip_code).text.strip()
+
+    def get_category(self):
+        return self.driver.find_element(*self.category).text.strip()
+
 
 
 

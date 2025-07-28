@@ -3,6 +3,7 @@ from time import sleep
 from sqlalchemy.orm import Session
 import pytest
 import pages
+from datetime import datetime
 from conftest import monday_test
 from pages import global_variables
 import cruds
@@ -72,6 +73,7 @@ def test_pr_site(pr_sites_test):
             city = pr_sites_test.get_city()
             state = pr_sites_test.get_state()
             zip_code = pr_sites_test.get_zip_code()
+            category = pr_sites_test.get_category()
 
             print("✅ Updating:", npi)
             print("Last Name:", last_name)
@@ -80,6 +82,7 @@ def test_pr_site(pr_sites_test):
             print("City:", city)
             print("State:", state)
             print("Zip Code:", zip_code)
+            print("Category:", category)
 
             # Step 2: Update the existing DB row
             record.last_name = last_name
@@ -88,6 +91,7 @@ def test_pr_site(pr_sites_test):
             record.city = city
             record.state = state
             record.zip_code = zip_code
+            record.category = category
             record.status = 1  # mark as completed
 
         db.commit()
@@ -125,7 +129,30 @@ def test_qc(quickcap_test):
             print(f"➡️ Processing NPI: {npi}")
             quickcap_test.click_quick_add_button()
             quickcap_test.switch_to_new_window()
-            quickcap_test.select_category_dropdown("CRNA - CRNA")
+            CATEGORY_MAP = {
+                "ARNP": "ARNP - ARNP",
+                "CRNA": "CRNA - CRNA",
+                "CRNP": "CRNP - CRNP",
+                "DC": "DC - CHIROPRACTORS",
+                "DDS": "DDS - DDS",
+                "DO": "DO - OSTEOPATHIC PHYSICIAN",
+                "DPM": "DPM - DPM",
+                "FNP": "FNP - FAMILY NURSE PRACTITIONER",
+                "LM": "LM - LICENCE MIDWIFE",
+                "MD": "MD - MD",
+                "MID": "MID - MIDWIFE",
+                "ND": "ND - NATUROPATHIC DOCTOR",
+                "NMW": "NMW - NURSE MIDWIFE",
+                "NP": "NP - NURSE PRACTITIONER",
+                "OPT": "OPT - OPTOMETRIST",
+                "PA": "PA - PHYSICIAN ASSISTANT",
+                "PHD": "PHD - PHD",
+                "PT": "PT - PHYSICAL THERAPY",
+                "RD": "RD - REGISTERED DIETICIAN",
+                "RN": "RN - REGISTERED NURSE"
+            }
+            selected_category = CATEGORY_MAP.get(data.category.strip(), "") if data.category else ""
+            quickcap_test.select_category_dropdown(selected_category)
             time.sleep(3)
 
             quickcap_test.click_quick_add_window_npi_button(npi)
@@ -137,6 +164,7 @@ def test_qc(quickcap_test):
 
             quickcap_test.enter_last_first_name(data.last_name or "", data.first_name or "")
             time.sleep(3)
+            # quickcap_test.select_suffix(data.category or "")
             gender_map = {
                 "Male": "M - Male",
                 "M": "M - Male",
@@ -146,10 +174,10 @@ def test_qc(quickcap_test):
             selected_gender = gender_map.get(data.gender.strip(), "") if data.gender else ""
             quickcap_test.select_gender(selected_gender)
             time.sleep(3)
-            quickcap_test.enter_birthdate("07/19/2025")
-            time.sleep(5)
             quickcap_test.select_contract_type("CONTRACT CAPITATION")
-            quickcap_test.enter_contract_from_date("07/20/2025")
+            raw_date = data.effective_date.strip()
+            full_date = datetime.strptime(raw_date + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+            quickcap_test.enter_contract_from_date(full_date)
             quickcap_test.select_payment_type("FEE FOR SERVICE")
             quickcap_test.select_account("0000-000 DEFAULT")
             time.sleep(3)

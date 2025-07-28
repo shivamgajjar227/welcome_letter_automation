@@ -18,4 +18,5 @@ class PRSiteData(Base):
     effective_date = Column(String(500), nullable=True)
     health_plan = Column(String(500), nullable=True)
     lines_of_business = Column(String(500), nullable=True)
+    category = Column(String(500), nullable=True)
 
