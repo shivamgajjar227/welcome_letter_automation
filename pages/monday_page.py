@@ -3,6 +3,7 @@ import time
 from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 class MondayPage(BasePage):
 
@@ -18,7 +19,9 @@ class MondayPage(BasePage):
         self.click(self.login_btn)
 
     def click_welcome_letter_qc(self):
-        self.click(self.welcome_letter_qc)
+        WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable(self.welcome_letter_qc)
+        ).click()
 
     def get_pr_site_npis(self):
 
@@ -55,6 +58,7 @@ class MondayPage(BasePage):
                         "lines_of_business": lines_of_business.strip()
                     })
             except Exception as e:
+                print(f"Error in Monday.com while fetching data: {e}")
                 continue
 
         return npis
