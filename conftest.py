@@ -6,6 +6,8 @@ from pages.login_page import LoginPage
 from pages.monday_page import MondayPage
 from pages.pr_site_page import PRSitePage
 from pages.quickcap_page import QuickcapPage
+from pages.sql_server_page import SqlServerPage
+from pages.quickcap_case_page import QuickcapCasePage
 
 
 def pytest_addoption(parser):
@@ -13,7 +15,7 @@ def pytest_addoption(parser):
     parser.addoption("--base-url", action="store", default="https://pnstest.quickcap.net")
     parser.addoption("--base-url1", action="store", default="https://pns-mgmt.monday.com/")
     parser.addoption("--base-url2", action="store", default="https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1")
-
+    parser.addoption("--base-url3", action="store", default="https://larch.ad.pns-mgmt.com/Reports_PROD/browse")
 
 @pytest.fixture(scope="session")
 def driver(request):
@@ -41,3 +43,17 @@ def pr_sites_test(driver, request):
     url_with_auth = f"https://{username}:{password}@pss.ad.pns-mgmt.com"
     driver.get(url_with_auth)
     return PRSitePage(driver)
+
+@pytest.fixture(scope="function")
+def sql_server_test(driver, request):
+    username = "autoprocess@ad.pns-mgmt.com"
+    password = "P%23194714496192ab"
+    url_with_auth = f"https://{username}:{password}@larch.ad.pns-mgmt.com/Reports_PROD/browse"
+    driver.get(url_with_auth)
+    return SqlServerPage(driver)
+
+@pytest.fixture(scope="function")
+def quickcap_test_case(driver, request):
+    base_url = request.config.getoption("--base-url")
+    driver.get(base_url)
+    return QuickcapCasePage(driver)

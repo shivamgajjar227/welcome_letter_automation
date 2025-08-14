@@ -11,6 +11,11 @@ class MondayPage(BasePage):
     password_filed = (By.XPATH, "//input[@id='user_password']")
     login_btn = (By.XPATH, "//button[@aria-label='Log in']")
     welcome_letter_qc = (By.XPATH, "//div[@role='option']")
+    search_button = (By.XPATH, "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
+    enter_npi_search = (By.XPATH, "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
+    not_started = (By.XPATH, "//div[contains(text(),'Not Started')]")
+    done_button = (By.XPATH, "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
+    cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
 
     def login(self, username, password):
 
@@ -31,7 +36,7 @@ class MondayPage(BasePage):
 
         # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
         group_container = group.find_element(By.XPATH,
-                                             "./ancestor::div[contains(@role, 'grid')]")
+                                             "//div[@id='board-wrapper-first-level-content']")
 
         # 3. Find all rows in this group
         rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid, 'item-')]")
@@ -92,3 +97,31 @@ class MondayPage(BasePage):
                 continue
 
         return npis
+
+    def click_search_button(self):
+        WebDriverWait(self.driver, 8).until(
+            EC.element_to_be_clickable(self.search_button)
+        ).click()
+
+    def enter_npi_button(self, value):
+        # Wait for the "Search this board" input
+        search_input = WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Search this board']"))
+        )
+        search_input.clear()
+        search_input.send_keys(str(value))
+
+    def click_not_started(self):
+        WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable(self.not_started)
+        ).click()
+
+    def click_done_button(self):
+        WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable(self.done_button)
+        ).click()
+
+    def click_cross_button(self):
+        WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable(self.cross)
+        ).click()
