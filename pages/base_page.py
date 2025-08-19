@@ -19,14 +19,43 @@ class BasePage:
         self.driver.find_element(*locator).clear()
         self.driver.find_element(*locator).send_keys(text)
 
-    def switch_to_new_window(self):
+    # def switch_to_new_window(self):
+    #     time.sleep(1)
+    #     self.main_window = self.driver.current_window_handle  # ✅ Store current window
+    #     handles = self.driver.window_handles
+    #     for handle in handles:
+    #         if handle != self.main_window:
+    #             self.driver.switch_to.window(handle)
+    #             break
+
+    def switch_to_new_window1(self):
         time.sleep(1)
-        self.main_window = self.driver.current_window_handle  # ✅ Store current window
         handles = self.driver.window_handles
-        for handle in handles:
-            if handle != self.main_window:
-                self.driver.switch_to.window(handle)
-                break
+        if len(handles) > 1:
+            self.driver.switch_to.window(handles[-1])
+        else:
+            self.driver.switch_to.window(handles[0])
+
+    def store_main_window(self):
+        """Call this once after driver opens the initial main page."""
+        self.main_window = self.driver.current_window_handle
+
+    def switch_to_new_window(self):
+        """Switch to the first window that is not the main window."""
+        handles = self.driver.window_handles
+        for h in handles:
+            if h != self.main_window:
+                self.driver.switch_to.window(h)
+                return
+        print("[WARN] No popup window found to switch to.")
+
+    def switch_to_main(self):
+        """Switch back to the main window."""
+        if self.main_window and self.main_window in self.driver.window_handles:
+            self.driver.switch_to.window(self.main_window)
+        else:
+            print("[ERROR] Main window handle not found in current handles.")
+
 
     def switch_back_to_main(self):
         if not self.main_window:
@@ -40,3 +69,6 @@ class BasePage:
     def wait_for_element_present(self, locator, timeout=10):
         return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(locator))
 
+
+    def set_main_window_before_switching(self):
+        self.main_window = self.driver.current_window_handle

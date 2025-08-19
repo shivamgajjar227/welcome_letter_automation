@@ -1,5 +1,5 @@
 import time
-
+import allure
 from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
@@ -17,6 +17,7 @@ class MondayPage(BasePage):
     done_button = (By.XPATH, "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
 
+    @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
 
         self.enter_text(self.username_filed, username)
@@ -29,42 +30,54 @@ class MondayPage(BasePage):
         ).click()
 
     def get_pr_site_npis(self):
-
-        # 1. Find the group with title 'PR Site'
         time.sleep(2)
         group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
-
-        # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
-        group_container = group.find_element(By.XPATH,
-                                             "//div[@id='board-wrapper-first-level-content']")
-
-        # 3. Find all rows in this group
-        rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid, 'item-')]")
+        group_container = self.driver.find_element(By.XPATH, "//div[@id='board-wrapper-first-level-content']")
 
         npis = []
-        for row in rows:
-            try:
-                status = row.find_element(By.XPATH,
-                                          ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
-                if status.strip() == "Not Started":
-                    npi_number = row.find_element(By.XPATH,
-                                                    ".//div[contains(@class, 'col-identifier-text_mkt42ppc')]//div[@data-testid='text']").text
-                    effective_date = row.find_element(By.XPATH,
-                                                      ".//div[contains(@class, 'col-identifier-date4')]//span[contains(@class,'ds-text-component-content-text')]").text
-                    health_plan = row.find_element(By.XPATH,
-                                                   ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
-                    lines_of_business = row.find_element(By.XPATH,
-                                                         ".//div[contains(@class, 'col-identifier-dropdown_mkt4r6zg')]//div[@class='chips-list-module_chips__CTQcD']").text
+        last_height = 0
+        same_height_count = 0  # to detect when we've reached the bottom
 
-                    npis.append({
-                        "npi_number": npi_number.strip(),
-                        "effective_date": effective_date.strip(),
-                        "health_plan": health_plan.strip(),
-                        "lines_of_business": lines_of_business.strip()
-                    })
-            except Exception as e:
-                print(f"Error in Monday.com while fetching data: {e}")
-                continue
+        while True:
+            rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid, 'item-')]")
+
+            for row in rows:
+                try:
+                    status = row.find_element(By.XPATH,
+                                              ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
+                    if status.strip() == "Not Started":
+                        npi_number = row.find_element(By.XPATH,
+                                                      ".//div[contains(@class, 'col-identifier-text_mkt42ppc')]//div[@data-testid='text']").text
+                        effective_date = row.find_element(By.XPATH,
+                                                          ".//div[contains(@class, 'col-identifier-date4')]//span[contains(@class,'ds-text-component-content-text')]").text
+                        health_plan = row.find_element(By.XPATH,
+                                                       ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
+                        lines_of_business = row.find_element(By.XPATH,
+                                                             ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
+
+                        entry = {
+                            "npi_number": npi_number.strip(),
+                            "effective_date": effective_date.strip(),
+                            "health_plan": health_plan.strip(),
+                            "lines_of_business": lines_of_business.strip()
+                        }
+                        if entry not in npis:
+                            npis.append(entry)
+                except Exception as e:
+                    print(f"Error in Monday.com while fetching data: {e}")
+
+            self.driver.execute_script("arguments[0].scrollBy(0, 500);", group_container)
+            time.sleep(1.5)
+
+            new_height = self.driver.execute_script("return arguments[0].scrollTop", group_container)
+            if new_height == last_height:
+                same_height_count += 1
+            else:
+                same_height_count = 0
+            last_height = new_height
+
+            if same_height_count > 2:
+                break
 
         return npis
 

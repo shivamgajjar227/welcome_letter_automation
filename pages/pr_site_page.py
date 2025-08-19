@@ -272,7 +272,7 @@ class PRSitePage(BasePage):
                             address = loc_table.find_element(
                                 By.XPATH,
                                 "//a[@id='ctl00_MainContent_GvProvPractice_ctl02_LnkProvPractPlanAddress']"
-                            ).text.strip()
+                            ).text.strip().upper()
 
                             rows = loc_table.find_elements(
                                 By.XPATH,

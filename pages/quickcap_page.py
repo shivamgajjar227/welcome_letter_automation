@@ -5,7 +5,7 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pages.base_page import BasePage
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 
 class QuickcapPage(BasePage):
@@ -68,11 +68,14 @@ class QuickcapPage(BasePage):
     provider_type1 = (By.XPATH, "//option[normalize-space()='HDO']")
     add_new_location = (By.XPATH, "//input[@id='chk_add_new_location']")
     name1 = (By.XPATH, "//input[@id='Tatxt_LocationName']")
-    address2 = (By.XPATH, "// input[ @ id = 'Tatxt_Address1']")
-    zip1 = (By.XPATH, "//input[@id='Tatxt_zip']")
+    address2 = (By.CSS_SELECTOR, "#Tatxt_Address1")
+    zip1 = (By.CSS_SELECTOR, "#Tatxt_zip")
     city1 = (By.XPATH, "//input[@id='Tatxt_city']")
     save1 = (By.XPATH, "//input[@id='btn_submit']")
     cancel1 = (By.XPATH, "//input[@value='Cancel']")
+    credentialing_tab1 = (By.XPATH, "(//h3[normalize-space()='Credentialing'])[1]")
+    primary = (By.XPATH, "//input[@id='check_location_NEW_OFFICE_1']")
+
 
     def login(self, username, password):
         self.enter_text(self.USERNAME_FIELD, username)
@@ -85,6 +88,8 @@ class QuickcapPage(BasePage):
         try:
             # STEP 1 — Check the currently selected company
             try:
+                if company_name == "ONS Humana":
+                    company_name = company_name.upper()
                 current_company = WebDriverWait(self.driver, 5).until(
                     EC.presence_of_element_located((
                         By.XPATH,
@@ -100,8 +105,8 @@ class QuickcapPage(BasePage):
                     self.driver.close()
                     self.driver.switch_to.window(self.driver.window_handles[0])
                     return True
-            except TimeoutException:
-                print("⚠️ Could not detect current company — continuing with selection...")
+            except Exception as e:
+                print(e)
 
             # STEP 2 — Wait for the login icon for the target company
             company_icon = WebDriverWait(self.driver, 20).until(
@@ -126,9 +131,14 @@ class QuickcapPage(BasePage):
 
     def choose_credentialing_tab(self):
         # self.wait_for_element_present(self.credentialing_tab)
-        WebDriverWait(self.driver, 10).until(
+        try:
+            element = WebDriverWait(self.driver, 10).until(
             EC.element_to_be_clickable(self.credentialing_tab)
-        ).click()
+            )
+            element.click()
+        except Exception as e:
+            print(f"<UNK> Failed to click credentialing tab: {e}")
+
 
     def choose_practitioner_data(self):
         WebDriverWait(self.driver, 10).until(
@@ -206,10 +216,10 @@ class QuickcapPage(BasePage):
         dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_AccountNo']"))
         dropdown.select_by_visible_text(value)
 
-    def switch_to_new_window(self):
-        time.sleep(1)
-        handles = self.driver.window_handles
-        self.driver.switch_to.window(handles[-1])  # switch to latest opened window
+    # def switch_to_new_window(self):
+    #     time.sleep(1)
+    #     handles = self.driver.window_handles
+    #     self.driver.switch_to.window(handles[-1])  # switch to latest opened window
 
     def switch_to_previous_window(self):
         handles = self.driver.window_handles
@@ -408,17 +418,31 @@ class QuickcapPage(BasePage):
                 return False
 
     def click_org_id(self):
-        element = WebDriverWait(self.driver, 5).until(
-            EC.element_to_be_clickable(self.org_id)
-        )
-        element.click()
+        try:
+            element = WebDriverWait(self.driver, 3).until(  # Reduced timeout
+                EC.element_to_be_clickable(self.org_id)
+            )
+            element.click()
+            print("Organization ID clicked successfully")
+            return True
+        except Exception as e:
+            print(f"Organization ID not found or clickable: {str(e)}")
+            return False
 
-    def select_template(self):
-        dropdown_element = WebDriverWait(self.driver, 5).until(
-            EC.element_to_be_clickable((By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
-        )
-        dropdown = Select(dropdown_element)
-        dropdown.select_by_index(4)
+    def select_contract_template(self):
+        try:
+            # Locate the dropdown element
+            dropdown = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
+            )
+
+            # Use Select class to handle the dropdown
+            select = Select(dropdown)
+            select.select_by_value('1432')
+            print("Selected template with value '1432'")
+
+        except Exception as e:
+            print(f"Failed to select contract template: {str(e)}")
 
     def click_change_company(self):
         try:
@@ -484,7 +508,9 @@ class QuickcapPage(BasePage):
         ).click()
 
     def click_edit_button(self):
-        self.click(self.click_edit)
+        WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((self.click_edit))
+        ).click()
 
     def click_provider_button(self):
         WebDriverWait(self.driver, 10).until(
@@ -512,10 +538,36 @@ class QuickcapPage(BasePage):
         )
         Select(dropdown_element).select_by_visible_text(value)
 
-    def select_primary_speciality_dropdown1(self):
-        self.click(self.primary_speciality)
-        time.sleep(2)
-        self.driver.find_element(By.XPATH, "//li[normalize-space()='D - DERMATOLOGY']").click()
+    def select_primary_speciality_dropdown1(self, speciality_value: str):
+        """Select speciality from dropdown based on given speciality value"""
+        self.click(self.primary_specialist)
+
+        # WebDriverWait(self.driver, 5).until(
+        #     EC.presence_of_element_located(
+        #         (By.XPATH, "//div[@id='Rslt_specialty_chosen']//ul[@class='chosen-results'][1]")
+        #     )
+        # )
+
+        option_xpath = f"//div[@id='Rslt_specialty_chosen']//ul[@class='chosen-results']//li[contains(text(), '{speciality_value}')]"
+        option = WebDriverWait(self.driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, option_xpath))
+        )
+        option.click()
+
+    def select_primary_speciality_dropdown2(self,value):
+        try:
+            wait = WebDriverWait(self.driver, 10)
+            self.click(self.primary_specialist)
+            # chosen_dropdown = WebDriverWait.until(
+            #     EC.element_to_be_clickable((By.XPATH, "//div[@id='Rslt_PrimarySpecialty_chosen']"))
+            # )
+            # chosen_dropdown.click()
+
+            # Click the option by text
+            option = wait.until(EC.element_to_be_clickable((By.XPATH, f"//select[@id='Rslt_PrimarySpecialty']//option[text()='{value}']")))
+            option.click()
+        except Exception as e:
+            print(f"Unexpected error selecting primary speciality dropdown: {str(e)}")
 
     def select_payment_type1(self, value):
         dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_PaymentType']"))
@@ -531,11 +583,11 @@ class QuickcapPage(BasePage):
         dropdown.select_by_visible_text(value)
 
     def select_template1(self):
-        dropdown_element = WebDriverWait(self.driver, 5).until(
-            EC.element_to_be_clickable((By.XPATH, "//select[@id='Taslt_ContractTemplateID']"))
+        dropdown = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, "//select[@id='Taslt_ContractTemplateID']"))
         )
-        dropdown = Select(dropdown_element)
-        dropdown.select_by_index(4)
+        select = Select(dropdown)
+        select.select_by_value('1432')
 
     def click_add_new_location(self):
        self.click(self.add_new_location)
@@ -562,7 +614,68 @@ class QuickcapPage(BasePage):
     def click_cancel1(self):
        self.click(self.cancel1)
 
+    def check_npi_search_field(self):
+        """Check if NPI search field exists on the page"""
+        try:
+            # Ensure self.npi_fields is properly defined as (By.<METHOD>, "locator")
+            if not hasattr(self, 'npi_fields') or not isinstance(self.npi_fields, tuple) or len(self.npi_fields) != 2:
+                raise ValueError("npi_fields must be defined as a tuple (By.<METHOD>, 'locator')")
 
+            # Wait for element to be present (not necessarily visible)
+            elements = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_all_elements_located(self.npi_fields)
+            )
+            return len(elements) > 0
+        except TimeoutException:
+            return False
+        except NoSuchElementException:
+            return False
+        except Exception as e:
+            print(f"Error checking NPI search field: {str(e)}")
+            return False
+
+    def choose_credentialing_tab1(self):
+        try:
+            self.wait_for_element_present(self.credentialing_tab)
+            element = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable(self.credentialing_tab1)
+            )
+            element.click()
+        except Exception as e:
+            print(f"<UNK> Failed to click credentialing tab: {e}")
+
+    def select_speciality1(self, network):
+        self.click(self.primary_specialist)
+
+        if network == "Podiatry":
+            self.driver.find_element(By.XPATH, "//li[normalize-space()='POD - PODIATRY']").click()
+        elif network == "Dermatology":
+            self.driver.find_element(By.XPATH, "//li[normalize-space() ='D - DERMATOLOGY']").click()
+        elif network == "Orthopedic":
+            self.driver.find_element(By.XPATH, "//li[normalize-space() ='ORT - ORTHOPEDICS']").click()
+        elif network == "Pain Management":
+            self.driver.find_element(By.XPATH, "//li[normalize-space()='APM - Anesthesiology/Pain Management']").click()
+
+    def click_primary(self):
+        self.click(self.primary)
+
+    def get_next_location_letter(driver):
+        """Check existing locations and return next available letter"""
+        existing_locations = driver.find_elements(By.XPATH, "//input[contains(@name, 'LOCATION') and @type='checkbox']")
+        used_letters = []
+
+        for loc in existing_locations:
+            loc_name = loc.get_attribute("name")
+            # Extract the letter part (assuming format like "LOCATION_A")
+            letter = loc_name.split("_")[-1].upper()
+            used_letters.append(letter)
+
+        # Find next available letter starting from A
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            if letter not in used_letters:
+                return letter
+
+        return "A"
 
 
 
