@@ -1,41 +1,33 @@
 import time
-from itertools import groupby
-from time import sleep
 from sqlalchemy.orm import Session
 import pytest
-from sqlalchemy import func, select
-from sqlalchemy.orm import aliased
-from collections import defaultdict
 from utils import safe_str
-from sqlalchemy.orm.sync import update
-
-import api.pr_site_data
 import constants
-import pages
 from datetime import datetime
 from conftest import monday_test
 from db.session import SessionLocal
 from models.pr_site_data import PRSiteData
 from models.npi_address import NPIAddress
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from utils.base_exception import OrganizationNotFoundException
 import allure
-from pages.quickcap_page import QuickcapPage
 
 global_npis_to_process = []
+
 
 @pytest.mark.order(1)
 @allure.feature("Monday Data Grabbing")
 @allure.story("Taking Not Started data from Monday.com")
 def test_monday(monday_test):
-    monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
-    time.sleep(5)
-    monday_test.click_welcome_letter_qc()
-    time.sleep(10)
-    npis = monday_test.get_pr_site_npis()
+
+    with allure.step("Logging into Monday.com and fetching NPIs"):
+        monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
+
+    with allure.step("Clicking Welcome Letter QC"):
+        monday_test.click_welcome_letter_qc()
+
+    with allure.step("Storing NPIs from Monday.com"):
+        npis = monday_test.get_pr_site_npis()
+        allure.attach(str(npis),name="NPIs from Monday.com", attachment_type=allure.attachment_type.TEXT)
     print(npis)
 
     db: Session = SessionLocal()
