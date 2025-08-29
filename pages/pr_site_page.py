@@ -9,7 +9,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from models import PRSiteData
 from datetime import datetime
 from db.session import SessionLocal
-
+from api import pr_site_data
+from models import NPIAddress
 
 from pages.base_page import BasePage
 
@@ -168,6 +169,18 @@ class PRSitePage(BasePage):
         )
         return element.text.strip()
 
+    def get_group_name(self):
+        element = WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located(self.click_for_npi)
+        )
+        return element.text.strip()
+
+    def get_name(self):
+        element = WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located(self.click_for_npi)
+        )
+        return element.text.strip()
+
     def test_handle_multiple_tabs(self):
         driver = self.driver
         wait = WebDriverWait(driver, 20)
@@ -235,7 +248,7 @@ class PRSitePage(BasePage):
     def get_taxonomy_code(self):
         return self.driver.find_element(*self.texonomy_code).text.strip()
 
-    def get_ind_npi_list_with_grp_npi_locations(self,record):
+    def get_ind_npi_list_with_grp_npi_locations(self,record,group_npi,group_name):
         table_xpath = "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr"
         addresses = []
 
@@ -257,6 +270,21 @@ class PRSitePage(BasePage):
                     row = self.driver.find_element(By.XPATH, f"{table_xpath}{[i + 1]}")
                     time.sleep(3)
 
+                    address_element = row.find_element(
+                        By.XPATH, ".//a[contains(@id,'LnkProvPractPlanAddress')]")
+
+                    address = address_element.text.strip()
+                    print("Extracted address:", address)
+
+                    address_data = pr_site_data.RequestAPi.split_address(address)
+
+                    address_line_1 = address_data.get("address_line_1", "")
+                    address_line_2 = address_data.get("address_line_2", "")
+                    city = address_data.get("city", "")
+                    state = address_data.get("state", "")
+                    zipcode = address_data.get("zipcode", "")
+                    remarks = address_data.get("remarks", "")
+
                     arrow_click = row.find_element(By.XPATH, ".//td/div/div/div/a[contains(@id,'LnkExpandPract')]")
                     arrow_click.click()
                     time.sleep(3)
@@ -264,15 +292,23 @@ class PRSitePage(BasePage):
                     expanded_row = WebDriverWait(self.driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, "//tbody/tr[2]"))
                     )
-
                     location_tables = expanded_row.find_elements(By.XPATH, "./td[1]/div[1]/div[1]")
 
                     for loc_table in location_tables:
                         try:
-                            address = loc_table.find_element(
-                                By.XPATH,
-                                "//a[@id='ctl00_MainContent_GvProvPractice_ctl02_LnkProvPractPlanAddress']"
-                            ).text.strip().upper()
+                            # address = loc_table.find_element(
+                            #     By.XPATH,
+                            #     "//td/div/div/div/a[contains(@id,'LnkProvPractPlanAddress')]"
+                            # ).text.strip().upper()
+
+                            # address_data = pr_site_data.RequestAPi.split_address(address)
+                            #
+                            # address_line_1 = address_data.get("address_line_1","" )
+                            # address_line_2 = address_data.get("address_line_2", "")
+                            # city = address_data.get("city", "")
+                            # state = address_data.get("state", "")
+                            # zipcode = address_data.get("zipcode", "")
+                            # remarks = address_data.get("remarks", "")
 
                             rows = loc_table.find_elements(
                                 By.XPATH,
@@ -301,39 +337,39 @@ class PRSitePage(BasePage):
                                     except Exception as e:
                                         print(f"Invalid date format in DB for NPI {record.npi_number}: {e}")
                                         continue
+                                    cleaned_zip_code = zipcode.replace("-", "") if zipcode else None
+                                    npi_number = group_npi.split('-')[-1].strip()
+                                    npi_name = group_name.split('-')[0].strip()
 
                                     if web_date == db_date and termination_date == "":
-                                        if not record.address:
-                                            record.address = address
-                                            db.commit()
-                                            print(f"Address '{address}' saved for NPI {record.npi_number}")
-                                        else:
-                                            new_record = PRSiteData(
-                                                npi_number=record.npi_number,
-                                                health_plan=record.health_plan,
-                                                effective_date=record.effective_date,
-                                                status=1,
-                                                last_name=record.last_name,
-                                                first_name=record.first_name,
-                                                gender=record.gender,
-                                                city=record.city,
-                                                state=record.state,
-                                                zip_code=record.zip_code,
-                                                lines_of_business=record.lines_of_business,
-                                                category=record.category,
-                                                network=record.network,
-                                                group_npi=record.group_npi,
-                                                taxonomy_code=record.taxonomy_code,
-                                                # tax_id=record.tax_id,
-                                                address=address
-                                            )
-                                            db.add(new_record)
-                                            db.commit()
-                                            print(
-                                                f"New record added for NPI {record.npi_number} with address '{address}'")
 
-                                        addresses.append(address)
-                                        continue
+                                        new_record = NPIAddress(
+                                            npi=record.npi_number,
+                                            address_line1=address_line_1,
+                                            address_line2=address_line_2,
+                                            city=city,
+                                            state=state,
+                                            zip_code=cleaned_zip_code,
+                                            remarks=remarks,
+                                            update=0,
+                                            group_npi = npi_number,
+                                            name = npi_name
+                                        )
+                                        db.add(new_record)
+                                        db.commit()
+                                        print(
+                                            f"New record added for NPI {record.npi_number} with address '{address}'")
+
+                                    addresses.append({
+                                    "address_line_1": address_line_1,
+                                    "address_line_2": address_line_2,
+                                    "city": city,
+                                    "state": state,
+                                    "zipcode": zipcode,
+                                    "remarks": remarks,
+                                    "update": 0
+                                })
+                                    continue
 
                                 except Exception as e:
                                     print(f"Error processing plan row: {e}")

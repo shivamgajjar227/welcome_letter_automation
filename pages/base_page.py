@@ -69,6 +69,15 @@ class BasePage:
     def wait_for_element_present(self, locator, timeout=10):
         return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(locator))
 
-
     def set_main_window_before_switching(self):
         self.main_window = self.driver.current_window_handle
+
+    def alert_handling(self):
+        try:
+            WebDriverWait(self.driver, 10).until(EC.alert_is_present())
+            alert = self.driver.switch_to.alert
+            print("ALter text:", alert.text)
+            alert.accept()
+            print("Alert accepted")
+        except Exception as e:
+            print("[ERROR] Alert not found. Alert not accepted.")

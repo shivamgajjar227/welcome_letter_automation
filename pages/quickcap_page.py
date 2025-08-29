@@ -4,8 +4,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from constants import TEMPLATE_MAP
+import api.pr_site_data
+import constants
+from selenium.common.exceptions import NoAlertPresentException
 from pages.base_page import BasePage
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException,ElementClickInterceptedException
 
 
 class QuickcapPage(BasePage):
@@ -60,7 +64,7 @@ class QuickcapPage(BasePage):
     links_handler = (By.XPATH, "//img[@id='links_handler']")
     click_search = (By.XPATH, "//input[@id='btn_Search']")
     click_edit = (By.XPATH, "//img[@title='Edit']")
-    click_provider = (By.XPATH, "//a[normalize-space()='Providers (1)']")
+    click_provider = (By.XPATH, "//a[normalize-space()='Providers']")
     add_provider = (By.CSS_SELECTOR, "input[value='Add Provider']")
     last_name1 = (By.XPATH, "//textarea[@id='TaRara_LastName']")
     effective_date = (By.XPATH, "//input[@id='DtRtxt_ActiveFromDate']")
@@ -75,6 +79,10 @@ class QuickcapPage(BasePage):
     cancel1 = (By.XPATH, "//input[@value='Cancel']")
     credentialing_tab1 = (By.XPATH, "(//h3[normalize-space()='Credentialing'])[1]")
     primary = (By.XPATH, "//input[@id='check_location_NEW_OFFICE_1']")
+    provider_letter = (By.XPATH, "//input[@id='provider_id_suffix']")
+    no_data_find = (By.XPATH, "//td[normalize-space()='No data found']")
+    primary_specialist1 =  (By.XPATH,"//div[@id='Rslt_PrimarySpecialty_chosen']/a")
+
 
 
     def login(self, username, password):
@@ -130,6 +138,7 @@ class QuickcapPage(BasePage):
             return False
 
     def choose_credentialing_tab(self):
+
         # self.wait_for_element_present(self.credentialing_tab)
         try:
             element = WebDriverWait(self.driver, 10).until(
@@ -149,11 +158,79 @@ class QuickcapPage(BasePage):
         self.click(self.npi_fields)
         self.enter_text(self.npi_fields, npi)
 
+    def accept_alert(self, timeout=5):
+        """
+        Waits for alert up to `timeout` seconds and clicks OK if present.
+        """
+        for _ in range(timeout):
+            try:
+                alert = self.driver.switch_to.alert
+                print("Alert text:", alert.text)  # optional
+                alert.accept()  # ✅ Click OK
+                print("Alert accepted.")
+                return True
+            except NoAlertPresentException:
+                time.sleep(1)
+        print("No alert appeared.")
+        return False
+
+    def click_credential_button(self):
+        try:
+            quick_add_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//tbody/tr/td/input[@value='Credential ']"))
+            )
+            quick_add_btn.click()
+            print("✅ Quick Add button clicked successfully.")
+        except TimeoutException:
+            print("❌ Quick Add button not found within the timeout.")
+        except NoSuchElementException:
+            print("❌ Quick Add button element does not exist on the page.")
+        except ElementClickInterceptedException:
+            print("⚠️ Quick Add button found but not clickable (another element is overlapping).")
+        except Exception as e:
+            print(f"⚠️ Unexpected error while clicking Quick Add button: {e}")
+
+    def check_no_data_found_text(self):
+        try:
+            get_no_data_found_text = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//td[normalize-space()='No data found']"))
+            ).text.strip()
+            return get_no_data_found_text
+        except Exception as e:
+            print(f"⚠️ Unexpected error while clicking Quick Add button: {e}")
+
+    def dismiss_alert(self, timeout=5):
+        """
+        Waits for alert up to `timeout` seconds and clicks Cancel if present.
+        """
+        for _ in range(timeout):
+            try:
+                alert = self.driver.switch_to.alert
+                print("Alert text:", alert.text)  # optional
+                alert.dismiss()  # ✅ Click Cancel
+                print("Alert dismissed (Cancel clicked).")
+                return True
+            except NoAlertPresentException:
+                time.sleep(1)
+        print("No alert appeared.")
+        return False
+
+
     def click_quick_add_button(self):
-        quick_add_btn = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//input[@value='Quick Add']"))
-        )
-        quick_add_btn.click()
+        try:
+            quick_add_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//tbody/tr/td/input[@value='Quick Add']"))
+            )
+            quick_add_btn.click()
+            print("✅ Quick Add button clicked successfully.")
+        except TimeoutException:
+            print("❌ Quick Add button not found within the timeout.")
+        except NoSuchElementException:
+            print("❌ Quick Add button element does not exist on the page.")
+        except ElementClickInterceptedException:
+            print("⚠️ Quick Add button found but not clickable (another element is overlapping).")
+        except Exception as e:
+            print(f"⚠️ Unexpected error while clicking Quick Add button: {e}")
 
     def select_category_dropdown(self, value):
 
@@ -181,10 +258,34 @@ class QuickcapPage(BasePage):
         field.clear()
         field.send_keys(value)
 
-    def select_primary_speciality_dropdown(self):
-        self.click(self.primary_specialist)
-        time.sleep(2)
-        self.driver.find_element(By.XPATH, "//div[@id='Rslt_specialty_chosen']//ul[@class='chosen-results'][1]").click()
+    def select_primary_speciality_dropdown(self, network_value):
+        try:
+            mapped_value = constants.PRIMARY_SPECIALITY_MAP.get(network_value)
+            if not mapped_value:
+                print(f"⚠️ No mapping found for: {network_value}")
+                return
+
+            wait = WebDriverWait(self.driver, 10)
+
+            # Open dropdown
+            wait.until(EC.element_to_be_clickable(self.primary_specialist)).click()
+
+            # Build xpath for option
+            option_xpath = f"//div[@id='Rslt_specialty_chosen']//li[normalize-space(text())='{mapped_value}']"
+
+            # Wait until option is visible
+            option = wait.until(EC.visibility_of_element_located((By.XPATH, option_xpath)))
+
+            # Extra check: scroll into view before clicking
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", option)
+
+            # Now click
+            option.click()
+
+            print(f"✅ Selected: {mapped_value}")
+
+        except Exception as e:
+            print(f"❌ Dropdown selection failed: {str(e)}")
 
     def enter_last_first_name(self, last_name, first_name):
         self.enter_text(self.last_name, last_name)
@@ -289,8 +390,32 @@ class QuickcapPage(BasePage):
     def click_save(self):
         self.click(self.save)
 
-    def select_speciality(self, value):
-        self.enter_text(self.speciality, value)
+    def select_speciality(self, network):
+        try:
+            wait = WebDriverWait(self.driver, 10)
+            self.click(self.primary_specialist)
+
+            # Step 2: Define option mapping (adjust text as it appears in UI)
+            option_map = {
+                "podiatry": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
+                "dermatology": "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
+                "orthopedic": "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
+                "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
+                "cardiology": "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]",
+                "neurology": "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]",
+            }
+
+            # Step 3: Get correct xpath
+            option_xpath = option_map.get(network)
+            if not option_xpath:
+                raise ValueError(f"No speciality mapping found for: {network}")
+
+            option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
+            option.click()
+            print(f"✅ Selected speciality for {network}")
+
+        except Exception as e:
+            print(f"❌ Failed to click speciality: {str(e)}")
 
     def click_agree_inside_iframe(self):
         # Wait until iframes are present
@@ -427,22 +552,16 @@ class QuickcapPage(BasePage):
             return True
         except Exception as e:
             print(f"Organization ID not found or clickable: {str(e)}")
-            return False
 
-    def select_contract_template(self):
-        try:
-            # Locate the dropdown element
-            dropdown = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
-            )
 
-            # Use Select class to handle the dropdown
-            select = Select(dropdown)
-            select.select_by_value('1432')
-            print("Selected template with value '1432'")
+    def select_contract_template(self, company_name : str):
+        dropdown_value = TEMPLATE_MAP.get(company_name)
 
-        except Exception as e:
-            print(f"Failed to select contract template: {str(e)}")
+        if not dropdown_value:
+            raise ValueError(f"No contract template mapping found for company: {company_name}")
+
+        dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
+        dropdown.select_by_visible_text(dropdown_value)
 
     def click_change_company(self):
         try:
@@ -513,9 +632,14 @@ class QuickcapPage(BasePage):
         ).click()
 
     def click_provider_button(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable(self.click_provider)
-        ).click()
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//a[contains(normalize-space(), 'Providers')]"))
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+        except Exception as e:
+            raise e
 
     def click_add_provider(self):
         WebDriverWait(self.driver, 10).until(
@@ -554,20 +678,29 @@ class QuickcapPage(BasePage):
         )
         option.click()
 
-    def select_primary_speciality_dropdown2(self,value):
+    def select_primary_speciality_dropdown2(self, network):
         try:
             wait = WebDriverWait(self.driver, 10)
-            self.click(self.primary_specialist)
-            # chosen_dropdown = WebDriverWait.until(
-            #     EC.element_to_be_clickable((By.XPATH, "//div[@id='Rslt_PrimarySpecialty_chosen']"))
-            # )
-            # chosen_dropdown.click()
 
-            # Click the option by text
-            option = wait.until(EC.element_to_be_clickable((By.XPATH, f"//select[@id='Rslt_PrimarySpecialty']//option[text()='{value}']")))
+            # Step 1: Map network to speciality
+            speciality_value = constants.PRIMARY_SPECIALITY_MAP.get(network)
+            if not speciality_value:
+                raise ValueError(f"No mapping found for network '{network}'")
+
+            # Step 2: Click to open the dropdown
+            self.click(self.primary_specialist)
+
+            # Step 3: Click the visible option from the Chosen dropdown
+            option = wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, f"//div[@id='Rslt_specialty_chosen']//ul[@class='chosen-results']/li[text()='{speciality_value}']")
+                )
+            )
             option.click()
+            print(f"✅ Selected speciality: {speciality_value}")
+
         except Exception as e:
-            print(f"Unexpected error selecting primary speciality dropdown: {str(e)}")
+            print(f"❌ Error selecting primary speciality dropdown: {str(e)}")
 
     def select_payment_type1(self, value):
         dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_PaymentType']"))
@@ -582,12 +715,21 @@ class QuickcapPage(BasePage):
         dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_AccountNo']"))
         dropdown.select_by_visible_text(value)
 
-    def select_template1(self):
-        dropdown = WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//select[@id='Taslt_ContractTemplateID']"))
-        )
-        select = Select(dropdown)
-        select.select_by_value('1432')
+    def select_template1(self, company_name: str):
+        dropdown_value = TEMPLATE_MAP.get(company_name)
+
+        if not dropdown_value:
+            raise ValueError(f"No contract template mapping found for company: {company_name}")
+
+        dropdown = Select(self.driver.find_element(By.XPATH, "// select[ @ id = 'Taslt_ContractTemplateID']"))
+        dropdown.select_by_visible_text(dropdown_value)
+
+    # def select_template1(self):
+    #     dropdown = WebDriverWait(self.driver, 5).until(
+    #         EC.presence_of_element_located((By.XPATH, "//select[@id='Taslt_ContractTemplateID']"))
+    #     )
+    #     select = Select(dropdown)
+    #     select.select_by_value('271')
 
     def click_add_new_location(self):
        self.click(self.add_new_location)
@@ -645,16 +787,31 @@ class QuickcapPage(BasePage):
             print(f"<UNK> Failed to click credentialing tab: {e}")
 
     def select_speciality1(self, network):
-        self.click(self.primary_specialist)
+        try:
+            wait = WebDriverWait(self.driver, 10)
 
-        if network == "Podiatry":
-            self.driver.find_element(By.XPATH, "//li[normalize-space()='POD - PODIATRY']").click()
-        elif network == "Dermatology":
-            self.driver.find_element(By.XPATH, "//li[normalize-space() ='D - DERMATOLOGY']").click()
-        elif network == "Orthopedic":
-            self.driver.find_element(By.XPATH, "//li[normalize-space() ='ORT - ORTHOPEDICS']").click()
-        elif network == "Pain Management":
-            self.driver.find_element(By.XPATH, "//li[normalize-space()='APM - Anesthesiology/Pain Management']").click()
+            # Step 1: Click the dropdown to open options
+            self.click(self.primary_specialist1)
+
+            # Step 2: Define option mapping
+            option_map = {
+                "podiatry": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
+                "dermatology": "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
+                "orthopedic": "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
+                "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
+            }
+
+            # Step 3: Get correct xpath
+            option_xpath = option_map.get(network)
+            if not option_xpath:
+                raise ValueError(f"No speciality mapping found for network: {network}")
+
+            # Step 4: Wait for option to be visible and click
+            option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
+            option.click()
+            print(f"✅ Selected speciality: {network}")
+        except Exception as e:
+            print(f"<UNK> Failed to click speciality: {str(e)}")
 
     def click_primary(self):
         self.click(self.primary)
@@ -676,6 +833,35 @@ class QuickcapPage(BasePage):
                 return letter
 
         return "A"
+
+    def provider_table_rows(self):
+        try:
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
+            )
+            plan_data = []
+            provider_id = None
+
+            for inner_row in rows:
+                try:
+                    plan = inner_row.find_element(By.XPATH, "./td[2]").text.strip()
+                    plan_data.append(plan)
+
+                    # Get provider_id from API
+                    provider_id = api.pr_site_data.RequestAPi.get_provider_id(plan_data)
+
+                except Exception as e:
+                    print(e)
+                    continue
+
+            return provider_id
+
+        except Exception as e:
+            print(f"<UNK> Failed to click provider table row: {str(e)}")
+            return None
+
+    def enter_provider_letter(self, value):
+        self.enter_text(self.provider_letter, value)
 
 
 

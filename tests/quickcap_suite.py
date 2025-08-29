@@ -1,27 +1,40 @@
 import time
+from itertools import groupby
 from time import sleep
 from sqlalchemy.orm import Session
 import pytest
+from sqlalchemy import func, select
+from sqlalchemy.orm import aliased
+from collections import defaultdict
+from utils import safe_str
+from sqlalchemy.orm.sync import update
+
+import api.pr_site_data
 import constants
 import pages
 from datetime import datetime
 from conftest import monday_test
 from db.session import SessionLocal
 from models.pr_site_data import PRSiteData
+from models.npi_address import NPIAddress
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from utils.base_exception import OrganizationNotFoundException
 import allure
 from pages.quickcap_page import QuickcapPage
 
 global_npis_to_process = []
 
+@pytest.mark.order(1)
 @allure.feature("Monday Data Grabbing")
 @allure.story("Taking Not Started data from Monday.com")
 def test_monday(monday_test):
     monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
+    time.sleep(5)
     monday_test.click_welcome_letter_qc()
+    time.sleep(10)
     npis = monday_test.get_pr_site_npis()
     print(npis)
 
@@ -47,6 +60,7 @@ def test_monday(monday_test):
     finally:
         db.close()
 
+@pytest.mark.order(2)
 @allure.feature("PR Site Data Grabbing")
 @allure.story("Taking NPI Details From PR Site")
 def test_pr_site(pr_sites_test):
@@ -71,6 +85,17 @@ def test_pr_site(pr_sites_test):
             zip_code = pr_sites_test.get_zip_code()
             category = pr_sites_test.get_category()
             taxnonomy_code = pr_sites_test.get_taxonomy_code()
+
+            pr_sites_test.hover_over_practice_menu()
+            npi = str(record.npi_number)
+            pr_sites_test.enter_npi_search(npi)
+            pr_sites_test.click_search_npi()
+            time.sleep(15)
+            group_npi = pr_sites_test.get_group_npi()
+            group_name = pr_sites_test.get_group_name()
+            # pr_sites_test.select_click_for_tax_id()
+            # tax_id = pr_sites_test.get_tax_id()
+            pr_sites_test.get_ind_npi_list_with_grp_npi_locations(record, group_npi, group_name)
 
             cleaned_zip_code = zip_code.replace("-", "") if zip_code else None
             # cleaned_tax_id = tax_id.replace("-", "") if zip_code else None
@@ -100,77 +125,18 @@ def test_pr_site(pr_sites_test):
             record.category = category
             record.taxonomy_code = taxnonomy_code
             # record.group_npi = npi_number
-            record.status = 1  # mark as completed
+            record.status = 1
 
             db.commit()
             print(" All records updated successfully.")
 
-            pr_sites_test.hover_over_practice_menu()
-            npi = str(record.npi_number)
-            pr_sites_test.enter_npi_search(npi)
-            pr_sites_test.click_search_npi()
-            time.sleep(10)
-            group_npi = pr_sites_test.get_group_npi()
-            # pr_sites_test.select_click_for_tax_id()
-            # tax_id = pr_sites_test.get_tax_id()
-            pr_sites_test.get_ind_npi_list_with_grp_npi_locations(record)
-            print("Group NPI:", group_npi)
-            npi_number = group_npi.split('-')[-1].strip()
-            record.group_npi = npi_number
-
     except Exception as e:
-        db.rollback()
-        print(" Error in test_pr_site:", e)
+            db.rollback()
+            print(" Error in test_pr_site:", e)
     finally:
         db.close()
 
-# def test_company_change(quickcap_test_case):
-#
-#     quickcap_test_case.click_company()
-#     quickcap_test_case.login("autoprocess@pns-mgmt.com", "Pns@072025")
-#     for i in range(3):
-#         quickcap_test_case.click_change_company()
-#         quickcap_test_case.switch_to_new_window()
-#         quickcap_test_case.get_company_xpath("DNSHUMANA")
-#         time.sleep(3)
-#         quickcap_test_case.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
-#         quickcap_test_case.enter_password_in_company_prompt("Pns@072025")
-#         quickcap_test_case.click_login_button_in_company_prompt()
-#         time.sleep(3)
-#         quickcap_test_case.switch_back_to_main()
-
-# def test_sql(sql_server_test):
-#     db = SessionLocal()
-#
-#     try:
-#         npis = db.query(PRSiteData.npi_number).filter(PRSiteData.status == 1).all()
-#
-#         # time.sleep(3)
-#         sql_server_test.click_credential()
-#         # time.sleep(3)
-#         sql_server_test.click_provider_report()
-#         # time.sleep(3)
-#         sql_server_test.click_pml_report()
-#         # time.sleep(3)
-#         sql_server_test.switch_to_report_iframe()
-#         for (npi,) in npis:
-#             print(f"Searching report for NPI: {npi}")
-#             sql_server_test.enter_npi_search(str(npi))
-#             sql_server_test.click_report_view()
-#             # time.sleep(3)
-#             address = sql_server_test.get_address()
-#             record = db.query(PRSiteData).filter(PRSiteData.npi_number == npi,PRSiteData.status == 1).first()
-#             if record:
-#                 record.address = address
-#                 db.commit()
-#                 print(f" Address saved for NPI {npi}")
-#             else:
-#                 print(f" NPI {npi} not found in DB.")
-#
-#
-#     finally:
-#         db.close()
-
+@pytest.mark.order(3)
 @allure.feature("QC Data Updating")
 @allure.story("Updating data on QC for valid NPIs")
 def test_qc(quickcap_test):
@@ -181,24 +147,50 @@ def test_qc(quickcap_test):
         quickcap_test.click_company()
         quickcap_test.login("autoprocess@pns-mgmt.com", "Pns@072025")
 
-        npi_records = db.query(PRSiteData).filter(PRSiteData.status == 1).all()
-
+        npi_records = db.query(PRSiteData.network,PRSiteData.health_plan,PRSiteData.npi_number,PRSiteData.last_name,PRSiteData.effective_date,PRSiteData.gender,PRSiteData.first_name,PRSiteData.category
+                              , NPIAddress.state, NPIAddress.group_npi,NPIAddress.name,NPIAddress.address_line1,NPIAddress.zip_code,NPIAddress.city,PRSiteData.status,NPIAddress.update).join(NPIAddress, PRSiteData.npi_number == NPIAddress.npi).filter(NPIAddress.update == 0).distinct(NPIAddress.zip_code).all()
         if not npi_records:
             print("No NPI records with status = 1.")
             return
+
+        columns = [
+            "network", "health_plan", "npi_number", "last_name", "effective_date",
+            "gender","first_name", "category",
+            "state", "group_npi", "name", "address_line1", "zip_code", "city", "status", "update"
+        ]
+
         current_company = None
 
-        for data in npi_records:
+        for row in npi_records:
+            record = dict(zip(columns, row))
 
-            print(f"\n Processing NPI: {data.npi_number} | Health Plan: {data.health_plan} | Network: {data.network}")
+            network = safe_str(record["network"])
+            health_plan = safe_str(record["health_plan"])
+            npi_number = str(record["npi_number"] or "")
+            last_name = safe_str(record["last_name"])
+            effective_date = record["effective_date"]  # keep raw (date type)
+            gender = safe_str(record["gender"])
+            first_name = safe_str(record["first_name"])
+            category = safe_str(record["category"])
+            state = safe_str(record["state"])
+            group_npi = str(record["group_npi"] or "")
+            name = safe_str(record["name"])
+            address_line1 = safe_str(record["address_line1"])
+            zip_code = str(record["zip_code"] or "")
+            city = safe_str(record["city"])
+            status = safe_str(record["status"])
+            update = safe_str(record["update"])
 
-            network = (data.network or "").strip().lower()
-            health_plan = (data.health_plan or "").strip().lower()
+
+            print(f"\n Processing NPI: {npi_number} | Health Plan: {health_plan} | Network: {network}")
+
+            network = (network or "").strip().lower()
+            health_plan = (health_plan or "").strip().lower()
 
             company_name = constants.COMPANY_MAP.get(network, {}).get(health_plan)
             if not company_name:
                 print(
-                    f"Could not map company for network '{data.network}' and health plan '{data.health_plan}', skipping.")
+                    f"Could not map company for network '{network}' and health plan '{health_plan}', skipping.")
                 continue
             print(f" Mapped Company: {company_name}")
 
@@ -206,96 +198,112 @@ def test_qc(quickcap_test):
                 print(f"✅ Company '{company_name}' already logged in — skipping change.")
                 try:
                     if quickcap_test.check_npi_search_field():
-                        quickcap_test.enter_npi(data.npi_number)
+                        quickcap_test.enter_npi(npi_number)
                         quickcap_test.click_search_button()
+                        time.sleep(5)
                     else:
                         quickcap_test.choose_credentialing_tab()
                         quickcap_test.choose_practitioner_data()
-                        quickcap_test.enter_npi(data.npi_number)
+                        quickcap_test.enter_npi(npi_number)
                         quickcap_test.click_search_button()
+                        time.sleep(5)
                 except Exception as e:
                     print(e)
                 try:
                     # Wait for either "No data found" OR at least one table row
-                    WebDriverWait(quickcap_test.driver, 5).until(
-                        lambda d: "No data found" in d.page_source or
-                                  len(d.find_elements(By.XPATH, "//table//tr[td]")) > 0
-                    )
-
-                    if "No data found" in quickcap_test.driver.page_source:
+                    # WebDriverWait(quickcap_test.driver, 5).until(
+                    #     lambda d: "No data found" in d.page_source or
+                    #               len(d.find_elements(By.XPATH, "//table//tr[td]")) > 0
+                    # )
+                    check_no_data_found = quickcap_test.check_no_data_found_text()
+                    if check_no_data_found and "No data found" in check_no_data_found:
                         print("No data found — clicking Quick Add.")
+                        time.sleep(5)
                         quickcap_test.click_quick_add_button()
+                        quickcap_test.switch_to_new_window()
                     else:
                         time.sleep(5)
                         quickcap_test.click_edit_button()
                         quickcap_test.switch_to_new_window()
                         quickcap_test.click_provider_button()
+                        provider_id = quickcap_test.provider_table_rows()
                         quickcap_test.click_add_provider()
                         quickcap_test.switch_to_new_window()
-                        next_location = QuickcapPage.get_next_location_letter(quickcap_test.driver)
-                        print(f"Next available location: {next_location}")
-                        quickcap_test.enter_last_name(data.last_name or "")
-                        full_date = datetime.strptime(data.effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                        quickcap_test.enter_provider_letter(provider_id)
+                        quickcap_test.enter_last_name(last_name or "")
+                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
                             "%m/%d/%Y")
                         quickcap_test.enter_effective_date(full_date)
                         quickcap_test.select_contract_type1("PENDING")
-                        quickcap_test.select_speciality1(data.network)
+                        quickcap_test.select_speciality1(network)
                         quickcap_test.select_payment_type("FEE FOR SERVICE")
                         quickcap_test.enter_contract_from_date(full_date)
                         quickcap_test.select_provider_type_dropdown1()
                         quickcap_test.select_account1("0000-000 DEFAULT")
-                        quickcap_test.select_template1()
+                        quickcap_test.select_template1(company_name)
                         quickcap_test.click_organization()
                         quickcap_test.switch_to_new_window1()
-                        quickcap_test.enter_npi_org(data.group_npi)
+                        quickcap_test.enter_npi_org(group_npi)
                         quickcap_test.click_search_npi()
                         quickcap_test.click_org_id()
                         quickcap_test.switch_to_previous_window()
                         quickcap_test.click_add_new_location()
-                        quickcap_test.enter_name1("LAKE DERMATOLOGY PA")
-                        quickcap_test.enter_address2(data.address or "")
+                        quickcap_test.enter_name1(name)
+                        quickcap_test.enter_address2(address_line1 or "")
                         quickcap_test.select_state1("FL - FLORIDA")
-                        quickcap_test.enter_zip1(data.zip_code)
-                        quickcap_test.enter_city1(data.city or "")
+                        quickcap_test.enter_zip1(zip_code)
+                        quickcap_test.enter_city1(city or "")
                         quickcap_test.click_primary()
-                        quickcap_test.click_cancel1()
+                        # quickcap_test.click_cancel1()
+                        quickcap_test.click_save1()
 
                         quickcap_test.driver.close()
                         quickcap_test.switch_to_new_window1()
 
-                        data.status = 2
+                        quickcap_test.switch_to_new_window1()
+                        db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                            {"status": 2}, synchronize_session=False
+                        )
+                        db.query(NPIAddress).filter(
+                            NPIAddress.address_line1 == address_line1,
+                            NPIAddress.npi == npi_number,
+                            NPIAddress.update == 0
+                        ).update({"update": 1}, synchronize_session=False)
+
                         db.commit()
-                        print(f" NPI {data.npi_number} processed successfully.\n")
+
+                        print(f" NPI {npi_number} processed successfully.\n")
                         continue
 
                 except TimeoutException:
                     print("Timed out waiting for search results.")
 
-                quickcap_test.click_quick_add_button()
-                quickcap_test.switch_to_new_window()
-                selected_category = constants.CATEGORY_MAP.get(data.category.strip(), "") if data.category else ""
+                # quickcap_test.click_quick_add_button()
+                # quickcap_test.switch_to_new_window()
+                selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
                 quickcap_test.select_category_dropdown(selected_category)
                 quickcap_test.select_provider_type_dropdown()
-                quickcap_test.click_quick_add_window_npi_button(data.npi_number)
-                quickcap_test.select_speciality1(data.network)
-                quickcap_test.enter_provider_id(f"{data.npi_number}A")
-                quickcap_test.enter_last_first_name(data.last_name or "", data.first_name or "")
+                quickcap_test.select_primary_speciality_dropdown(network)
+                quickcap_test.click_quick_add_window_npi_button(npi_number)
+                # quickcap_test.select_speciality1(network)
+                quickcap_test.enter_provider_id(f"{npi_number}A")
+                quickcap_test.enter_last_first_name(last_name or "", first_name or "")
 
                 gender_map = {
                     "Male": "M - Male", "M": "M - Male",
                     "Female": "F - Female", "F": "F - Female"
                 }
-                selected_gender = gender_map.get(data.gender.strip(), "") if data.gender else ""
+                selected_gender = gender_map.get(gender.strip(), "") if gender else ""
                 quickcap_test.select_gender(selected_gender)
 
-                full_date = datetime.strptime(data.effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
                 quickcap_test.enter_contract_from_date(full_date)
                 quickcap_test.select_contract_type("PENDING")
                 quickcap_test.select_payment_type("FEE FOR SERVICE")
                 quickcap_test.select_account("0000-000 DEFAULT")
                 quickcap_test.click_organization()
                 quickcap_test.switch_to_new_window1()
-                quickcap_test.enter_npi_org(data.group_npi)
+                quickcap_test.enter_npi_org(group_npi)
                 quickcap_test.click_search_npi()
                 # time.sleep(3)
                 quickcap_test.click_org_id()  # Need to add WebDriver Wait here inside the pages
@@ -305,13 +313,13 @@ def test_qc(quickcap_test):
                 # quickcap_test.switch_to_previous_window()
                 # org_name = quickcap_test.get_org_name()
                 quickcap_test.select_practice_type("GRP - GROUP")
-                quickcap_test.enter_name("LAKE DERMATOLOGY PA")
-                quickcap_test.enter_address1(data.address or "")
-                state_value = constants.STATE_DROPDOWN_MAP.get(data.state.strip(), "")
-                quickcap_test.select_state("FL - FLORIDA")
-                quickcap_test.enter_city(data.city or "")
-                quickcap_test.enter_zip(data.zip_code)
-                quickcap_test.select_template()
+                quickcap_test.enter_name(name)
+                quickcap_test.enter_address1(address_line1 or "")
+                state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+                quickcap_test.select_state(state_value)
+                quickcap_test.enter_city(city or "")
+                quickcap_test.enter_zip(zip_code)
+                quickcap_test.select_contract_template(company_name)
                 # time.sleep(3)
                 # quickcap_test.click_save()
                 quickcap_test.driver.close()
@@ -322,10 +330,19 @@ def test_qc(quickcap_test):
                 # # Handle second confirmation popup
                 # quickcap_test.handle_confirmation_popup("OK")
                 #
-                # # 5. Return to main window and change company
-                data.status = 2
+                quickcap_test.switch_to_new_window1()
+                db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                    {"status": 2}, synchronize_session=False
+                )
+                db.query(NPIAddress).filter(
+                    NPIAddress.address_line1 == address_line1,
+                    NPIAddress.npi == npi_number,
+                    NPIAddress.update == 0
+                ).update({"update": 1}, synchronize_session=False)
+
                 db.commit()
-                print(f" NPI {data.npi_number} processed successfully.\n")
+
+                print(f" NPI {npi_number} processed successfully.\n")
                 continue
 
             quickcap_test.store_main_window()
@@ -348,147 +365,168 @@ def test_qc(quickcap_test):
             # quickcap_test.click_links_handler()
             time.sleep(5)
             if quickcap_test.check_npi_search_field():
-                quickcap_test.enter_npi(data.npi_number)
+                quickcap_test.enter_npi(npi_number)
                 quickcap_test.click_search_button()
             else:
                 quickcap_test.choose_credentialing_tab()
                 quickcap_test.choose_practitioner_data()
                 time.sleep(5)
-                quickcap_test.enter_npi(data.npi_number)
+                quickcap_test.enter_npi(npi_number)
                 quickcap_test.click_search_button()
-            try:
-                WebDriverWait(quickcap_test.driver, 5).until(
-                    lambda d: "No data found" in d.page_source or
-                              len(d.find_elements(By.XPATH, "//table//tr[td]")) > 0
-                )
+                try:
+                    # WebDriverWait(quickcap_test, 5).until(
+                    #     lambda d: "No data found" in d.page_source or
+                    #               len(d.find_elements(By.XPATH, "//table//tr[td]")) > 0
+                    # )
+                    check_no_data_found = quickcap_test.check_no_data_found_text()
+                    if check_no_data_found and "No data found" in check_no_data_found:
+                        print("No data found — clicking Quick Add.")
+                        # quickcap_test.click_credential_button()
+                        time.sleep(5)
+                        quickcap_test.click_quick_add_button()
+                        quickcap_test.switch_to_new_window()
+                    else:
+                        quickcap_test.click_edit_button()
+                        time.sleep(5)
+                        quickcap_test.switch_to_new_window()
+                        quickcap_test.click_provider_button()
+                        provider_id = quickcap_test.provider_table_rows()
+                        quickcap_test.click_add_provider()
+                        quickcap_test.switch_to_new_window()
+                        quickcap_test.enter_provider_letter(provider_id)
+                        quickcap_test.enter_last_name(last_name or "")
+                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                            "%m/%d/%Y")
+                        quickcap_test.enter_effective_date(full_date)
+                        quickcap_test.select_contract_type1("PENDING")
+                        quickcap_test.select_speciality1(network)
+                        quickcap_test.select_payment_type("FEE FOR SERVICE")
+                        quickcap_test.enter_contract_from_date(full_date)
+                        quickcap_test.select_provider_type_dropdown1()
+                        quickcap_test.select_account1("0000-000 DEFAULT")
+                        quickcap_test.select_template1(company_name)
+                        quickcap_test.click_organization()
+                        quickcap_test.click_organization()
+                        quickcap_test.switch_to_new_window1()
+                        quickcap_test.enter_npi_org(group_npi)
+                        quickcap_test.click_search_npi()
+                        quickcap_test.click_org_id()
+                        quickcap_test.switch_to_previous_window()
+                        quickcap_test.click_add_new_location()
+                        quickcap_test.enter_name1(name)
+                        quickcap_test.enter_address2(address_line1 or "")
+                        state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+                        quickcap_test.select_state1(state_value)
+                        quickcap_test.enter_zip1(zip_code or "")
+                        quickcap_test.enter_city1(city or "")
+                        quickcap_test.click_primary()
+                        # quickcap_test.click_cancel1()
+                        quickcap_test.click_save1() # here while clicking on save if we get js alert then need to click on Ok button
+                        quickcap_test.alert_handling()
+                        quickcap_test.driver.close()
+                        quickcap_test.switch_to_new_window1()
+                        db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                            {"status": 2}, synchronize_session=False
+                        )
+                        db.query(NPIAddress).filter(
+                            NPIAddress.address_line1 == address_line1,
+                            NPIAddress.npi == npi_number,
+                            NPIAddress.update == 0
+                        ).update({"update": 1}, synchronize_session=False)
 
-                if "No data found" in quickcap_test.driver.page_source:
-                    print("No data found — clicking Quick Add.")
-                    quickcap_test.click_quick_add_button()
-                else:
-                    time.sleep(5)
-                    quickcap_test.click_edit_button()
-                    time.sleep(5)
-                    quickcap_test.switch_to_new_window()
-                    quickcap_test.click_provider_button()
-                    quickcap_test.click_add_provider()
-                    quickcap_test.switch_to_new_window()
-                    next_location = QuickcapPage.get_next_location_letter(quickcap_test.driver)
-                    print(f"Next available location: {next_location}")
-                    quickcap_test.enter_last_name(data.last_name or "")
-                    full_date = datetime.strptime(data.effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                        "%m/%d/%Y")
-                    quickcap_test.enter_effective_date(full_date)
-                    quickcap_test.select_contract_type1("PENDING")
-                    quickcap_test.select_speciality1(data.network)
-                    quickcap_test.select_payment_type("FEE FOR SERVICE")
-                    quickcap_test.enter_contract_from_date(full_date)
-                    quickcap_test.select_provider_type_dropdown1()
-                    quickcap_test.select_account1("0000-000 DEFAULT")
-                    quickcap_test.select_template1()
-                    quickcap_test.click_organization()
-                    quickcap_test.switch_to_new_window1()
-                    quickcap_test.enter_npi_org(data.group_npi)
-                    quickcap_test.click_search_npi()
-                    quickcap_test.click_org_id()
-                    quickcap_test.switch_to_previous_window()
-                    quickcap_test.click_add_new_location()
-                    quickcap_test.enter_name1("LAKE DERMATOLOGY PA")
-                    quickcap_test.enter_address2(data.address or "")
-                    quickcap_test.select_state1("FL - FLORIDA")
-                    quickcap_test.enter_zip1(data.zip_code)
-                    quickcap_test.enter_city1(data.city or "")
-                    quickcap_test.click_primary()
-                    quickcap_test.click_cancel1()
+                        db.commit()
 
-                    quickcap_test.driver.close()
-                    quickcap_test.switch_to_new_window1()
+                        print(f" NPI {npi_number} processed successfully.\n")
 
-                    data.status = 2
-                    db.commit()
-                    print(f" NPI {data.npi_number} processed successfully.\n")
+                        continue
 
-                    continue
+                except Exception as e:
+                    print(e)
+                    break
 
-            except Exception as e:
-                print(e)
-
-            quickcap_test.switch_to_new_window()
-            selected_category = constants.CATEGORY_MAP.get(data.category.strip(), "") if data.category else ""
+            # quickcap_test.switch_to_new_window()
+            selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
             quickcap_test.select_category_dropdown(selected_category)
             quickcap_test.select_provider_type_dropdown()
-            quickcap_test.click_quick_add_window_npi_button(data.npi_number)
-            # quickcap_test.select_primary_speciality_dropdown2("Dermatology")
-            quickcap_test.select_speciality1(data.network)
-            quickcap_test.enter_provider_id(f"{data.npi_number}A")
-            quickcap_test.enter_last_first_name(data.last_name or "", data.first_name or "")
+            # quickcap_test.select_primary_speciality_dropdown(network)
+            quickcap_test.select_speciality(network)
+            quickcap_test.click_quick_add_window_npi_button(npi_number)
+            # quickcap_test.select_speciality1(network)
+            quickcap_test.enter_provider_id(f"{npi_number}(A)")
+            quickcap_test.enter_last_first_name(last_name or "", first_name or "")
 
             gender_map = {
                 "Male": "M - Male", "M": "M - Male",
                 "Female": "F - Female", "F": "F - Female"
             }
-            selected_gender = gender_map.get(data.gender.strip(), "") if data.gender else ""
+            selected_gender = gender_map.get(gender.strip(), "") if gender else ""
             quickcap_test.select_gender(selected_gender)
 
-            full_date = datetime.strptime(data.effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
             quickcap_test.enter_contract_from_date(full_date)
             quickcap_test.select_contract_type("PENDING")
             quickcap_test.select_payment_type("FEE FOR SERVICE")
             quickcap_test.select_account("0000-000 DEFAULT")
             quickcap_test.click_organization()
             quickcap_test.switch_to_new_window1()
-            quickcap_test.enter_npi_org(data.group_npi)
+            quickcap_test.enter_npi_org(group_npi)
             quickcap_test.click_search_npi()
-            # time.sleep(3)
-            quickcap_test.click_org_id() #Need to add WebDriver Wait here inside the pages
+            quickcap_test.click_org_id()
             quickcap_test.switch_to_previous_window()
             # quickcap_test.select_org_from_popup("TEST ORG NAME")
             # quickcap_test.driver.close()
             # quickcap_test.switch_to_previous_window()
             # org_name = quickcap_test.get_org_name()
             quickcap_test.select_practice_type("GRP - GROUP")
-            quickcap_test.enter_name("LAKE DERMATOLOGY PA")
-            quickcap_test.enter_address1(data.address or "")
-            state_value = constants.STATE_DROPDOWN_MAP.get(data.state.strip(), "")
-            quickcap_test.select_state("FL - FLORIDA")
-            quickcap_test.enter_city(data.city or "")
-            quickcap_test.enter_zip(data.zip_code)
-            quickcap_test.select_contract_template()
-            # time.sleep(3)
-            # quickcap_test.click_save()
+            quickcap_test.enter_name(name)
+            quickcap_test.enter_address1(address_line1 or "")
+            state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+            quickcap_test.select_state(state_value)
+            quickcap_test.enter_city(city or "")
+            quickcap_test.enter_zip(zip_code or "")
+            quickcap_test.select_contract_template (company_name)
+            time.sleep(5)
+            quickcap_test.click_save()
+            time.sleep(5)
+            quickcap_test.accept_alert()
+            time.sleep(5)
+            quickcap_test.dismiss_alert()
+            time.sleep(5)
+
             # time.sleep(3)
             quickcap_test.driver.close()
-            quickcap_test.switch_to_new_window()
+            quickcap_test.switch_to_new_window1()
             # quickcap_test.cancel_button_click_quick_add()
             # quickcap_test.handle_confirmation_popup("OK")
             #
             # # Handle second confirmation popup
             # quickcap_test.handle_confirmation_popup("OK")
             #
-            # # 5. Return to main window and change company
-            data.status = 2
+            quickcap_test.switch_to_new_window1()
+            db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                {"status": 2}, synchronize_session=False
+            )
+            db.query(NPIAddress).filter(
+                NPIAddress.address_line1 == address_line1,
+                NPIAddress.npi == npi_number,
+                NPIAddress.update == 0
+            ).update({"update": 1}, synchronize_session=False)
+
             db.commit()
-            print(f" NPI {data.npi_number} processed successfully.\n")
+
+            print(f" NPI {npi_number} processed successfully.\n")
             continue
-            # quickcap_test.switch_back_to_main()
-            # quickcap_test.click_change_company()
-            # quickcap_test.switch_to_new_window()
-            # quickcap_test.get_company_xpath("DNSHUMANA")
-            # time.sleep(3)
-            # quickcap_test.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
-            # quickcap_test.enter_password_in_company_prompt("Pns@072025")
-            # quickcap_test.click_login_button_in_company_prompt()
-            # time.sleep(5)
-            # quickcap_test.switch_back_to_main()
-            # time.sleep(5)
 
         quickcap_test.driver_close()
-        # quickcap_test.switch_to_new_window()
+
+    except Exception as e:
+        print(f"Critical error in test_qc: {e}")
 
     finally:
         db.close()
 
 
+pytest.mark.order(4)
 def test_monday_status(monday_test):
     monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
     monday_test.click_welcome_letter_qc()

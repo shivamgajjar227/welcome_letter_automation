@@ -15,6 +15,7 @@ class PRSiteData(Base):
     city = Column(String(255), nullable=True)
     state = Column(String(100), nullable=True)
     zip_code = Column(String(20), nullable=True)
+    name = Column(String(500), nullable=True)
     status = Column(Integer, nullable=True)
     npi_number = Column(Integer, nullable=False)
     effective_date = Column(String(500), nullable=True)
@@ -29,4 +30,7 @@ class PRSiteData(Base):
     tax_id = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now())
     updated_at = Column(DateTime, default=datetime.datetime.now())
+
+
+
 
