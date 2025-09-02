@@ -1,41 +1,33 @@
 import time
-from itertools import groupby
-from time import sleep
 from sqlalchemy.orm import Session
 import pytest
-from sqlalchemy import func, select
-from sqlalchemy.orm import aliased
-from collections import defaultdict
 from utils import safe_str
-from sqlalchemy.orm.sync import update
-
-import api.pr_site_data
 import constants
-import pages
 from datetime import datetime
 from conftest import monday_test
 from db.session import SessionLocal
 from models.pr_site_data import PRSiteData
 from models.npi_address import NPIAddress
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from utils.base_exception import OrganizationNotFoundException
 import allure
-from pages.quickcap_page import QuickcapPage
 
 global_npis_to_process = []
+
 
 @pytest.mark.order(1)
 @allure.feature("Monday Data Grabbing")
 @allure.story("Taking Not Started data from Monday.com")
 def test_monday(monday_test):
-    monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
-    time.sleep(5)
-    monday_test.click_welcome_letter_qc()
-    time.sleep(10)
-    npis = monday_test.get_pr_site_npis()
+
+    with allure.step("Logging into Monday.com and fetching NPIs"):
+        monday_test.login("autoprocess@pns-mgmt.com","@VEnger200@@@@")
+
+    with allure.step("Clicking Welcome Letter QC"):
+        monday_test.click_welcome_letter_qc()
+
+    with allure.step("Storing NPIs from Monday.com"):
+        npis = monday_test.get_pr_site_npis()
+        allure.attach(str(npis),name="NPIs from Monday.com", attachment_type=allure.attachment_type.TEXT)
     print(npis)
 
     db: Session = SessionLocal()
@@ -202,6 +194,7 @@ def test_qc(quickcap_test):
                         quickcap_test.click_search_button()
                         time.sleep(5)
                     else:
+                        quickcap_test.ensure_credentialing_tab()
                         quickcap_test.choose_credentialing_tab()
                         quickcap_test.choose_practitioner_data()
                         quickcap_test.enter_npi(npi_number)
@@ -245,7 +238,7 @@ def test_qc(quickcap_test):
                         quickcap_test.switch_to_new_window1()
                         quickcap_test.enter_npi_org(group_npi)
                         quickcap_test.click_search_npi()
-                        quickcap_test.click_org_id()
+                        quickcap_test.click_org_id(npi_number,address_line1)
                         quickcap_test.switch_to_previous_window()
                         quickcap_test.click_add_new_location()
                         quickcap_test.enter_name1(name)
@@ -255,6 +248,7 @@ def test_qc(quickcap_test):
                         quickcap_test.enter_city1(city or "")
                         quickcap_test.click_primary()
                         # quickcap_test.click_cancel1()
+                        time.sleep(5)
                         quickcap_test.click_save1()
 
                         quickcap_test.driver.close()
@@ -306,7 +300,7 @@ def test_qc(quickcap_test):
                 quickcap_test.enter_npi_org(group_npi)
                 quickcap_test.click_search_npi()
                 # time.sleep(3)
-                quickcap_test.click_org_id()  # Need to add WebDriver Wait here inside the pages
+                quickcap_test.click_org_id(npi_number, address_line1)  # Need to add WebDriver Wait here inside the pages
                 quickcap_test.switch_to_previous_window()
                 # quickcap_test.select_org_from_popup("TEST ORG NAME")
                 # quickcap_test.driver.close()
@@ -321,7 +315,8 @@ def test_qc(quickcap_test):
                 quickcap_test.enter_zip(zip_code)
                 quickcap_test.select_contract_template(company_name)
                 # time.sleep(3)
-                # quickcap_test.click_save()
+                quickcap_test.click_save()
+                time.sleep(5)
                 quickcap_test.driver.close()
                 quickcap_test.switch_to_new_window()
                 # quickcap_test.cancel_button_click_quick_add()
@@ -368,6 +363,7 @@ def test_qc(quickcap_test):
                 quickcap_test.enter_npi(npi_number)
                 quickcap_test.click_search_button()
             else:
+                quickcap_test.ensure_credentialing_tab()
                 quickcap_test.choose_credentialing_tab()
                 quickcap_test.choose_practitioner_data()
                 time.sleep(5)
@@ -410,7 +406,7 @@ def test_qc(quickcap_test):
                         quickcap_test.switch_to_new_window1()
                         quickcap_test.enter_npi_org(group_npi)
                         quickcap_test.click_search_npi()
-                        quickcap_test.click_org_id()
+                        quickcap_test.click_org_id(npi_number, address_line1)
                         quickcap_test.switch_to_previous_window()
                         quickcap_test.click_add_new_location()
                         quickcap_test.enter_name1(name)
@@ -421,6 +417,7 @@ def test_qc(quickcap_test):
                         quickcap_test.enter_city1(city or "")
                         quickcap_test.click_primary()
                         # quickcap_test.click_cancel1()
+                        time.sleep(5)
                         quickcap_test.click_save1() # here while clicking on save if we get js alert then need to click on Ok button
                         quickcap_test.alert_handling()
                         quickcap_test.driver.close()
@@ -471,7 +468,7 @@ def test_qc(quickcap_test):
             quickcap_test.switch_to_new_window1()
             quickcap_test.enter_npi_org(group_npi)
             quickcap_test.click_search_npi()
-            quickcap_test.click_org_id()
+            quickcap_test.click_org_id(npi_number, address_line1)
             quickcap_test.switch_to_previous_window()
             # quickcap_test.select_org_from_popup("TEST ORG NAME")
             # quickcap_test.driver.close()
@@ -496,13 +493,14 @@ def test_qc(quickcap_test):
             # time.sleep(3)
             quickcap_test.driver.close()
             quickcap_test.switch_to_new_window1()
+            quickcap_test.switch_back_to_main()
             # quickcap_test.cancel_button_click_quick_add()
             # quickcap_test.handle_confirmation_popup("OK")
             #
             # # Handle second confirmation popup
             # quickcap_test.handle_confirmation_popup("OK")
             #
-            quickcap_test.switch_to_new_window1()
+            # quickcap_test.switch_to_new_window1()
             db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
                 {"status": 2}, synchronize_session=False
             )

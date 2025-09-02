@@ -439,9 +439,9 @@ function filterTable(elem) { // eslint-disable-line no-unused-vars
 }
 </script>
     <h1>report.html</h1>
-    <p>Report generated on 29-Aug-2025 at 20:13:57 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <p>Report generated on 02-Sep-2025 at 22:42:31 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
     <h2>Summary</h2>
-    <p>1 tests ran in 42.24 seconds. </p>
+    <p>1 tests ran in 265.65 seconds. </p>
     <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
     <h2>Results</h2>
     <table id="results-table">
@@ -457,88 +457,224 @@ function filterTable(elem) { // eslint-disable-line no-unused-vars
         <tr>
           <td class="col-result">Passed</td>
           <td class="col-name">tests/quickcap_suite.py::test_qc</td>
-          <td class="col-duration">42.23</td>
+          <td class="col-duration">265.64</td>
           <td class="col-links"></td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>
- Processing NPI: 1194399105 | Health Plan: Simply | Network: Podiatry, Wound Care
-Could not map company for network &#x27;podiatry, wound care&#x27; and health plan &#x27;simply&#x27;, skipping.
-
- Processing NPI: 1194399105 | Health Plan: Simply | Network: Podiatry, Wound Care
-Could not map company for network &#x27;podiatry, wound care&#x27; and health plan &#x27;simply&#x27;, skipping.
-
- Processing NPI: 1518925973 | Health Plan: Cigna | Network: Pain Management
- Mapped Company: PMC Cigna
-🔍 Attempting to click login icon for: PMC Cigna
+ Processing NPI: 1104907435 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+🔍 Attempting to click login icon for: DNS Simply
 Message: 
 Stacktrace:
-#0 0x605b1fea708a &lt;unknown&gt;
-#1 0x605b1f946a70 &lt;unknown&gt;
-#2 0x605b1f998907 &lt;unknown&gt;
-#3 0x605b1f998b01 &lt;unknown&gt;
-#4 0x605b1f9e6d54 &lt;unknown&gt;
-#5 0x605b1f9be40d &lt;unknown&gt;
-#6 0x605b1f9e414f &lt;unknown&gt;
-#7 0x605b1f9be1b3 &lt;unknown&gt;
-#8 0x605b1f98a59b &lt;unknown&gt;
-#9 0x605b1f98b971 &lt;unknown&gt;
-#10 0x605b1fe6c25b &lt;unknown&gt;
-#11 0x605b1fe6ffa9 &lt;unknown&gt;
-#12 0x605b1fe53339 &lt;unknown&gt;
-#13 0x605b1fe70b58 &lt;unknown&gt;
-#14 0x605b1fe37c1f &lt;unknown&gt;
-#15 0x605b1fe94118 &lt;unknown&gt;
-#16 0x605b1fe942f6 &lt;unknown&gt;
-#17 0x605b1fea6066 &lt;unknown&gt;
-#18 0x711e6489caa4 &lt;unknown&gt;
-#19 0x711e64929c3c &lt;unknown&gt;
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
 
-✅ Successfully switched to: PMC Cigna
-&lt;UNK&gt; Failed to click credentialing tab: Message: 
+✅ Successfully switched to: DNS Simply
+✅ Credentialing tab is already visible.
+⚠️ Unexpected error while clicking Quick Add button: Message: 
 Stacktrace:
-#0 0x605b1fea708a &lt;unknown&gt;
-#1 0x605b1f946a70 &lt;unknown&gt;
-#2 0x605b1f998907 &lt;unknown&gt;
-#3 0x605b1f998b01 &lt;unknown&gt;
-#4 0x605b1f9e6d54 &lt;unknown&gt;
-#5 0x605b1f9be40d &lt;unknown&gt;
-#6 0x605b1f9e414f &lt;unknown&gt;
-#7 0x605b1f9be1b3 &lt;unknown&gt;
-#8 0x605b1f98a59b &lt;unknown&gt;
-#9 0x605b1f98b971 &lt;unknown&gt;
-#10 0x605b1fe6c25b &lt;unknown&gt;
-#11 0x605b1fe6ffa9 &lt;unknown&gt;
-#12 0x605b1fe53339 &lt;unknown&gt;
-#13 0x605b1fe70b58 &lt;unknown&gt;
-#14 0x605b1fe37c1f &lt;unknown&gt;
-#15 0x605b1fe94118 &lt;unknown&gt;
-#16 0x605b1fe942f6 &lt;unknown&gt;
-#17 0x605b1fea6066 &lt;unknown&gt;
-#18 0x711e6489caa4 &lt;unknown&gt;
-#19 0x711e64929c3c &lt;unknown&gt;
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
 
-Critical error in test_qc: Message: 
+✅ Selected speciality: dermatology
+Organization ID clicked successfully
+ALter text: 
+There exists a duplicate address with same information. Please add a different address.
+Alert accepted
+ NPI 1104907435 processed successfully.
+
+
+ Processing NPI: 1952861627 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+✅ Company &#x27;DNS Simply&#x27; already logged in — skipping change.
+⚠️ Unexpected error while clicking Quick Add button: Message: 
 Stacktrace:
-#0 0x605b1fea708a &lt;unknown&gt;
-#1 0x605b1f946a70 &lt;unknown&gt;
-#2 0x605b1f998907 &lt;unknown&gt;
-#3 0x605b1f998b01 &lt;unknown&gt;
-#4 0x605b1f9e6d54 &lt;unknown&gt;
-#5 0x605b1f9be40d &lt;unknown&gt;
-#6 0x605b1f9e414f &lt;unknown&gt;
-#7 0x605b1f9be1b3 &lt;unknown&gt;
-#8 0x605b1f98a59b &lt;unknown&gt;
-#9 0x605b1f98b971 &lt;unknown&gt;
-#10 0x605b1fe6c25b &lt;unknown&gt;
-#11 0x605b1fe6ffa9 &lt;unknown&gt;
-#12 0x605b1fe53339 &lt;unknown&gt;
-#13 0x605b1fe70b58 &lt;unknown&gt;
-#14 0x605b1fe37c1f &lt;unknown&gt;
-#15 0x605b1fe94118 &lt;unknown&gt;
-#16 0x605b1fe942f6 &lt;unknown&gt;
-#17 0x605b1fea6066 &lt;unknown&gt;
-#18 0x711e6489caa4 &lt;unknown&gt;
-#19 0x711e64929c3c &lt;unknown&gt;
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
+
+✅ Selected speciality: dermatology
+Organization ID clicked successfully
+ NPI 1952861627 processed successfully.
+
+
+ Processing NPI: 1952861627 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+✅ Company &#x27;DNS Simply&#x27; already logged in — skipping change.
+⚠️ Unexpected error while clicking Quick Add button: Message: 
+Stacktrace:
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
+
+✅ Selected speciality: dermatology
+Organization ID clicked successfully
+ NPI 1952861627 processed successfully.
+
+
+ Processing NPI: 1053323576 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+✅ Company &#x27;DNS Simply&#x27; already logged in — skipping change.
+⚠️ Unexpected error while clicking Quick Add button: Message: 
+Stacktrace:
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
+
+✅ Selected speciality: dermatology
+Organization ID clicked successfully
+ NPI 1053323576 processed successfully.
+
+
+ Processing NPI: 1053323576 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+✅ Company &#x27;DNS Simply&#x27; already logged in — skipping change.
+⚠️ Unexpected error while clicking Quick Add button: Message: 
+Stacktrace:
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a37907 &lt;unknown&gt;
+#3 0x581642a37b01 &lt;unknown&gt;
+#4 0x581642a85d54 &lt;unknown&gt;
+#5 0x581642a5d40d &lt;unknown&gt;
+#6 0x581642a8314f &lt;unknown&gt;
+#7 0x581642a5d1b3 &lt;unknown&gt;
+#8 0x581642a2959b &lt;unknown&gt;
+#9 0x581642a2a971 &lt;unknown&gt;
+#10 0x581642f0b25b &lt;unknown&gt;
+#11 0x581642f0efa9 &lt;unknown&gt;
+#12 0x581642ef2339 &lt;unknown&gt;
+#13 0x581642f0fb58 &lt;unknown&gt;
+#14 0x581642ed6c1f &lt;unknown&gt;
+#15 0x581642f33118 &lt;unknown&gt;
+#16 0x581642f332f6 &lt;unknown&gt;
+#17 0x581642f45066 &lt;unknown&gt;
+#18 0x730e23a9caa4 &lt;unknown&gt;
+#19 0x730e23b29c3c &lt;unknown&gt;
+
+✅ Selected speciality: dermatology
+Organization ID clicked successfully
+ NPI 1053323576 processed successfully.
+
+
+ Processing NPI: 1366527822 | Health Plan: Simply | Network: Dermatology
+ Mapped Company: DNS Simply
+✅ Company &#x27;DNS Simply&#x27; already logged in — skipping change.
+No data found — clicking Quick Add.
+✅ Quick Add button clicked successfully.
+⚠️ No mapping found for: dermatology
+Organization ID clicked successfully
+Critical error in test_qc: Alert Text: Please see the errors below:
+
+Please select at least one value for Primary Specialty.
+Message: unexpected alert open: {Alert text : Please see the errors below:
+
+Please select at least one value for Primary Specialty.}
+  (Session info: chrome=139.0.7258.127)
+Stacktrace:
+#0 0x581642f4608a &lt;unknown&gt;
+#1 0x5816429e5a70 &lt;unknown&gt;
+#2 0x581642a6ee6c &lt;unknown&gt;
+#3 0x581642a5d3a8 &lt;unknown&gt;
+#4 0x581642a2959b &lt;unknown&gt;
+#5 0x581642a2a971 &lt;unknown&gt;
+#6 0x581642f0b25b &lt;unknown&gt;
+#7 0x581642f0efa9 &lt;unknown&gt;
+#8 0x581642ef2339 &lt;unknown&gt;
+#9 0x581642f0fb58 &lt;unknown&gt;
+#10 0x581642ed6c1f &lt;unknown&gt;
+#11 0x581642f33118 &lt;unknown&gt;
+#12 0x581642f332f6 &lt;unknown&gt;
+#13 0x581642f45066 &lt;unknown&gt;
+#14 0x730e23a9caa4 &lt;unknown&gt;
+#15 0x730e23b29c3c &lt;unknown&gt;
 
 <br/></div></td></tr></tbody></table></body></html>

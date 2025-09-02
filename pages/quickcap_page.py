@@ -1,11 +1,13 @@
 import time
-
+from models import NPIAddress
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from constants import TEMPLATE_MAP
 import api.pr_site_data
+from sqlalchemy.orm import Session
+from db.session import SessionLocal
 import constants
 from selenium.common.exceptions import NoAlertPresentException
 from pages.base_page import BasePage
@@ -403,6 +405,7 @@ class QuickcapPage(BasePage):
                 "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
                 "cardiology": "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]",
                 "neurology": "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]",
+                "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]"
             }
 
             # Step 3: Get correct xpath
@@ -542,16 +545,56 @@ class QuickcapPage(BasePage):
                 print(f"Failed to handle confirmation popup: {str(e)}")
                 return False
 
-    def click_org_id(self):
+    def click_org_id(self,  npi_number: str, address_line1: str):
+        db: Session = SessionLocal()
+
         try:
-            element = WebDriverWait(self.driver, 3).until(  # Reduced timeout
+            element = WebDriverWait(self.driver, 3).until(
                 EC.element_to_be_clickable(self.org_id)
             )
             element.click()
             print("Organization ID clicked successfully")
             return True
+
         except Exception as e:
-            print(f"Organization ID not found or clickable: {str(e)}")
+            error_message = f"Organization ID not found or clickable"
+            print(error_message)
+
+            # Save only the error in DB (do not update the 'update' column)
+            db.query(NPIAddress).filter(
+                NPIAddress.address_line1 == address_line1,
+                NPIAddress.npi == npi_number
+            ).update(
+                {"remarks": error_message}
+            )
+            db.commit()
+            return False
+
+    def ensure_credentialing_tab(self):
+        try:
+            # Check if Credentialing tab is visible
+            tabs = self.driver.find_elements(By.XPATH, "//a[contains(text(),'Credentialing')]")
+            if tabs:
+                print("✅ Credentialing tab is already visible.")
+                return True
+
+            # If not visible, click the arrow to expand menu
+            print("⚠️ Credentialing tab not found. Expanding menu...")
+            arrow_button = self.driver.find_element(By.XPATH, "//div[@id='menu']//span[@class='arrow']")
+            arrow_button.click()
+            time.sleep(2)
+
+            # Check again after expanding
+            tabs = self.driver.find_elements(By.XPATH, "//a[contains(text(),'Credentialing')]")
+            if tabs:
+                print("✅ Credentialing tab is now visible after expanding.")
+                return True
+            else:
+                print("❌ Credentialing tab still not found even after expanding.")
+                return False
+        except Exception as e:
+            print(f"Error ensuring Credentialing tab: {e}")
+            return False
 
 
     def select_contract_template(self, company_name : str):

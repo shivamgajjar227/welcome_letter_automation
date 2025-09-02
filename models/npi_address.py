@@ -13,7 +13,7 @@ class NPIAddress(Base):
     city = Column(String(255), nullable=True)
     state = Column(String(100), nullable=True)
     zip_code = Column(String(20), nullable=True)
-    remarks = Column(String(500), nullable=True)
+    remarks = Column(String(1000), nullable=True)
     update = Column(Integer, nullable=True)
     group_npi = Column(Integer, nullable=False)
     name = Column(String(500), nullable=True)

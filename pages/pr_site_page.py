@@ -283,7 +283,6 @@ class PRSitePage(BasePage):
                     city = address_data.get("city", "")
                     state = address_data.get("state", "")
                     zipcode = address_data.get("zipcode", "")
-                    remarks = address_data.get("remarks", "")
 
                     arrow_click = row.find_element(By.XPATH, ".//td/div/div/div/a[contains(@id,'LnkExpandPract')]")
                     arrow_click.click()
@@ -350,7 +349,6 @@ class PRSitePage(BasePage):
                                             city=city,
                                             state=state,
                                             zip_code=cleaned_zip_code,
-                                            remarks=remarks,
                                             update=0,
                                             group_npi = npi_number,
                                             name = npi_name
@@ -366,7 +364,6 @@ class PRSitePage(BasePage):
                                     "city": city,
                                     "state": state,
                                     "zipcode": zipcode,
-                                    "remarks": remarks,
                                     "update": 0
                                 })
                                     continue

@@ -6,6 +6,10 @@ COMPANY_MAP = {
             "florida blue": "DNS BCBS",
             "humana": "DNS Humana",
             "uhc": "DNS UHC",
+            "simply": "DNS Simply",
+            "avmed": "DNS AvMed",
+            "aetna better health": "DNS Aetna",
+            "devoted": "DNS Devoted",
         },
         "pain management": {
             "cigna": "PMC Cigna",
@@ -14,6 +18,8 @@ COMPANY_MAP = {
             "florida blue": "PM BCBS",
             "humana": "PM Humana",
             "uhc": "PM UHC",
+            "aetna better health": "PM Aetna",
+            "devoted": "PMD Devoted",
         },
         "podiatry": {
             "cigna": "PNS Cigna",
@@ -22,6 +28,10 @@ COMPANY_MAP = {
             "florida blue": "PNS BCBS",
             "humana": "PNS Humana",
             "uhc": "PNS UHC",
+            "simply": "PNS Simply",
+            "avmed" : "PNS AvMed",
+            "aetna better health": "PNS Aetna",
+            "devoted": "PNS Devoted",
         },
         "orthopedic": {
             "cigna": "ONS Cigna",
@@ -30,7 +40,22 @@ COMPANY_MAP = {
             "florida blue": "ONS BCBS",
             "humana": "ONS Humana",
             "uhc": "ONS UHC",
+            "simply": "ONS Simply",
+            "aetna better health": "ONS Aetna",
+            "devoted": "ONS Devoted",
         },
+        "podiatry, wound care": {
+            "cigna": "PNS Cigna",
+            "aetna": "PNS Aetna",
+            "oxford": "PNS Oxford",
+            "florida blue": "PNS BCBS",
+            "humana": "PNS Humana",
+            "uhc": "PNS UHC",
+            "simply": "PNS Simply",
+            "avmed": "PNS AvMed",
+            "aetna better health": "PNS Aetna",
+            "devoted": "PNS Devoted",
+        }
     }
 
 CATEGORY_MAP = {
@@ -66,7 +91,7 @@ STATE_DROPDOWN_MAP = {
         "Connecticut": "CT - CONNECTICUT",
         "Delaware": "DE - DELAWARE",
         "D.C.": "DC - D.C.",
-        "Florida": "FL - FLORIDA",
+        "FL": "FL - FLORIDA",
         "Georgia": "GA - GEORGIA",
         "Hawaii": "HI - HAWAII",
         "Idaho": "ID - IDAHO",
@@ -114,6 +139,21 @@ STATE_DROPDOWN_MAP = {
 PRIMARY_SPECIALITY_MAP = {
         "Dermatology": "D - DERMATOLOGY",
         "Podiatry": "POD - PODIATRY",
+        "Podiatry, Wound Care": "POD - PODIATRY",
         "Orthopedic": "ORT - ORTHOPEDICS",
         "Pain Management": "APM - ANESTHESIOLOGY/PAIN MANAGEMENT",
     }
+
+TEMPLATE_MAP = {
+    "DNS BCBS": "NON CONTRACTED [1980/01/01]",
+    "ONS Humana": "NON_CONTRACTED_PROVIDER [1980/01/01]",
+    "PMHumana": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PNS Simply": "NON-CONTRACTED PROVIDER [2022/05/01]",
+    "DNS Aetna": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PNS Aetna": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PNS AvMed": "NON CONTRACTED PROVIDER [2016/08/01]",
+    "ONS Aetna": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PMD DEVOTED": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "DNS Simply": "Non Contracted [2022/05/01]",
+    "PNS Aetna": "NON CONTRACTED PROVIDER [2017/07/01]",
+}
