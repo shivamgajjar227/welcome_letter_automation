@@ -11,8 +11,13 @@ from datetime import datetime
 from db.session import SessionLocal
 from api import pr_site_data
 from models import NPIAddress
-
 from pages.base_page import BasePage
+from core import loggin_utils
+import logging
+
+log_name =  "PRSitePage"
+logger_setup = loggin_utils.setup_logger(log_name, level='INFO')
+logger = logging.getLogger(log_name)
 
 class PRSitePage(BasePage):
 

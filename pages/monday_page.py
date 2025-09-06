@@ -1,9 +1,15 @@
+import logging
 import time
 import allure
 from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from core import loggin_utils
+
+log_name = "MondayPage"
+logger_setup = loggin_utils.setup_logger(log_name, level='INFO')
+logger = logging.getLogger(log_name)
 
 class MondayPage(BasePage):
 
@@ -19,7 +25,7 @@ class MondayPage(BasePage):
 
     @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
-
+        logger.info("Inside login method of MondayPage")
         self.enter_text(self.username_filed, username)
         self.enter_text(self.password_filed, password)
         self.click(self.login_btn)
