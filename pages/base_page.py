@@ -29,12 +29,17 @@ class BasePage:
     #             break
 
     def switch_to_new_window1(self):
-        time.sleep(1)
-        handles = self.driver.window_handles
-        if len(handles) > 1:
-            self.driver.switch_to.window(handles[-1])
-        else:
-            self.driver.switch_to.window(handles[0])
+        try:
+            time.sleep(1)  # can be replaced with WebDriverWait for reliability
+            handles = self.driver.window_handles
+            if len(handles) > 1:
+                self.driver.switch_to.window(handles[-1])
+                print("Switched to new window successfully.")
+            else:
+                self.driver.switch_to.window(handles[0])
+                print("Only one window found. Stayed on the same window.")
+        except Exception as e:
+            print(f"Error in switch_to_new_window1: {e}")
 
     def store_main_window(self):
         """Call this once after driver opens the initial main page."""
@@ -81,3 +86,4 @@ class BasePage:
             print("Alert accepted")
         except Exception as e:
             print("[ERROR] Alert not found. Alert not accepted.")
+

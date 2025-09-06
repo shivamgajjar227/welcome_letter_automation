@@ -1,6 +1,6 @@
 import time
 
-from selenium.common import TimeoutException, StaleElementReferenceException
+from selenium.common import TimeoutException, StaleElementReferenceException ,  NoSuchElementException
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
@@ -88,7 +88,6 @@ class PRSitePage(BasePage):
                 self.driver.refresh()
                 time.sleep(2)
 
-
     def enter_npi_search(self, value):
         self.enter_text(self.npi_search, value)
         time.sleep(5)
@@ -103,10 +102,14 @@ class PRSitePage(BasePage):
         clickable_option.click()
 
     def click_search_npi(self):
-        element = WebDriverWait(self.driver, 5).until(
-            EC.element_to_be_clickable(self.search_button)
-        )
-        element.click()
+        try:
+            element = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable(self.search_button)
+            )
+            element.click()
+            print("Search button clicked successfully.")
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"Error clicking search button: {e}")
 
     def get_project_type(self):
         return self.driver.find_element(*self.project_type).text.strip()
@@ -129,28 +132,61 @@ class PRSitePage(BasePage):
             return None
 
     def get_first_name(self):
-        return self.driver.find_element(*self.first_name).text.strip()
+        try:
+            element = self.driver.find_element(*self.first_name)
+            return element.text.strip()
+        except NoSuchElementException:
+            print("First name element not found.")
+            return None
 
     def get_gender(self):
-        return self.driver.find_element(*self.gender).text.strip()
+        try:
+            return self.driver.find_element(*self.gender).text.strip()
+        except NoSuchElementException:
+            print("Gender element not found.")
+            return None
 
     def get_npi_number(self):
-        return self.driver.find_element(*self.npi_number).text.strip()
+        try:
+            return self.driver.find_element(*self.npi_number).text.strip()
+        except NoSuchElementException:
+            print("NPI Number element not found.")
+            return None
 
     def get_city(self):
-        return self.driver.find_element(*self.city).text.strip()
+        try:
+            return self.driver.find_element(*self.city).text.strip()
+        except NoSuchElementException:
+            print("City element not found.")
+            return None
 
     def get_state(self):
-        return self.driver.find_element(*self.state).text.strip()
+        try:
+            return self.driver.find_element(*self.state).text.strip()
+        except NoSuchElementException:
+            print("State element not found.")
+            return None
 
     def get_zip_code(self):
-        return self.driver.find_element(*self.zip_code).text.strip()
+        try:
+            return self.driver.find_element(*self.zip_code).text.strip()
+        except NoSuchElementException:
+            print("Zip Code element not found.")
+            return None
 
     def get_category(self):
-        return self.driver.find_element(*self.category).text.strip()
+        try:
+            return self.driver.find_element(*self.category).text.strip()
+        except NoSuchElementException:
+            print("Category element not found.")
+            return None
 
     def get_network(self):
-        return self.driver.find_element(*self.network).text.strip()
+        try:
+            return self.driver.find_element(*self.network).text.strip()
+        except NoSuchElementException:
+            print("Network element not found.")
+            return None
 
     def hover_over_practice_menu(self):
         provide_webelement = self.driver.find_element(*self.provider_menu)
@@ -164,10 +200,14 @@ class PRSitePage(BasePage):
         self.click(self.click_for_npi)
 
     def get_group_npi(self):
-        element = WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located(self.click_for_npi)
-        )
-        return element.text.strip()
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(self.click_for_npi)
+            )
+            return element.text.strip()
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"Error getting group NPI: {e}")
+            return None
 
     def get_group_name(self):
         element = WebDriverWait(self.driver, 10).until(
@@ -246,7 +286,11 @@ class PRSitePage(BasePage):
         return self.driver.find_element(*self.tax_id).text.strip()
 
     def get_taxonomy_code(self):
-        return self.driver.find_element(*self.texonomy_code).text.strip()
+        try:
+            return self.driver.find_element(*self.texonomy_code).text.strip()
+        except NoSuchElementException:
+            print("Taxonomy Code element not found.")
+            return None
 
     def get_ind_npi_list_with_grp_npi_locations(self,record,group_npi,group_name):
         table_xpath = "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr"
@@ -364,7 +408,9 @@ class PRSitePage(BasePage):
                                     "city": city,
                                     "state": state,
                                     "zipcode": zipcode,
-                                    "update": 0
+                                    "update": 0,
+                                    "group_npi": npi_number,
+                                    "name": npi_name,
                                 })
                                     continue
 
