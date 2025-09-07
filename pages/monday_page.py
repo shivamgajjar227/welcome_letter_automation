@@ -29,14 +29,22 @@ class MondayPage(BasePage):
         self.enter_text(self.username_filed, username)
         self.enter_text(self.password_filed, password)
         self.click(self.login_btn)
+        logger.info("Out from Monday logging func")
+
 
     def click_welcome_letter_qc(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable(self.welcome_letter_qc)
-        ).click()
+        logger.info(f"Inside click Welcome letter QC")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.welcome_letter_qc)
+            ).click()
+            logger.info("Out from click welcome letter qc")
+        except Exception as e:
+            print(f" Unexpected error while checking Edit button: {type(e).__name__}")
 
     def get_pr_site_npis(self):
         time.sleep(2)
+        logger.info("Inside get PR Site Npis")
         group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
         group_container = self.driver.find_element(By.XPATH, "//div[@id='board-wrapper-first-level-content']")
 
@@ -84,6 +92,7 @@ class MondayPage(BasePage):
 
             if same_height_count > 2:
                 break
+            logger.info("Out from get PR Site Npis")
 
         return npis
 
@@ -123,24 +132,47 @@ class MondayPage(BasePage):
         ).click()
 
     def enter_npi_button(self, value):
-        # Wait for the "Search this board" input
-        search_input = WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Search this board']"))
-        )
-        search_input.clear()
-        search_input.send_keys(str(value))
+        logger.info(f"Inside Enter NPI Button:{value}")
+        try:
+            # Wait for the "Search this board" input
+            search_input = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Search this board']"))
+            )
+            search_input.clear()
+            search_input.send_keys(str(value))
+            logger.info(f"Out from Enter NPI Button:{value}")
+
+        except Exception as e:
+            print(f"Error while entering npi button: {e}")
 
     def click_not_started(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable(self.not_started)
-        ).click()
+        logger.info(f"Inside Click Not Started")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.not_started)
+            ).click()
+            logger.info(f"Out from Click Not Started")
+        except Exception as e:
+            print(f"Error while click not started: {e}")
 
     def click_done_button(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable(self.done_button)
-        ).click()
+        logger.info(f"Inside Click Done Button")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.done_button)
+            ).click()
+            logger.info(f"Out from Click Done Button")
+        except Exception as e:
+            print(f"Error while click done button: {e}")
 
     def click_cross_button(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable(self.cross)
-        ).click()
+        logger.info(f"Inside Click Cross Button")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.cross)
+            ).click()
+            logger.info(f"Out from Click Cross Button")
+        except Exception as e:
+            print(f"Error while click cross button: {e}")
+
+

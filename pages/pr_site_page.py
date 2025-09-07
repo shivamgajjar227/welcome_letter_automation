@@ -65,6 +65,7 @@ class PRSitePage(BasePage):
 
     def hover_over_update_menuu(self, max_retries=3):
         """Hovers over provider menu and clicks Update with retry logic"""
+        logger.info("Inside of hover and over update menu")
         for attempt in range(1, max_retries + 1):
             try:
                 print(f"Attempt {attempt} of {max_retries} to hover and click Update")
@@ -82,6 +83,8 @@ class PRSitePage(BasePage):
                 update_element.click()
                 return True
 
+                logger.info("Out from hover over update menu")
+
             except Exception as e:
                 print(f"Attempt {attempt} failed: {str(e)}")
                 if attempt == max_retries:
@@ -94,27 +97,34 @@ class PRSitePage(BasePage):
                 time.sleep(2)
 
     def enter_npi_search(self, value):
-        self.enter_text(self.npi_search, value)
-        time.sleep(5)
-        dropdown_options = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_all_elements_located(self.npi_search_dropdown)
-        )
-        for options in dropdown_options:
-            if value in options.text:
-                options.click()
-                break
-        clickable_option = WebDriverWait(self.driver,10).until(EC.element_to_be_clickable(self.search_button))
-        clickable_option.click()
+        logger.info(f"Inside Enter NPI Search")
+        try:
+            self.enter_text(self.npi_search, value)
+            time.sleep(5)
+            dropdown_options = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located(self.npi_search_dropdown)
+            )
+            for options in dropdown_options:
+                if value in options.text:
+                    options.click()
+                    break
+            clickable_option = WebDriverWait(self.driver,10).until(EC.element_to_be_clickable(self.search_button))
+            clickable_option.click()
+            logger.info(f"Out from NPI Search")
+        except Exception as e:
+            print(f" Unexpected error while enter npi search: {type(e).__name__}")
 
     def click_search_npi(self):
+        logger.info(f"Inside Click Search NPI")
         try:
             element = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable(self.search_button)
             )
             element.click()
             print("Search button clicked successfully.")
-        except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error clicking search button: {e}")
+            logger.info(f"Out from Search NPI")
+        except Exception as e:
+            print(f" Unexpected error while clicking search npi: {type(e).__name__}")
 
     def get_project_type(self):
         return self.driver.find_element(*self.project_type).text.strip()
@@ -123,6 +133,7 @@ class PRSitePage(BasePage):
         return self.driver.find_element(*self.individual_npi).text.strip()
 
     def get_last_name(self):
+        logger.info(f"Inside get Last Name")
         try:
             wait = WebDriverWait(self.driver, 20)
 
@@ -130,23 +141,27 @@ class PRSitePage(BasePage):
                 EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblLName"))
             )
             return element.text.strip()
-
+            logger.info(f"Out from get Last Name")
         except Exception as e:
-            print("❌ Could not find Last Name:", e)
+            print(" Could not find Last Name:", e)
             self.driver.save_screenshot("lname_error.png")
             return None
 
     def get_first_name(self):
+        logger.info(f"Inside get First Name")
         try:
             element = self.driver.find_element(*self.first_name)
             return element.text.strip()
+            logger.info(f"Out from get First Name")
         except NoSuchElementException:
             print("First name element not found.")
             return None
 
     def get_gender(self):
+        logger.info(f"Inside get Gender")
         try:
             return self.driver.find_element(*self.gender).text.strip()
+            logger.info(f"Out from get Gender")
         except NoSuchElementException:
             print("Gender element not found.")
             return None
@@ -159,66 +174,86 @@ class PRSitePage(BasePage):
             return None
 
     def get_city(self):
+        logger.info(f"Inside get City")
         try:
             return self.driver.find_element(*self.city).text.strip()
+            logger.info(f"Out from get City")
         except NoSuchElementException:
             print("City element not found.")
             return None
 
     def get_state(self):
+        logger.info(f"Inside get State")
         try:
             return self.driver.find_element(*self.state).text.strip()
+            logger.info(f"Out from get State")
         except NoSuchElementException:
             print("State element not found.")
             return None
 
     def get_zip_code(self):
+        logger.info(f"Inside get Zip Code")
         try:
             return self.driver.find_element(*self.zip_code).text.strip()
+            logger.info(f"Out from get Zip Code")
         except NoSuchElementException:
             print("Zip Code element not found.")
             return None
 
     def get_category(self):
+        logger.info(f"Inside get Category")
         try:
             return self.driver.find_element(*self.category).text.strip()
+            logger.info(f"Out from get Category")
         except NoSuchElementException:
             print("Category element not found.")
             return None
 
     def get_network(self):
+        logger.info(f"Inside get Network")
         try:
             return self.driver.find_element(*self.network).text.strip()
+            logger.info(f"Out from get Network")
         except NoSuchElementException:
             print("Network element not found.")
             return None
 
     def hover_over_practice_menu(self):
+        logger.info(f"Inside Hover Over Practice Menu")
         provide_webelement = self.driver.find_element(*self.provider_menu)
         actions = ActionChains(self.driver)
         actions.move_to_element(provide_webelement).perform()
         time.sleep(5)
         sub_menu = self.driver.find_element(By.XPATH, "//a[@href='/ProvPractice.aspx']")
         sub_menu.click()
+        logger.info(f"Out from Hover Over Practice Menu")
 
     def select_click_for_npi(self):
         self.click(self.click_for_npi)
 
     def get_group_npi(self):
+        logger.info(f"Inside get Group NPI")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.click_for_npi)
             )
             return element.text.strip()
+            logger.info(f"Out from get Group NPI")
         except (TimeoutException, NoSuchElementException) as e:
             print(f"Error getting group NPI: {e}")
             return None
 
     def get_group_name(self):
-        element = WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located(self.click_for_npi)
-        )
-        return element.text.strip()
+        logger.info(f"Inside get Group Name")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(self.click_for_npi)
+            )
+            return element.text.strip()
+            logger.info(f"Out from get Group Name")
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"Error getting group Name: {e}")
+            return None
 
     def get_name(self):
         element = WebDriverWait(self.driver, 10).until(
@@ -291,13 +326,16 @@ class PRSitePage(BasePage):
         return self.driver.find_element(*self.tax_id).text.strip()
 
     def get_taxonomy_code(self):
+        logger.info(f"Inside get Taxonomy Code")
         try:
             return self.driver.find_element(*self.texonomy_code).text.strip()
+            logger.info(f"Out from get Taxonomy Code")
         except NoSuchElementException:
             print("Taxonomy Code element not found.")
             return None
 
     def get_ind_npi_list_with_grp_npi_locations(self,record,group_npi,group_name):
+        logger.info(f"Inside get Address ")
         table_xpath = "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr"
         addresses = []
 
@@ -418,6 +456,7 @@ class PRSitePage(BasePage):
                                     "name": npi_name,
                                 })
                                     continue
+                                    logger.info(f"Out from get Address")
 
                                 except Exception as e:
                                     print(f"Error processing plan row: {e}")

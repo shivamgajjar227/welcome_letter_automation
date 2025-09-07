@@ -95,13 +95,15 @@ class QuickcapPage(BasePage):
 
 
     def login(self, username, password):
+        logger.info(f"Inside quickcap login funct")
         self.enter_text(self.USERNAME_FIELD, username)
         self.enter_text(self.PASSWORD_FIELD, password)
         self.click(self.LOGIN_BUTTON)
+        logger.info("Out from Quickcap logging func")
 
     def choose_company(self, company_name):
         print(f"🔍 Attempting to click login icon for: {company_name}")
-
+        logger.info(f"Inside choose company: {company_name}")
         try:
             company_icon = WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((
@@ -116,43 +118,52 @@ class QuickcapPage(BasePage):
             self.driver.execute_script("arguments[0].click();", company_icon)
 
             print(f"✅ Successfully switched to: {company_name}")
+            logger.info("Out from choose company")
             return True
 
         except Exception as e:
             print(f"Error Type: {type(e).__name__}")
             print(f"Error Message:{str(e)}")
+            logger.exception(f"Error in qc choose company: {e}")
             self.driver.save_screenshot(f"error_login_icon_{company_name.replace(' ', '_')}.png")
             return False
 
     def choose_credentialing_tab(self):
-
+        logger.info(f"Inside Choose Credentialing Tab")
         # self.wait_for_element_present(self.credentialing_tab)
         try:
             element = WebDriverWait(self.driver, 10).until(
             EC.element_to_be_clickable(self.credentialing_tab)
             )
             element.click()
+            logger.info(f"Out from Credentialing Tab")
         except Exception as e:
             print(f"<UNK> Failed to click credentialing tab: {e}")
 
     def choose_practitioner_data(self):
+        logger.info(f"Inside Choose Practitioner Data")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.practitioner_data)
             ).click()
             print("Practitioner data selected successfully.")
+            logger.info(f"Out from Practitioner Data")
         except Exception:
             print("Error: No practitioner data found or clickable.")
 
     def enter_npi(self, npi):
+        logger.info(f"Inside Enter NPI")
         try:
+            logger.info(f"Inside enter npi: {npi}")
             self.click(self.npi_fields)
             self.enter_text(self.npi_fields, npi)
             print(f"NPI entered successfully: {npi}")
+            logger.info(f"Out from Enter NPI")
         except Exception as e:
             print(f"Error in enter_npi while entering NPI '{npi}': {e}")
 
     def accept_alert(self, timeout=5):
+        logger.info(f"Inside Accept Alert")
         """
         Waits for an alert up to `timeout` seconds and clicks OK if present.
         """
@@ -168,6 +179,8 @@ class QuickcapPage(BasePage):
                     time.sleep(1)
             print("No alert appeared.")
             return False
+            logger.info(f"Out from Accept Alert")
+
         except Exception as e:
             print(f"Error while handling alert: {e}")
             return False
@@ -194,6 +207,7 @@ class QuickcapPage(BasePage):
             print(f"Error Message: Element 'No data found' not visible within timeout")
 
     def dismiss_alert(self, timeout=5):
+        logger.info(f"Inside Dismiss Alert")
         """
         Waits for alert up to `timeout` seconds and clicks Cancel if present.
         """
@@ -209,11 +223,14 @@ class QuickcapPage(BasePage):
                     time.sleep(1)
             print("No alert appeared.")
             return False
+            logger.info(f"Out from Dismiss Alert")
+
         except Exception as e:
             print(f"An error occurred while dismissing alert: {e.msg}")
             return False
 
     def click_quick_add_button(self):
+        logger.info(f"Inside Click Quick Add Button")
         try:
             # Try multiple selectors with JavaScript click to avoid staleness
             selectors = [
@@ -236,12 +253,14 @@ class QuickcapPage(BasePage):
 
             print("❌ Quick Add button not found with any selector.")
             return False
+            logger.info(f"Out from Click Quick Add Button")
 
         except Exception as e:
             print(f"⚠️ Unexpected error while clicking Quick Add button: {e}")
             return False
 
     def select_category_dropdown(self, value):
+        logger.info(f"Inside Select Category Dropdown:{value}")
         try:
             # Wait until dropdown is present
             element = WebDriverWait(self.driver, 10).until(
@@ -250,11 +269,13 @@ class QuickcapPage(BasePage):
             dropdown = Select(element)
             dropdown.select_by_visible_text(value)
             print(f"Category '{value}' selected successfully.")
+            logger.info(f"Out from Select Category Dropdown:{value}")
         except Exception as e:
             print(f"Error selecting category '{value}': {e}")
         # self.click(self.categories_drowpdown)
 
     def click_quick_add_window_npi_button(self, npi):
+        logger.info(f"Inside Click Quick Add Window NPI Button:{npi}")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.quick_add_window_npi_button)
@@ -263,12 +284,14 @@ class QuickcapPage(BasePage):
             WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.quick_add_window_npi_button)
             ).send_keys(npi)
-
             print(f"NPI '{npi}' entered successfully.")
+            logger.info(f"Out from Click Quick Add Window NPI Button:{npi}")
+
         except Exception as e:
             print(f"Error in click_quick_add_window_npi_button: {e}")
 
     def select_provider_type_dropdown(self, value="HDO"):
+        logger.info(f"Inside Select Provider Type Dropdown:{value}")
         try:
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//select[@id='Rslt_provider_type']"))
@@ -277,11 +300,13 @@ class QuickcapPage(BasePage):
 
             dropdown.select_by_visible_text(value)
             print(f"Provider type '{value}' selected successfully.")
+            logger.info(f"Out from Select Provider Type Dropdown:{value}")
 
         except Exception as e:
             print(f"Error selecting provider type: {e}")
 
     def enter_provider_id(self, value):
+        logger.info(f"Inside Enter Provider ID:{value}")
         try:
             field = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.provide_id_field)
@@ -289,10 +314,13 @@ class QuickcapPage(BasePage):
             field.clear()
             field.send_keys(value)
             print(f"Provider ID '{value}' entered successfully.")
+            logger.info(f"Out from Enter Provider ID:{value}")
+
         except Exception as e:
             print(f"Error in entering provider ID: {e}")
 
     def select_primary_speciality_dropdown(self, network_value):
+        logger.info(f"Inside Select Primary Speciality Dropdown:{network_value}")
         try:
             mapped_value = constants.PRIMARY_SPECIALITY_MAP.get(network_value)
             if not mapped_value:
@@ -317,25 +345,32 @@ class QuickcapPage(BasePage):
             option.click()
 
             print(f"✅ Selected: {mapped_value}")
+            logger.info(f"Out from Select Primary Speciality Dropdown:{network_value}")
 
         except Exception as e:
             print(f"❌ Dropdown selection failed: {str(e)}")
 
     def enter_last_first_name(self, last_name, first_name):
+        logger.info(f"Inside Enter Last First Name:{last_name,first_name}")
         try:
             self.enter_text(self.last_name, last_name)
             self.enter_text(self.first_name, first_name)
             print(f"Entered Last Name: '{last_name}', First Name: '{first_name}' successfully.")
+            logger.info(f"Out from Enter Last First Name:{last_name, first_name}")
+
         except Exception as e:
             print(f"Error in entering last and first name: {e}")
 
     def select_gender(self, value):
+        logger.info(f"Inside Select Gender:{value}")
         try:
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located((By.XPATH, "//select[@id='Taslt_sex']"))
             )
             Select(dropdown_element).select_by_visible_text(value)
             print(f"Gender '{value}' selected successfully.")
+            logger.info(f"Out from Select Gender:{value}")
+
         except Exception as e:
             print(f"Error in selecting gender '{value}': {e}")
 
@@ -343,35 +378,45 @@ class QuickcapPage(BasePage):
         self.enter_text(self.birthdate, value)
 
     def select_contract_type(self, value):
+        logger.info(f"Inside Select Contract Type:{value}")
         try:
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located((By.XPATH, "//select[@id='Rslt_contract_type']"))
             )
             Select(dropdown_element).select_by_visible_text(value)
             print(f"Contract type '{value}' selected successfully.")
+            logger.info(f"Out from Select Contract Type:{value}")
+
         except Exception as e:
             print(f"Error in selecting contract type '{value}': {e}")
 
     def enter_contract_from_date(self, value):
+        logger.info(f"Inside Enter Contract From Date:{value}")
         try:
             self.enter_text(self.contract_from_date, value)
             print(f"Contract From Date entered successfully: {value}")
+            logger.info(f"Out from Enter Contract From Date:{value}")
         except Exception as e:
             print(f"Error in enter_contract_from_date while entering '{value}': {e}")
 
     def select_payment_type(self, value):
+        logger.info(f"Inside Select Payment Type:{value}")
         try:
             dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_PaymentType']"))
             dropdown.select_by_visible_text(value)
             print(f"Payment type selected successfully: {value}")
+            logger.info(f"Out from Select Payment Type:{value}")
         except Exception as e:
             print(f"Error in select_payment_type while selecting '{value}': {e}")
 
     def select_account(self, value):
+        logger.info(f"Inside Select Account:{value}")
         try:
             dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_AccountNo']"))
             dropdown.select_by_visible_text(value)
             print(f"Account '{value}' selected successfully.")
+            logger.info(f"Out from Select Account:{value}")
+
         except Exception as e:
             print(f"Error in selecting account '{value}': {e}")
 
@@ -399,28 +444,34 @@ class QuickcapPage(BasePage):
             print(f"⚠ Organization '{org_name}' not found. Skipping selection.")
 
     def click_organization(self):
+        logger.info(f"Inside Click Organization")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.organization)
             ).click()
             print("Organization button clicked successfully.")
+            logger.info(f"Out from Click Organization")
         except Exception as e:
             print(f"Error in click_organization: {e}")
 
     def enter_npi_org(self, value):
+        logger.info(f"Inside Enter NPI Org:{value}")
         try:
             self.enter_text(self.npi_org, value)
             print(f"NPI Org entered successfully: {value}")
+            logger.info(f"Out from Enter NPI Org:{value}")
         except Exception as e:
             print(f"Error in enter_npi_org while entering '{value}': {e}")
 
     def click_search_npi(self):
+        logger.info(f"Inside Click Search NPI")
         try:
             element = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable(self.search_npi)
             )
             element.click()
             print("Search NPI button clicked successfully.")
+            logger.info(f"Out from Click Search NPI")
         except Exception as e:
             print(f"Error in click_search_npi: {e}")
 
@@ -438,52 +489,88 @@ class QuickcapPage(BasePage):
         dropdown.select_by_visible_text(value)
 
     def select_practice_type(self, value):
-        dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_practice_type']"))
-        dropdown.select_by_visible_text(value)
+        logger.info(f"Inside Select Practice Type:{value}")
+        try:
+            dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_practice_type']"))
+            dropdown.select_by_visible_text(value)
+            logger.info(f"Out from Select Practice Type:{value}")
+
+        except Exception as e:
+            print(f"Error in select practice type: {e}")
+
 
     def enter_name(self, value):
-        self.enter_text(self.name, value)
+        logger.info(f"Inside Enter Name:{value}")
+        try:
+            self.enter_text(self.name, value)
+            logger.info(f"Out from Enter Name:{value}")
+
+        except Exception as e:
+            print(f"Error in entering name: {e}")
+
 
     def enter_address1(self, value):
+        logger.info(f"Inside Enter Address1:{value}")
         try:
             self.enter_text(self.address1, value)
             print(f"Address1 '{value}' entered successfully.")
+            logger.info(f"Out from Enter Address1:{value}")
+
         except Exception as e:
             print(f"Error in entering Address1: {e}")
 
     def enter_address_line_2(self, value):
+        logger.info(f"Inside Enter Address Line2:{value}")
         try:
             self.enter_text(self.address_line_2, value)
             print(f"Address1 '{value}' entered successfully.")
+            logger.info(f"Out from Enter Address Line2:{value}")
+
         except Exception as e:
             print(f"Error in entering Address1: {e}")
 
     def enter_city(self, value):
+        logger.info(f"Inside Enter City:{value}")
         try:
             self.enter_text(self.city, value)
             print(f"City '{value}' entered successfully.")
+            logger.info(f"Out from Enter City:{value}")
+
         except Exception as e:
             print(f"Error in entering city: {e}")
 
     def select_state(self, value):
-        dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_state']"))
-        dropdown.select_by_visible_text(value)
+        logger.info(f"Inside Select State:{value}")
+        try:
+            dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_state']"))
+            dropdown.select_by_visible_text(value)
+            logger.info(f"Out from Select State:{value}")
+
+        except Exception as e:
+            print(f"Error in selecting state: {e}")
 
     def enter_zip(self, value):
+        logger.info(f"Inside Enter ZIP:{value}")
         try:
             self.enter_text(self.zip, value)
             print(f"ZIP '{value}' entered successfully.")
+            logger.info(f"Out from Enter ZIP:{value}")
+
         except Exception as e:
             print(f"Error in entering ZIP: {e}")
 
     def click_save(self):
+        logger.info(f"Inside Click Save")
         try:
             self.click(self.save)
             print("Save button clicked successfully.")
+            logger.info(f"Out from Click Save")
+
         except Exception as e:
             print(f"Error in clicking Save button: {e}")
 
     def select_speciality(self, network):
+        logger.info(f"Inside Select Speciality:{network}")
         try:
             wait = WebDriverWait(self.driver, 10)
             self.click(self.primary_specialist)
@@ -507,6 +594,7 @@ class QuickcapPage(BasePage):
             option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
             option.click()
             print(f"✅ Selected speciality for {network}")
+            logger.info(f"Out from Select Speciality:{network}")
 
         except Exception as e:
             print(f"❌ Failed to click speciality: {str(e)}")
@@ -637,6 +725,7 @@ class QuickcapPage(BasePage):
                 return False
 
     def click_org_id(self, npi_number: str, address_line1: str):
+        logger.info(f"Inside Click Org ID:{npi_number}")
         db: Session = SessionLocal()
         main_window = self.driver.window_handles[0]  # assuming first window is main
 
@@ -647,6 +736,7 @@ class QuickcapPage(BasePage):
             self.driver.execute_script("arguments[0].click();", element)
             print("✅ Organization ID clicked successfully")
             return True
+            logger.info(f"Out from Click Org ID:{npi_number}")
 
         except Exception as e:
             error_message = "Organization ID not found or clickable"
@@ -660,6 +750,7 @@ class QuickcapPage(BasePage):
                     NPIAddress.update == 0
                 ).update({"remarks": error_message[:500]})
                 db.commit()
+                logger.info(f"Out from Click Org ID:{npi_number}")
             except Exception as db_error:
                 print(f"Database update error: {db_error}")
             finally:
@@ -672,12 +763,14 @@ class QuickcapPage(BasePage):
                     self.driver.close()
                     self.driver.switch_to.window(main_window)
                     print("🔒 Organization tab closed, returned to main window.")
+                    logger.info(f"Out from Click Org ID:{npi_number}")
             except Exception as win_err:
                 print(f"Window handling error: {win_err}")
 
             return False
 
     def ensure_credentialing_tab(self):
+        logger.info(f"Inside Ensure Credentialing Tab")
         try:
             # Check if Credentialing tab is visible
             tabs = self.driver.find_elements(By.XPATH, "//a[contains(text(),'Credentialing')]")
@@ -699,11 +792,13 @@ class QuickcapPage(BasePage):
             else:
                 print("❌ Credentialing tab still not found even after expanding.")
                 return False
+            logger.info(f"Out from Ensure Credentialing Tab")
         except Exception as e:
             print(f"Error ensuring Credentialing tab: {e}")
             return False
 
     def select_contract_template(self, company_name: str):
+        logger.info(f"Inside Select Contract Template:{company_name}")
         try:
             dropdown_value = TEMPLATE_MAP.get(company_name)
 
@@ -713,15 +808,20 @@ class QuickcapPage(BasePage):
             dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
             dropdown.select_by_visible_text(dropdown_value)
             print(f"Contract template for company '{company_name}' selected as '{dropdown_value}'.")
+            logger.info(f"Out from Select Contract Template:{company_name}")
+
         except Exception as e:
             print(f"Error in selecting contract template for company '{company_name}': {e}")
 
     def click_change_company(self):
+        logger.info(f"Inside Click Change Company")
         try:
             change_company_button = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.change_company)
             )
             change_company_button.click()
+            logger.info(f"Out from Click Change Company")
+
         except Exception as e:
             print(f"Error: {e}")
             print("Current URL:", self.driver.current_url)
@@ -730,26 +830,35 @@ class QuickcapPage(BasePage):
             raise
 
     def enter_username_in_company_prompt(self, value):
+        logger.info(f"Inside Enter Username in Company Prompt:{value}")
         try:
             self.enter_text(self.username_in_company_prompt, value)
             print(f"Username '{value}' entered successfully in company prompt.")
+            logger.info(f"Out from Enter Username in Company Prompt:{value}")
+
         except Exception as e:
             print(f"Error in entering username in company prompt: {e}")
 
     def enter_password_in_company_prompt(self, value):
+        logger.info(f"Inside Enter Password in Company Propmt:{value}")
         try:
             self.enter_text(self.password_in_company_prompt, value)
             print("Password entered successfully in company prompt.")
+            logger.info(f"Out from Enter Password in Company Propmt:{value}")
+
         except Exception as e:
             print(f"Error in entering password in company prompt: {e}")
 
     def click_login_button_in_company_prompt(self):
+        logger.info(f"Inside Click Login Button in Company Prompt")
         try:
             element = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable(self.login_button_in_company_prompt)
             )
             element.click()
             print("Login button in company prompt clicked successfully.")
+            logger.info(f"Out from Click Login Button in Company Prompt")
+
         except Exception as e:
             print(f"Error in clicking login button in company prompt: {e}")
 
@@ -784,70 +893,90 @@ class QuickcapPage(BasePage):
             return True
 
     def click_company(self):
-        self.click(self.select_company)
+        logger.info(f"Inside of Click Company ")
+        try:
+            self.click(self.select_company)
+            logger.info(f"Out from Click Company")
+        except Exception as e:
+            print(f"Error in click company: {e}")
+
 
     def click_search_button(self):
+        logger.info(f"Inside Click Search Button")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.click_search)
             ).click()
             print("Search button clicked successfully.")
+            logger.info(f"Out from Click Search Button")
         except Exception as e:
             print(f"Error in click_search_button: {e}")
 
     def click_edit_button(self):
+        logger.info(f"Inside Click Edit Button")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.click_edit)
             ).click()
             print("Edit button clicked successfully.")
+            logger.info(f"Out from Click Edit Button")
         except Exception as e:
             print(f"Error in click_edit_button: {e}")
 
     def click_provider_button(self):
+        logger.info(f"Inside Click Provider Button")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//a[contains(normalize-space(), 'Providers')]"))
             )
             self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
             element.click()
+            logger.info(f"Out from Click Provider Button")
         except Exception as e:
             print(f"Error in click_provider_button: {e}")
 
     def click_add_provider(self):
+        logger.info(f"Inside Click Add Provider")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.add_provider)
             ).click()
             print("Add Provider button clicked successfully.")
+            logger.info(f"Out from Click Add Peovider")
         except Exception:
             print("Error: Add Provider button is not clickable.")
 
     def enter_last_name(self, last_name1):
+        logger.info(f"Inside Enter Last Name :{last_name1}")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.last_name1)
             ).send_keys(last_name1)
             print(f"Last name entered successfully: {last_name1}")
+            logger.info(f"Out from Enter Last Name :{last_name1}")
         except Exception as e:
             print(f"Error in enter_last_name while entering '{last_name1}': {e}")
 
     def enter_effective_date(self, value):
+        logger.info(f"Inside Enter Effective Date:{value}")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.effective_date)
             ).send_keys(value)
             print(f"Effective date entered successfully: {value}")
+            logger.info(f"Out from Enter Effective Date:{value}")
         except Exception as e:
             print(f"Error in enter_effective_date while entering '{value}': {e}")
 
     def select_contract_type1(self, value):
+        logger.info(f"Inside Select Contract Type1:{value}")
         try:
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located((By.XPATH, "//select[@id='Rslt_ContractType']"))
             )
             Select(dropdown_element).select_by_visible_text(value)
             print(f"Contract type selected successfully: {value}")
+            logger.info(f"Out from Select Contract Type1:{value}")
         except Exception as e:
             print(f"Error in select_contract_type1 while selecting '{value}': {e}")
 
@@ -896,23 +1025,28 @@ class QuickcapPage(BasePage):
         dropdown.select_by_visible_text(value)
 
     def select_provider_type_dropdown1(self):
+        logger.info(f"Inside Select Provider Type Dropdown1")
         try:
             self.click(self.provider_type1)
             time.sleep(2)
             self.driver.find_element(By.XPATH, "//option[normalize-space()='HDO']").click()
             print("Provider type 'HDO' selected successfully.")
+            logger.info(f"Out from Select Provider Type Dropdown1")
         except Exception as e:
             print(f"Error in select_provider_type_dropdown1 while selecting provider type 'HDO': {e}")
 
     def select_account1(self, value):
+        logger.info(f"Inside Select Account1:{value}")
         try:
             dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_AccountNo']"))
             dropdown.select_by_visible_text(value)
             print(f"Account selected successfully: {value}")
+            logger.info(f"Outside from Select Account1:{value}")
         except Exception as e:
             print(f"Error in select_account1 while selecting '{value}': {e}")
 
     def select_template1(self, company_name: str):
+        logger.info(f"Inside Select Template1:{company_name}")
         try:
             dropdown_value = TEMPLATE_MAP.get(company_name)
 
@@ -924,6 +1058,7 @@ class QuickcapPage(BasePage):
             )
             dropdown.select_by_visible_text(dropdown_value)
             print(f"Template selected successfully for company '{company_name}': {dropdown_value}")
+            logger.info(f"Out from Select Template1:{company_name}")
 
         except Exception as e:
             print(f"Error in select_template1 while selecting template for company '{company_name}': {e}")
@@ -936,56 +1071,71 @@ class QuickcapPage(BasePage):
     #     select.select_by_value('271')
 
     def click_add_new_location(self):
+        logger.info(f"Inside Click Add New Location")
         try:
             self.click(self.add_new_location)
             print("Add New Location button clicked successfully.")
+            logger.info(f"Inside Click Add New Location")
         except Exception as e:
             print(f"Error in click_add_new_location: {e}")
 
     def enter_address2(self, value):
+        logger.info(f"Inside Enter Address2:{value}")
         try:
             self.enter_text(self.address2, value)
             print(f"Address 2 entered successfully: {value}")
+            logger.info(f"Out from Enter Address2:{value}")
         except Exception as e:
             print(f"Error in enter_address2 while entering '{value}': {e}")
 
     def enter_address_line2(self, value):
+        logger.info(f"Inside Enter Address Line2:{value}")
         try:
             self.enter_text(self.address_line2, value)
             print(f"Address 2 entered successfully: {value}")
+            logger.info(f"Out from Enter Address Line2:{value}")
         except Exception as e:
             print(f"Error in enter_address2 while entering '{value}': {e}")
 
     def enter_name1(self, value):
+        logger.info(f"Inside Enter Name1:{value}")
         try:
             self.enter_text(self.name1, value)
             print(f"Name entered successfully: {value}")
+            logger.info(f"Out from Enter Name1:{value}")
         except Exception as e:
             print(f"Error in enter_name1 while entering '{value}': {e}")
 
     def select_state1(self, value):
+        logger.info(f"Inside Select State1:{value}")
         try:
             dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Taslt_state']"))
             dropdown.select_by_visible_text(value)
             print(f"State selected successfully: {value}")
+            logger.info(f"Out from Select State1:{value}")
         except Exception as e:
             print(f"Error in select_state1 while selecting '{value}': {e}")
 
     def enter_zip1(self, value):
+        logger.info(f"Inside Enter Zip1:{value}")
         try:
             self.enter_text(self.zip1, value)
             print(f"ZIP entered successfully: {value}")
+            logger.info(f"Out from Enter Zip1:{value}")
         except Exception as e:
             print(f"Error in enter_zip1 while entering '{value}': {e}")
 
     def enter_city1(self, value):
+        logger.info(f"Inside Enter City1:{value}")
         try:
             self.enter_text(self.city1, value)
             print(f"City entered successfully: {value}")
+            logger.info(f"Out from Enter City1:{value}")
         except Exception as e:
             print(f"Error in enter_city1 while entering '{value}': {e}")
 
     def click_save1(self):
+        logger.info(f"Inside Click Save1")
         try:
             # Wait until element is present and clickable
             element = WebDriverWait(self.driver, 10).until(
@@ -1003,6 +1153,7 @@ class QuickcapPage(BasePage):
             # ✅ Handle potential alert after click
             self.handle_save_alert()
             return True
+            logger.info(f"Out from Click Save1")
 
         except Exception as e:
             print(f"Error in click_save1: {e}")
@@ -1046,6 +1197,7 @@ class QuickcapPage(BasePage):
        self.click(self.cancel1)
 
     def check_npi_search_field(self):
+        logger.info(f"Inside check NPI Search Field")
         """Check if NPI search field exists on the page"""
         try:
             # Ensure self.npi_fields is properly defined as (By.<METHOD>, "locator")
@@ -1057,6 +1209,7 @@ class QuickcapPage(BasePage):
                 EC.presence_of_all_elements_located(self.npi_fields)
             )
             return len(elements) > 0
+            logger.info(f"Out from check NPI Search Field")
         except TimeoutException:
             return False
         except NoSuchElementException:
@@ -1076,6 +1229,7 @@ class QuickcapPage(BasePage):
             print(f"<UNK> Failed to click credentialing tab: {e}")
 
     def select_speciality1(self, network):
+        logger.info(f"Inside Select Speciality1:{network}")
         try:
             wait = WebDriverWait(self.driver, 10)
 
@@ -1101,13 +1255,16 @@ class QuickcapPage(BasePage):
             option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
             option.click()
             print(f"✅ Selected speciality: {network}")
+            logger.info(f"Out from Select Speciality1:{network}")
         except Exception as e:
             print(f"<UNK> Failed to click speciality: {str(e)}")
 
     def click_primary(self):
+        logger.info(f"Inside Click Primary")
         try:
             self.click(self.primary)
             print("Primary button clicked successfully.")
+            logger.info(f"Out from Click Primary")
         except Exception as e:
             print(f"Error in click_primary: {e}")
 
@@ -1130,6 +1287,7 @@ class QuickcapPage(BasePage):
         return "A"
 
     def provider_table_rows(self):
+        logger.info(f"Inside Provider Table Rows")
         try:
             rows = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
@@ -1150,24 +1308,29 @@ class QuickcapPage(BasePage):
                     continue
 
             return provider_id
+            logger.info(f"Out from Provider Table Rows")
 
         except Exception as e:
             print(f"<UNK> Failed to click provider table row: {str(e)}")
             return None
 
     def enter_provider_letter(self, value):
+        logger.info(f"Inside Enter Provider Letter:{value}")
         try:
             self.enter_text(self.provider_letter, value)
             print(f"Provider letter entered successfully: {value}")
+            logger.info(f"Out from Enter Provider Letter:{value}")
         except Exception as e:
             print(f"Error in enter_provider_letter while entering '{value}': {e}")
 
-    def is_edit_button_available(self, ):
+    def is_edit_button_available(self ):
+        logger.info(f"Inside Check Edit Button is Available or Not")
         try:
             WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.XPATH, "//img[@title='Edit']"))
             )
             return True
+            logger.info(f"Out from Check Edit Button is Available or Not")
         except TimeoutException as e:
             print(f" TimeoutException: {e}")
             return False
