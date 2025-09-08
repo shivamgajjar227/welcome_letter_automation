@@ -1337,6 +1337,22 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f" Unexpected error while checking Edit button: {e}")
             return False
+    def is_edit_button_available(self, retries=3, wait_time=5):
+
+        for attempt in range(retries):
+            try:
+                WebDriverWait(self.driver, wait_time).until(
+                    EC.presence_of_element_located((By.XPATH, "//img[@title='Edit']"))
+                )
+                print(f"✅ Edit button found on attempt {attempt + 1}")
+                return True
+            except Exception as e:
+                print(f"⚠️ Attempt {attempt + 1}: Edit button not found ({type(e).__name__})")
+                if attempt < retries - 1:
+                    time.sleep(2)
+
+        print("Edit button not available after retries")
+        return False
 
 
 
