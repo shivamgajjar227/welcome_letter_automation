@@ -11,17 +11,20 @@ log_name = "MondayPage"
 logger_setup = loggin_utils.setup_logger(log_name, level='INFO')
 logger = logging.getLogger(log_name)
 
-class MondayPage(BasePage):
-
+class MondayStatusPage(BasePage):
     username_filed = (By.XPATH, "//input[@id='user_email']")
     password_filed = (By.XPATH, "//input[@id='user_password']")
     login_btn = (By.XPATH, "//button[@aria-label='Log in']")
     welcome_letter_qc = (By.XPATH, "//div[@role='option']")
-    search_button = (By.XPATH, "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
-    enter_npi_search = (By.XPATH, "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
+    search_button = (By.XPATH,
+                     "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
+    enter_npi_search = (By.XPATH,
+                        "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
     not_started = (By.XPATH, "//div[contains(text(),'Not Started')]")
-    done_button = (By.XPATH, "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
+    done_button = (By.XPATH,
+                   "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
+    roadblock_button = (By.XPATH, "//span[normalize-space()='Roadblock']")
 
     @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
@@ -30,7 +33,6 @@ class MondayPage(BasePage):
         self.enter_text(self.password_filed, password)
         self.click(self.login_btn)
         logger.info("Out from Monday logging func")
-
 
     def click_welcome_letter_qc(self):
         logger.info(f"Inside click Welcome letter QC")
@@ -105,7 +107,8 @@ class MondayPage(BasePage):
         )
 
         # 2. Get the parent container of all rows for that group (adjust the XPATH to your DOM structure)
-        group_container = group.find_element(By.XPATH, "./ancestor::div[contains(@class, 'group-header-wrapper')]/following-sibling::div")
+        group_container = group.find_element(By.XPATH,
+                                             "./ancestor::div[contains(@class, 'group-header-wrapper')]/following-sibling::div")
 
         # Get all row wrappers under this group
         rows = group_container.find_elements(By.XPATH, "")
@@ -181,4 +184,13 @@ class MondayPage(BasePage):
         except:
             return False
 
+    def click_roadblock_button(self):
+        logger.info(f"Inside Click Roadblock Button")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.roadblock_button)
+            ).click()
+            logger.info(f"Out from Click Roadblock Button")
+        except Exception as e:
+            print(f"Error while click Roadblock button: {e}")
 

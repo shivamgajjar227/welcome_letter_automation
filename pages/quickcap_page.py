@@ -75,6 +75,7 @@ class QuickcapPage(BasePage):
     click_provider = (By.XPATH, "//a[normalize-space()='Providers']")
     add_provider = (By.CSS_SELECTOR, "input[value='Add Provider']")
     last_name1 = (By.XPATH, "//textarea[@id='TaRara_LastName']")
+    first_name1 = (By.XPATH, "//input[@id='Tatxt_FirstName']")
     effective_date = (By.XPATH, "//input[@id='DtRtxt_ActiveFromDate']")
     primary_speciality = (By.XPATH, "//a[@class='chosen-single chosen-default trackAtt']")
     provider_type1 = (By.XPATH, "//option[normalize-space()='HDO']")
@@ -724,10 +725,15 @@ class QuickcapPage(BasePage):
                 print(f"Failed to handle confirmation popup: {str(e)}")
                 return False
 
-    def click_org_id(self, npi_number: str, address_line1: str):
-        logger.info(f"Inside Click Org ID:{npi_number}")
+    def click_org_id(self, npi_number: str, address_line1: str) -> bool:
+        """
+        Clicks the Org ID for the given NPI.
+        Returns True if successful, False if Org ID not found.
+        Updates remarks in NPIAddress table if Org ID not found.
+        """
+        logger.info(f"Inside Click Org ID: {npi_number}")
         db: Session = SessionLocal()
-        main_window = self.driver.window_handles[0]  # assuming first window is main
+        main_window = self.driver.window_handles[0]
 
         try:
             element = WebDriverWait(self.driver, 10).until(
@@ -735,14 +741,14 @@ class QuickcapPage(BasePage):
             )
             self.driver.execute_script("arguments[0].click();", element)
             print("✅ Organization ID clicked successfully")
+            logger.info(f"Out from Click Org ID: {npi_number}")
             return True
-            logger.info(f"Out from Click Org ID:{npi_number}")
 
         except Exception as e:
             error_message = "Organization ID not found or clickable"
-            print(error_message)
+            print(f"❌ {error_message}")
 
-            # ✅ Update only remarks
+            # Update only remarks
             try:
                 db.query(NPIAddress).filter(
                     NPIAddress.address_line1 == address_line1,
@@ -750,20 +756,34 @@ class QuickcapPage(BasePage):
                     NPIAddress.update == 0
                 ).update({"remarks": error_message[:500]})
                 db.commit()
-                logger.info(f"Out from Click Org ID:{npi_number}")
+                logger.info(f"Remarks updated for NPI {npi_number}")
             except Exception as db_error:
                 print(f"Database update error: {db_error}")
             finally:
                 db.close()
 
-            # ✅ Close current (Org) tab if open, and return to main
+            # Close current (Org) tab if open
             try:
+                all_windows = self.driver.window_handles
                 current_window = self.driver.current_window_handle
+
                 if current_window != main_window:
+                    # Close Org popup first
                     self.driver.close()
+                    print("🔒 Org ID popup closed.")
+
+                    # Switch to next window (if exists) and close it too
+                    all_windows = self.driver.window_handles
+                    if len(all_windows) > 1:
+                        self.driver.switch_to.window(all_windows[-1])
+                        self.driver.close()
+                        print("🔒 Next window closed.")
+
+                    # Finally switch back to main window
                     self.driver.switch_to.window(main_window)
-                    print("🔒 Organization tab closed, returned to main window.")
-                    logger.info(f"Out from Click Org ID:{npi_number}")
+                    print("✅ Returned to main window.")
+                    logger.info(f"Out from Click Org ID: {npi_number}")
+
             except Exception as win_err:
                 print(f"Window handling error: {win_err}")
 
@@ -946,16 +966,27 @@ class QuickcapPage(BasePage):
         except Exception:
             print("Error: Add Provider button is not clickable.")
 
-    def enter_last_name(self, last_name1):
-        logger.info(f"Inside Enter Last Name :{last_name1}")
+    def enter_last_name(self, last_name):
+        logger.info(f"Inside Enter Last Name :{last_name}")
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.visibility_of_element_located(self.last_name1)
-            ).send_keys(last_name1)
-            print(f"Last name entered successfully: {last_name1}")
-            logger.info(f"Out from Enter Last Name :{last_name1}")
+            ).send_keys(last_name)
+            print(f"Last name entered successfully: {last_name}")
+            logger.info(f"Out from Enter Last Name :{last_name}")
         except Exception as e:
-            print(f"Error in enter_last_name while entering '{last_name1}': {e}")
+            print(f"Error in enter_last_name while entering '{last_name}': {e}")
+
+    def enter_first_name(self, first_name):
+        logger.info(f"Inside Enter Last Name :{first_name}")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(self.first_name1)
+            ).send_keys(first_name)
+            print(f"Last name entered successfully: {first_name}")
+            logger.info(f"Out from Enter Last Name :{first_name}")
+        except Exception as e:
+            print(f"Error in enter_last_name while entering '{first_name}': {e}")
 
     def enter_effective_date(self, value):
         logger.info(f"Inside Enter Effective Date:{value}")
@@ -1323,21 +1354,22 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f"Error in enter_provider_letter while entering '{value}': {e}")
 
-    def is_edit_button_available(self ):
-        logger.info(f"Inside Check Edit Button is Available or Not")
-        try:
-            WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.XPATH, "//img[@title='Edit']"))
-            )
-            return True
-            logger.info(f"Out from Check Edit Button is Available or Not")
-        except TimeoutException as e:
-            print(f" TimeoutException: {e}")
-            return False
-        except Exception as e:
-            print(f" Unexpected error while checking Edit button: {e}")
-            return False
+    # def is_edit_button_available(self ):
+    #     logger.info(f"Inside Check Edit Button is Available or Not")
+    #     try:
+    #         WebDriverWait(self.driver, 5).until(
+    #             EC.presence_of_element_located((By.XPATH, "//img[@title='Edit']"))
+    #         )
+    #         return True
+    #         logger.info(f"Out from Check Edit Button is Available or Not")
+    #     except TimeoutException as e:
+    #         print(f" TimeoutException: {e}")
+    #         return False
+    #     except Exception as e:
+    #         print(f" Unexpected error while checking Edit button: {e}")
+    #         return False
     def is_edit_button_available(self, retries=3, wait_time=5):
+        logger.info(f"Inside Check Edit Button is Available or Not")
 
         for attempt in range(retries):
             try:
@@ -1347,9 +1379,10 @@ class QuickcapPage(BasePage):
                 print(f"✅ Edit button found on attempt {attempt + 1}")
                 return True
             except Exception as e:
-                print(f"⚠️ Attempt {attempt + 1}: Edit button not found ({type(e).__name__})")
+                print(f" Attempt {attempt + 1}: Edit button not found ({type(e).__name__})")
                 if attempt < retries - 1:
                     time.sleep(2)
+                logger.info(f"Out from Check Edit Button is Available or Not")
 
         print("Edit button not available after retries")
         return False
