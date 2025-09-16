@@ -92,6 +92,18 @@ class QuickcapPage(BasePage):
     provider_letter = (By.XPATH, "//input[@id='provider_id_suffix']")
     no_data_find = (By.XPATH, "//td[normalize-space()='No data found']")
     primary_specialist1 =  (By.XPATH,"//div[@id='Rslt_PrimarySpecialty_chosen']/a")
+    edit_for_healthplan = (By.XPATH, "//img[@title='Edit']")
+    health_panel_plan = (By.XPATH, "//input[@value='Health Plan Panel']")
+    membership_start_date = (By.XPATH, "//input[@id='DtRtxt_ActiveFromDate']")
+    click_plus = (By.XPATH, "//a[@onclick='$.addDosRow();']//img")
+    save_healthplan = (By.XPATH, "//input[@value='Save']")
+    other_ids = (By.XPATH, "//div[11]//a[1]")
+    add_plus = (By.XPATH, "//img[@src='images/plus_add.gif']")
+    taxonomy_dropdown = (By.XPATH, "//select[@id='med_new_other_id_2']")
+    provider_id_dropdown = (By.XPATH, "//select[@id='med_new_provider_id_2']")
+    taxonomy_no = (By.XPATH, "//input[@id='med_new_id_no_2']")
+    save_taxonomy = (By.XPATH, "//input[@id='btn_submit']")
+
 
 
 
@@ -291,20 +303,39 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f"Error in click_quick_add_window_npi_button: {e}")
 
-    def select_provider_type_dropdown(self, value="HDO"):
-        logger.info(f"Inside Select Provider Type Dropdown:{value}")
+    def select_provider_type_dropdown(self, value=None):
+        logger.info(f"Inside Select Provider Type Dropdown with preference: {value}")
         try:
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//select[@id='Rslt_provider_type']"))
             )
             dropdown = Select(dropdown_element)
 
-            dropdown.select_by_visible_text(value)
-            print(f"Provider type '{value}' selected successfully.")
-            logger.info(f"Out from Select Provider Type Dropdown:{value}")
+            # Get all available options as text
+            options = [opt.text.strip() for opt in dropdown.options]
+
+            # Default logic: prefer HDO, then PODIATRIST
+            if value is None:
+                if "HDO" in options:
+                    value_to_select = "HDO"
+                elif "PODIATRIST" in options:
+                    value_to_select = "PODIATRIST"
+                else:
+                    value_to_select = options[0] if options else None
+            else:
+                value_to_select = value if value in options else None
+
+            if value_to_select:
+                dropdown.select_by_visible_text(value_to_select)
+                print(f"Provider type '{value_to_select}' selected successfully.")
+                logger.info(f"Out from Select Provider Type Dropdown: {value_to_select}")
+            else:
+                print("No matching provider type found in dropdown.")
+                logger.warning("Provider type not found in dropdown.")
 
         except Exception as e:
             print(f"Error selecting provider type: {e}")
+            logger.error(f"Error selecting provider type: {e}")
 
     def enter_provider_id(self, value):
         logger.info(f"Inside Enter Provider ID:{value}")
@@ -1386,6 +1417,8 @@ class QuickcapPage(BasePage):
 
         print("Edit button not available after retries")
         return False
+
+
 
 
 

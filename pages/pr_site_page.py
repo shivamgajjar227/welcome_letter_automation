@@ -218,15 +218,33 @@ class PRSitePage(BasePage):
             print("Network element not found.")
             return None
 
-    def hover_over_practice_menu(self):
-        logger.info(f"Inside Hover Over Practice Menu")
-        provide_webelement = self.driver.find_element(*self.provider_menu)
-        actions = ActionChains(self.driver)
-        actions.move_to_element(provide_webelement).perform()
-        time.sleep(5)
-        sub_menu = self.driver.find_element(By.XPATH, "//a[@href='/ProvPractice.aspx']")
-        sub_menu.click()
-        logger.info(f"Out from Hover Over Practice Menu")
+    def hover_over_practice_menu(self, retries: int = 3):
+        logger.info("Inside Hover Over Practice Menu")
+        attempt = 0
+        while attempt < retries:
+            try:
+                # Hover over provider menu
+                provide_webelement = WebDriverWait(self.driver, 10).until(
+                    EC.visibility_of_element_located(self.provider_menu)
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", provide_webelement)
+                ActionChains(self.driver).move_to_element(provide_webelement).perform()
+
+                # Wait for submenu and click
+                sub_menu = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[@href='/ProvPractice.aspx']"))
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", sub_menu)
+                sub_menu.click()
+
+                logger.info("Out from Hover Over Practice Menu")
+                return  # ✅ success, exit the function
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                attempt += 1
+                time.sleep(2)  # small wait before retry
+
+        raise Exception("Failed to hover and click practice menu after retries")
 
     def select_click_for_npi(self):
         self.click(self.click_for_npi)

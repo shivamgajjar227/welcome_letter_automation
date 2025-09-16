@@ -2,6 +2,8 @@ import logging
 import time
 import allure
 from selenium.webdriver.common.by import By
+
+from drivers.allure_decorator import allure_log_step
 from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -23,6 +25,7 @@ class MondayPage(BasePage):
     done_button = (By.XPATH, "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
 
+    @allure_log_step("Login to Monday.com")
     @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
         logger.info("Inside login method of MondayPage")
@@ -31,7 +34,7 @@ class MondayPage(BasePage):
         self.click(self.login_btn)
         logger.info("Out from Monday logging func")
 
-
+    @allure_log_step("Clicking Welcome Letter QC")
     def click_welcome_letter_qc(self):
         logger.info(f"Inside click Welcome letter QC")
         try:
@@ -42,6 +45,7 @@ class MondayPage(BasePage):
         except Exception as e:
             print(f" Unexpected error while checking Edit button: {type(e).__name__}")
 
+    @allure_log_step("Clicking Search button and Get NPI Data")
     def get_pr_site_npis(self):
         time.sleep(2)
         logger.info("Inside get PR Site Npis")
@@ -175,6 +179,7 @@ class MondayPage(BasePage):
         except Exception as e:
             print(f"Error while click cross button: {e}")
 
+    @allure_log_step("Checks Login Page is Open or not")
     def is_login_page(self):
         try:
             return self.driver.find_element(By.ID, "user_email") is not None
