@@ -99,9 +99,9 @@ class QuickcapPage(BasePage):
     save_healthplan = (By.XPATH, "//input[@value='Save']")
     other_ids = (By.XPATH, "//div[11]//a[1]")
     add_plus = (By.XPATH, "//img[@src='images/plus_add.gif']")
-    taxonomy_dropdown = (By.XPATH, "//select[@id='med_new_other_id_2']")
-    provider_id_dropdown = (By.XPATH, "//select[@id='med_new_provider_id_2']")
-    taxonomy_no = (By.XPATH, "//input[@id='med_new_id_no_2']")
+    taxonomy_dropdown = (By.XPATH, "//tbody/tr/td/select[contains(@name,'new_other_id')]")
+    provider_id_dropdown = (By.XPATH, "//tbody/tr/td/select[contains(@name,'new_provider_id')]")
+    taxonomy_no = (By.XPATH, "(//tbody/tr/td/input[@type='text'][@class='comn-input'][@size='15'])[last()]")
     save_taxonomy = (By.XPATH, "//input[@id='btn_submit']")
 
 
@@ -303,28 +303,44 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f"Error in click_quick_add_window_npi_button: {e}")
 
-    def select_provider_type_dropdown(self, value=None):
-        logger.info(f"Inside Select Provider Type Dropdown with preference: {value}")
+    def select_provider_type_dropdown(self, category: str, network: str, speciality: str):
+        logger.info(
+            f"Inside Select Provider Type Dropdown with category: {category}, network: {network}, speciality: {speciality}")
         try:
+            # Step 1: Locate the dropdown element
             dropdown_element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//select[@id='Rslt_provider_type']"))
             )
             dropdown = Select(dropdown_element)
 
-            # Get all available options as text
+            # Step 2: Get all available options as text
             options = [opt.text.strip() for opt in dropdown.options]
+            value_to_select = None
 
-            # Default logic: prefer HDO, then PODIATRIST
-            if value is None:
-                if "HDO" in options:
-                    value_to_select = "HDO"
-                elif "PODIATRIST" in options:
+            # Step 3: Normalize inputs
+            category = category.strip().upper() if category else ""
+            network = network.strip().upper() if network else ""
+            speciality = speciality.strip().upper() if speciality else ""
+
+            # Step 4: Determine value to select based on logic
+            if category in ["MD", "DO", "DPM"]:
+                if network == "PODIATRY" and "PODIATRIST" in options:
                     value_to_select = "PODIATRIST"
+                elif network == "ORTHOPEDICS" and "ORTHOPEDICS" in options:
+                    value_to_select = "ORTHOPEDICS"
+                elif network == "DERMATOLOGY":
+                    if "MOHS" in speciality and "MOHS SURGEON AND GENERAL" in options:
+                        value_to_select = "MOHS SURGEON AND GENERAL"
+                    elif "GENERAL DERMATOLOGY" in options:
+                        value_to_select = "GENERAL DERMATOLOGY"
                 else:
-                    value_to_select = options[0] if options else None
+                    if "SPECIALIST" in options:
+                        value_to_select = "SPECIALIST"
             else:
-                value_to_select = value if value in options else None
+                if "PHYSICIAN EXTENDER" in options:
+                    value_to_select = "PHYSICIAN EXTENDER"
 
+            # Step 5: Select the value if found
             if value_to_select:
                 dropdown.select_by_visible_text(value_to_select)
                 print(f"Provider type '{value_to_select}' selected successfully.")
@@ -572,14 +588,14 @@ class QuickcapPage(BasePage):
             print(f"Error in entering city: {e}")
 
     def select_state(self, value):
-        logger.info(f"Inside Select State:{value}")
+        logger.info(f"Inside Select State1:{value}")
         try:
-            dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_state']"))
+            dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Taslt_state']"))
             dropdown.select_by_visible_text(value)
-            logger.info(f"Out from Select State:{value}")
-
+            print(f"State selected successfully: {value}")
+            logger.info(f"Out from Select State1:{value}")
         except Exception as e:
-            print(f"Error in selecting state: {e}")
+            print(f"Error in select_state1 while selecting '{value}': {e}")
 
     def enter_zip(self, value):
         logger.info(f"Inside Enter ZIP:{value}")
@@ -1086,16 +1102,56 @@ class QuickcapPage(BasePage):
         dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='Rslt_PaymentType']"))
         dropdown.select_by_visible_text(value)
 
-    def select_provider_type_dropdown1(self):
-        logger.info(f"Inside Select Provider Type Dropdown1")
+    def select_provider_type_dropdown1(self, category: str, network: str, speciality: str ):
+        logger.info(
+            f"Inside Select Provider Type Dropdown with category: {category}, network: {network}, speciality: {speciality}")
         try:
-            self.click(self.provider_type1)
-            time.sleep(2)
-            self.driver.find_element(By.XPATH, "//option[normalize-space()='HDO']").click()
-            print("Provider type 'HDO' selected successfully.")
-            logger.info(f"Out from Select Provider Type Dropdown1")
+            dropdown_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "(//tbody/tr/td/select[@style='width:150px'])[3]"))
+            )
+            dropdown = Select(dropdown_element)
+
+            # Get all available options as text
+            options = [opt.text.strip() for opt in dropdown.options]
+            value_to_select = None
+
+            # Normalize inputs
+            category = category.strip().upper() if category else ""
+            network = network.strip().upper() if network else ""
+            speciality = speciality.strip().upper() if speciality else ""
+
+            # Case 1: Category is MD, DO, DPM
+            if category in ["MD", "DO", "DPM"]:
+                if network == "PODIATRY" and "PODIATRIST" in options:
+                    value_to_select = "PODIATRIST"
+                elif network == "ORTHOPEDICS" and "ORTHOPEDICS" in options:
+                    value_to_select = "ORTHOPEDICS"
+                elif network == "DERMATOLOGY":
+                    if "MOHS" in speciality and "MOHS SURGEON AND GENERAL" in options:
+                        value_to_select = "MOHS SURGEON AND GENERAL"
+                    elif "GENERAL DERMATOLOGY" in options:
+                        value_to_select = "GENERAL DERMATOLOGY"
+                else:
+                    if "SPECIALIST" in options:
+                        value_to_select = "SPECIALIST"
+
+            # Case 2: Any category that is NOT MD, DO, DPM
+            else:
+                if "PHYSICIAN EXTENDER" in options:
+                    value_to_select = "PHYSICIAN EXTENDER"
+
+            # Final selection
+            if value_to_select:
+                dropdown.select_by_visible_text(value_to_select)
+                print(f"Provider type '{value_to_select}' selected successfully.")
+                logger.info(f"Out from Select Provider Type Dropdown: {value_to_select}")
+            else:
+                print("No matching provider type found in dropdown.")
+                logger.warning("Provider type not found in dropdown.")
+
         except Exception as e:
-            print(f"Error in select_provider_type_dropdown1 while selecting provider type 'HDO': {e}")
+            print(f"Error selecting provider type: {e}")
+            logger.error(f"Error selecting provider type: {e}")
 
     def select_account1(self, value):
         logger.info(f"Inside Select Account1:{value}")
@@ -1418,7 +1474,255 @@ class QuickcapPage(BasePage):
         print("Edit button not available after retries")
         return False
 
+    def click_edit_for_healthplan(self, provider_id: str):
+        logger.info(f"Inside Click Edit Button for Provider ID: {provider_id}")
+        try:
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
+            )
 
+            last_letter = provider_id.strip()[-1] if provider_id else None
+            if not last_letter:
+                logger.error("Target provider_id is empty")
+                return False
+
+            for row in rows:
+                try:
+                    provider_id_text = row.find_element(By.XPATH, "./td[2]").text.strip()
+
+                    if provider_id_text and provider_id_text[-1] == last_letter:
+                        logger.info(f"Found matching provider row: {provider_id_text}")
+                        edit_btn = row.find_element(By.XPATH, ".//img[@title='Edit']")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
+                        edit_btn.click()
+                        logger.info("Clicked Edit Button successfully")
+                        return True
+
+                except Exception as inner_e:
+                    logger.warning(f"Skipping row due to error: {inner_e}")
+                    continue
+
+            logger.error("No matching provider ID found in table")
+            return False
+
+        except Exception as e:
+            print(f"Error in click_edit_for_healthplan: {e}")
+            return False
+
+    def click_healthplan_panel(self):
+        logger.info(f"Inside Click Health Plan Panel")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//input[@value='Health Plan Panel']"))
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info(f"Out from Click Health Plan Panel")
+        except Exception as e:
+            print(f"Error in click_healthplan_panel: {e}")
+
+    def select_taxonomy(self, value):
+        logger.info(f"Inside Select Taxonomy:{value}")
+        try:
+            dropdown = Select(self.driver.find_element(By.XPATH, "(//tbody/tr/td/select[@style='width:250px;'])[last()]"))
+            dropdown.select_by_visible_text(value)
+            print(f"Taxonomy selected successfully: {value}")
+            logger.info(f"Outside from Select Account1:{value}")
+        except Exception as e:
+            print(f"Error in select_taxonomy while selecting '{value}': {e}")
+
+    def enter_membership_date(self, value):
+        logger.info(f"Inside Enter Membership Start Date:{value}")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(self.membership_start_date)
+            ).send_keys(value)
+            print(f"Effective date entered successfully: {value}")
+            logger.info(f"Out from Enter Membership Start Date:{value}")
+        except Exception as e:
+            print(f"Error in enter_membership_start_date while entering '{value}': {e}")
+
+    def click_plus_button(self):
+        logger.info(f"Inside Click Plus Button")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.click_plus)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info(f"Out from Click Plus Button")
+        except Exception as e:
+            print(f"Error in click_plus_button: {e}")
+
+    def click_save_healthplan(self):
+        logger.info("Inside Click Save Health Plan")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.save_healthplan)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info("Save Health Plan clicked")
+
+            try:
+                WebDriverWait(self.driver, 5).until(EC.alert_is_present())
+                alert = self.driver.switch_to.alert
+                logger.info(f"Alert text: {alert.text}")
+                alert.accept()
+                logger.info("Alert accepted successfully")
+            except TimeoutException:
+                logger.info("No alert appeared after clicking Save")
+
+            logger.info("Out from Click Save Health Plan")
+        except Exception as e:
+            print(f"Error in click_save_healthplan: {e}")
+
+    def click_other_ids(self):
+        logger.info(f"Inside Click Other IDs")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.other_ids)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info(f"Out from Click Other IDs")
+        except Exception as e:
+            print(f"Error in click_other_ids: {e}")
+
+    def click_add_plus(self):
+        logger.info(f"Inside Click Add Plus")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.add_plus)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info(f"Out from Click Add Plus")
+        except Exception as e:
+            print(f"Error in click_add_plus: {e}")
+
+    def click_provider_id(self, provider_id: str):
+        logger.info("Inside Click Provider ID")
+        try:
+            dropdown_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.provider_id_dropdown)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", dropdown_element)
+
+            select = Select(dropdown_element)
+
+            last_letter = provider_id.strip()[-1] if provider_id else '(A)'
+            if not last_letter:
+                logger.error("Target provider_id is empty")
+                return False
+
+            matched = False
+            for option in select.options:
+                option_text = option.text.strip()
+                if option_text.endswith(f"({last_letter})"):
+                    select.select_by_visible_text(option_text)
+                    logger.info(f"Selected Provider ID from dropdown: {option_text}")
+                    matched = True
+                    break
+
+            if not matched:
+                logger.warning(f"No Provider ID matched with last letter: {last_letter}")
+                return False
+
+            logger.info("Out from Click Provider ID")
+            return True
+
+        except Exception as e:
+            print(f"Error in click_provider_id: {e}")
+            return False
+
+    def enter_taxonomy_code(self, value):
+        logger.info(f"Inside Enter Taxonomy Code:{value}")
+        try:
+            self.enter_text(self.taxonomy_no, value)
+            print(f"Date entered successfully: {value}")
+            logger.info(f"Out from Enter Taxonomy Code:{value}")
+        except Exception as e:
+            print(f"Error in enter_taxonomy_code while entering '{value}': {e}")
+
+    def click_save_taxonomy(self):
+        logger.info("Inside Click Save Taxonomy")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.save_taxonomy)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            element.click()
+            logger.info("Save Taxonomy button clicked")
+
+            try:
+                WebDriverWait(self.driver, 5).until(EC.alert_is_present())
+                alert = self.driver.switch_to.alert
+                logger.info(f"Alert found with text: {alert.text}")
+                alert.accept()
+                logger.info("Alert accepted successfully")
+            except Exception:
+                logger.info("No alert appeared after clicking Save Taxonomy")
+
+            logger.info("Out from Click Save Taxonomy")
+
+        except Exception as e:
+            print(f"Error in click_save_taxonomy: {e}")
+
+    def click_edit_for_healthplan_for_A(self):
+        logger.info("Inside Click Edit Button for Healthplan (looking for IDs ending with 'A')")
+        try:
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
+            )
+
+            for row in rows:
+                try:
+                    provider_id_text = row.find_element(By.XPATH, "./td[2]").text.strip()
+
+                    if provider_id_text and provider_id_text.endswith("(A)"):
+                        logger.info(f"Found matching provider row: {provider_id_text}")
+                        edit_btn = row.find_element(By.XPATH, ".//img[@title='Edit']")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
+                        edit_btn.click()
+                        logger.info("Clicked Edit Button successfully")
+                        return True
+
+                except Exception as inner_e:
+                    logger.warning(f"Skipping row due to error: {inner_e}")
+                    continue
+
+            logger.error("No provider ID found in table ending with 'A'")
+            return False
+
+        except Exception as e:
+            print(f"Error in click_edit_for_healthplan_for_A: {e}")
+            return False
+
+    def click_provider_id_for_A(self):
+        try:
+            # Step 1: Locate the select element
+            select_element = self.wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//tbody/tr/td/select[contains(@name,'new_provider_id')]"))
+            )
+
+            # Step 2: Wrap it with Select
+            select = Select(select_element)
+
+            # Step 3: Loop through options to find one ending with (A)
+            for option in select.options:
+                text = option.text.strip()
+                if text.endswith("(A)"):
+                    select.select_by_visible_text(text)
+                    print(f"✅ Selected NPI: {text}")
+                    return True
+
+            print("⚠️ No NPI ending with (A) found.")
+            return False
+
+        except Exception as e:
+            print(f"❌ Error in select_npi_ending_with_A: {e}")
+            return False
 
 
 

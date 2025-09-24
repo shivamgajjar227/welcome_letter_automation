@@ -71,7 +71,7 @@ class MondayPage(BasePage):
                         health_plan = row.find_element(By.XPATH,
                                                        ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
                         lines_of_business = row.find_element(By.XPATH,
-                                                             ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
+                                                             "//div[contains(@class, 'col-identifier-lines_of_business')]//span[contains(@class,'ds-text-component-content-text')]").text
 
                         entry = {
                             "npi_number": npi_number.strip(),

@@ -10,6 +10,7 @@ COMPANY_MAP = {
             "avmed": "DNS AvMed",
             "aetna better health": "DNS Aetna",
             "devoted": "DNS Devoted",
+            "bcbs": "DNS BCBS",
         },
         "pain management": {
             "cigna": "PMC Cigna",
@@ -20,6 +21,7 @@ COMPANY_MAP = {
             "uhc": "PM UHC",
             "aetna better health": "PM Aetna",
             "devoted": "PMD Devoted",
+            "bcbs": "PM BCBS",
         },
         "podiatry": {
             "cigna": "PNS Cigna",
@@ -32,6 +34,7 @@ COMPANY_MAP = {
             "avmed" : "PNS AvMed",
             "aetna better health": "PNS Aetna",
             "devoted": "PNS Devoted",
+            "bcbs": "PNS BCBS",
         },
         "orthopedic": {
             "cigna": "ONS Cigna",
@@ -43,6 +46,7 @@ COMPANY_MAP = {
             "simply": "ONS Simply",
             "aetna better health": "ONS Aetna",
             "devoted": "ONS Devoted",
+            "bcbs": "ONS BCBS",
         },
         "podiatry, wound care": {
             "cigna": "PNS Cigna",
@@ -55,6 +59,7 @@ COMPANY_MAP = {
             "avmed": "PNS AvMed",
             "aetna better health": "PNS Aetna",
             "devoted": "PNS Devoted",
+            "bcbs": "PNS BCBS",
         }
     }
 

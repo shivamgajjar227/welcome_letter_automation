@@ -36,6 +36,7 @@ class PRSitePage(BasePage):
     state = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblState")
     zip_code = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblZipCode")
     category = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblDegree")
+    speciality = (By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Medical_Info_lblSpecialties")
     network = (By.CSS_SELECTOR, "#ctl00_MainContent_uCSearchProvider_fm_ProviderMainInfo_lblNetwork")
     click_for_npi = (By.CSS_SELECTOR, "#ctl00_MainContent_GvProvPractice_ctl02_LnkGroupName")
     # group_npi = (By.CSS_SELECTOR, "#ctl00_MainContent_fmGroupBillingInfo_lblGroupNPI")
@@ -209,6 +210,15 @@ class PRSitePage(BasePage):
             print("Category element not found.")
             return None
 
+    def get_speciality(self):
+        logger.info(f"Inside get Speciality")
+        try:
+            return self.driver.find_element(*self.speciality).text.strip()
+            logger.info(f"Out from get Speciality")
+        except NoSuchElementException:
+            print("Speciality element not found.")
+            return None
+
     def get_network(self):
         logger.info(f"Inside get Network")
         try:
@@ -380,10 +390,10 @@ class PRSitePage(BasePage):
                     print(f"Extracted address for row {i}: {address}")
 
                     address_data = pr_site_data.RequestAPi.split_address(address)
-                    address_line_1 = address_data.get("address_line_1", "")
-                    address_line_2 = address_data.get("address_line_2", "")
-                    city = address_data.get("city", "")
-                    state = address_data.get("state", "")
+                    address_line_1 = address_data.get("address_line_1", "").upper()
+                    address_line_2 = address_data.get("address_line_2", "").upper()
+                    city = address_data.get("city", "").upper()
+                    state = address_data.get("state", "").upper()
                     zipcode = address_data.get("zipcode", "")
 
                     # Check if this row is already expanded
@@ -431,6 +441,17 @@ class PRSitePage(BasePage):
                                     termination_date = plan_row.find_element(By.XPATH, "./td[6]").text.strip()
 
                                     try:
+                                        status_img = plan_row.find_element(By.XPATH,
+                                                                           ".//td/img[contains(@src,'checkbox-checked-yes-small.png')]")
+                                        has_green_tick = True
+                                    except:
+                                        has_green_tick = False
+
+                                    if not has_green_tick:
+                                        print(f"Skipping NPI {record.npi_number}: No green tick in status")
+                                        continue
+
+                                    try:
                                         web_date = datetime.strptime(effective_date, "%m/%d/%Y").date()
                                     except ValueError:
                                         print(f"Invalid date format from web: {effective_date}")
@@ -451,7 +472,7 @@ class PRSitePage(BasePage):
                                     npi_name = group_name.split('-')[
                                         0].strip() if '-' in group_name else group_name.strip()
 
-                                    if web_date == db_date and not termination_date.strip():
+                                    if web_date == db_date and not termination_date.strip() and has_green_tick:
                                         new_record = NPIAddress(
                                             npi=record.npi_number,
                                             address_line1=address_line_1,
@@ -461,7 +482,7 @@ class PRSitePage(BasePage):
                                             zip_code=cleaned_zip_code,
                                             update=0,
                                             group_npi=npi_number,
-                                            name=npi_name
+                                            name=npi_name.upper()
                                         )
                                         db.add(new_record)
                                         db.commit()
@@ -475,7 +496,7 @@ class PRSitePage(BasePage):
                                         "zipcode": zipcode,
                                         "update": 0,
                                         "group_npi": npi_number,
-                                        "name": npi_name,
+                                        "name": npi_name.upper()
                                     })
                                     logger.info(f"Out from get address for NPI {record.npi_number} with address '{address}'")
 

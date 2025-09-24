@@ -25,7 +25,7 @@ class PRSiteData(Base):
     address = Column(String(500), nullable=True)
     speciality = Column(String(500), nullable=True)
     network = Column(String(500), nullable=True)
-    group_npi = Column(Integer, nullable=False)
+    # group_npi = Column(Integer, nullable=False)
     taxonomy_code = Column(String(500), nullable=False)
     tax_id = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now())
