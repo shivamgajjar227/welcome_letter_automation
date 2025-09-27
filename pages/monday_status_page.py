@@ -6,6 +6,8 @@ from pages.base_page import BasePage
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from core import loggin_utils
+from selenium.webdriver.common.keys import Keys
+
 
 log_name = "MondayPage"
 logger_setup = loggin_utils.setup_logger(log_name, level='INFO')
@@ -25,6 +27,7 @@ class MondayStatusPage(BasePage):
                    "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
     roadblock_button = (By.XPATH, "//span[normalize-space()='Roadblock']")
+    remarks = (By.XPATH, "(//div[@role='presentation'])[52]")
 
     @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
@@ -194,3 +197,44 @@ class MondayStatusPage(BasePage):
         except Exception as e:
             print(f"Error while click Roadblock button: {e}")
 
+    # def enter_remarks(self, remarks_text: str):
+    #     logger.info("Inside Enter Remarks")
+    #
+    #     # Click the remarks cell
+    #     remarks_cell = WebDriverWait(self.driver, 10).until(
+    #         EC.element_to_be_clickable((By.XPATH,
+    #                                     "(//div[@role='presentation'])[52]"))
+    #     )
+    #     remarks_cell.click()
+    #
+    #     # Wait for the editable input/textarea
+    #     input_box = WebDriverWait(self.driver, 10).until(
+    #         EC.presence_of_element_located((By.XPATH, "//input[@type='text' or @role='textbox']"))
+    #     )
+    #
+    #     # Clear and enter remarks
+    #     input_box.clear()
+    #     input_box.send_keys(remarks_text)
+    #     input_box.send_keys(Keys.ENTER)
+    #
+    #     logger.info(f"Entered remarks: {remarks_text}")
+
+    def enter_remarks1(self, value):
+        logger.info(f"Inside Enter Remarks: {value}")
+        try:
+            remarks_cell = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH,
+                                            "(//div[@class='text-cell-view-module_wrapperComponent__VMKAw'])[13]"))
+            )
+            remarks_cell.click()
+
+            input_box = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "(//div[@class='text-cell-view-module_wrapperComponent__VMKAw'])[13]"))
+            )
+            input_box.clear()
+            input_box.send_keys(value)
+
+            print(f"Remarks '{value}' entered successfully.")
+            logger.info(f"Out from Enter Remarks: {value}")
+        except Exception as e:
+            print(f"Error in entering Remarks: {e}")

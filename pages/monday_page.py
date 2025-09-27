@@ -70,9 +70,22 @@ class MondayPage(BasePage):
                                                           ".//div[contains(@class, 'col-identifier-date4')]//span[contains(@class,'ds-text-component-content-text')]").text
                         health_plan = row.find_element(By.XPATH,
                                                        ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
-                        lines_of_business = row.find_element(By.XPATH,
-                                                             "//div[contains(@class, 'col-identifier-lines_of_business')]//span[contains(@class,'ds-text-component-content-text')]").text
+                        lob_list = []
+                        try:
+                            lob_container = row.find_element(By.XPATH,
+                                                             ".//div[contains(@class, 'chips-list-module_chips__CTQcD')]")
+                            lob_chips = lob_container.find_elements(By.XPATH,
+                                                                    ".//div[contains(@class, 'chips_e501d98fba')]")
 
+                            for chip in lob_chips:
+                                lob_text = chip.find_element(By.XPATH,
+                                                             ".//div[contains(@class, 'text_6bad4c857c')]").text.strip()
+                                if lob_text:
+                                    lob_list.append(lob_text)
+                        except Exception as lob_error:
+                            print(f"Error extracting LoB: {lob_error}")
+
+                        lines_of_business = ", ".join(lob_list)
                         entry = {
                             "npi_number": npi_number.strip(),
                             "effective_date": effective_date.strip(),

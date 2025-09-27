@@ -1475,38 +1475,53 @@ class QuickcapPage(BasePage):
         return False
 
     def click_edit_for_healthplan(self, provider_id: str):
-        logger.info(f"Inside Click Edit Button for Provider ID: {provider_id}")
+        logger.info(f"Inside Click Edit Button for Provider ID ending with: {provider_id}")
         try:
+            # ✅ Extract last letter from provider_id (inside brackets)
+            if "(" in provider_id and ")" in provider_id:
+                target_letter = provider_id.split("(")[-1].strip(")")
+            else:
+                target_letter = provider_id  # Use the letter directly if no brackets
+
+            logger.info(f"Looking for Provider IDs ending with ({target_letter})")
+
+            # Wait for rows
             rows = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
             )
 
-            last_letter = provider_id.strip()[-1] if provider_id else None
-            if not last_letter:
-                logger.error("Target provider_id is empty")
-                return False
+            matching_rows = []  # Store all matching rows
 
             for row in rows:
                 try:
                     provider_id_text = row.find_element(By.XPATH, "./td[2]").text.strip()
+                    logger.info(f"Checking row Provider ID: {provider_id_text}")
 
-                    if provider_id_text and provider_id_text[-1] == last_letter:
-                        logger.info(f"Found matching provider row: {provider_id_text}")
-                        edit_btn = row.find_element(By.XPATH, ".//img[@title='Edit']")
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
-                        edit_btn.click()
-                        logger.info("Clicked Edit Button successfully")
-                        return True
+                    if provider_id_text.endswith(f"({target_letter})"):
+                        logger.info(f"✅ Found matching provider row: {provider_id_text}")
+                        matching_rows.append(row)  # Add matching row to list
 
                 except Exception as inner_e:
                     logger.warning(f"Skipping row due to error: {inner_e}")
                     continue
 
-            logger.error("No matching provider ID found in table")
-            return False
+            if matching_rows:
+                # Get the last matching row
+                last_matching_row = matching_rows[-1]
+                provider_id_text = last_matching_row.find_element(By.XPATH, "./td[2]").text.strip()
+                logger.info(f"🔄 Clicking Edit for LAST matching Provider ID: {provider_id_text}")
+
+                edit_btn = last_matching_row.find_element(By.XPATH, ".//img[@title='Edit']")
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
+                self.driver.execute_script("arguments[0].click();", edit_btn)  # safer click
+                logger.info("Clicked Edit Button successfully")
+                return True
+            else:
+                logger.error(f"No Provider ID found in table ending with ({target_letter})")
+                return False
 
         except Exception as e:
-            print(f"Error in click_edit_for_healthplan: {e}")
+            logger.error(f"Error in click_edit_for_healthplan: {e}")
             return False
 
     def click_healthplan_panel(self):

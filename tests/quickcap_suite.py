@@ -295,20 +295,20 @@ def test_qc(quickcap_test):
                         else:
                             time.sleep(5)
                             quickcap_test.click_edit_button()
-                            quickcap_test.switch_to_new_window()
+                            quickcap_test.switch_to_new_window1()
 
                             with allure.step("Provider setup"):
                                 quickcap_test.click_provider_button()
                                 provider_id = quickcap_test.provider_table_rows()
                                 quickcap_test.click_add_provider()
-                                quickcap_test.switch_to_new_window()
+                                quickcap_test.switch_to_new_window1()
                                 quickcap_test.enter_provider_letter(provider_id)
                                 quickcap_test.enter_last_name(last_name or "")
                                 quickcap_test.enter_first_name(first_name or "")
                                 full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
                                     "%m/%d/%Y")
                                 quickcap_test.enter_effective_date(full_date)
-                                quickcap_test.select_contract_type1("PENDING")
+                                quickcap_test.select_contract_type1("CONTRACT FEE FOR SERVICE")
                                 quickcap_test.select_speciality1(network)
                                 quickcap_test.select_payment_type("FEE FOR SERVICE")
                                 quickcap_test.enter_contract_from_date(full_date)
@@ -453,7 +453,7 @@ def test_qc(quickcap_test):
                 with allure.step("Entering contract details"):
                     full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
                     quickcap_test.enter_contract_from_date(full_date)
-                    quickcap_test.select_contract_type("PENDING")
+                    quickcap_test.select_contract_type("CONTRACT FEE FOR SERVICE")
                     quickcap_test.select_payment_type("FEE FOR SERVICE")
                     quickcap_test.select_account("0000-000 DEFAULT")
 
@@ -627,7 +627,7 @@ def test_qc(quickcap_test):
                             full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
                                 "%m/%d/%Y")
                             quickcap_test.enter_effective_date(full_date)
-                            quickcap_test.select_contract_type1("PENDING")
+                            quickcap_test.select_contract_type1("CONTRACT FEE FOR SERVICE")
                             quickcap_test.select_speciality1(network)
                             quickcap_test.select_payment_type("FEE FOR SERVICE")
                             quickcap_test.enter_contract_from_date(full_date)
@@ -775,7 +775,7 @@ def test_qc(quickcap_test):
             with allure.step("Entering contract details"):
                 full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
                 quickcap_test.enter_contract_from_date(full_date)
-                quickcap_test.select_contract_type("PENDING")
+                quickcap_test.select_contract_type("CONTRACT FEE FOR SERVICE")
                 quickcap_test.select_payment_type("FEE FOR SERVICE")
                 quickcap_test.select_account("0000-000 DEFAULT")
 
@@ -977,6 +977,14 @@ def test_monday_status(monday_status_test):
                         with allure.step("Marking NPI as Roadblock"):
                             monday_status_test.click_not_started()
                             monday_status_test.click_roadblock_button()
+                            npi_address = db.query(NPIAddress).filter(NPIAddress.npi == record.npi_number).first()
+                            if npi_address and npi_address.remarks:
+                                monday_status_test.enter_remarks1(npi_address.remarks)
+                            else:
+                                print(f"No remarks found in DB for NPI {record.npi_number}")
+                                allure.attach(f"No remarks found in DB for NPI {record.npi_number}",
+                                              name="No Remarks",
+                                              attachment_type=allure.attachment_type.TEXT)
                             time.sleep(2)
                             monday_status_test.click_cross_button()
                             time.sleep(2)

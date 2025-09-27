@@ -440,16 +440,16 @@ class PRSitePage(BasePage):
                                     effective_date = plan_row.find_element(By.XPATH, "./td[5]").text.strip()
                                     termination_date = plan_row.find_element(By.XPATH, "./td[6]").text.strip()
 
-                                    try:
-                                        status_img = plan_row.find_element(By.XPATH,
-                                                                           ".//td/img[contains(@src,'checkbox-checked-yes-small.png')]")
-                                        has_green_tick = True
-                                    except:
-                                        has_green_tick = False
-
-                                    if not has_green_tick:
-                                        print(f"Skipping NPI {record.npi_number}: No green tick in status")
-                                        continue
+                                    # try:
+                                    #     status_img = plan_row.find_element(By.XPATH,
+                                    #                                        ".//td/img[contains(@src,'checkbox-checked-yes-small.png')]")
+                                    #     has_green_tick = True
+                                    # except:
+                                    #     has_green_tick = False
+                                    #
+                                    # if not has_green_tick:
+                                    #     print(f"Skipping NPI {record.npi_number}: No green tick in status")
+                                    #     continue
 
                                     try:
                                         web_date = datetime.strptime(effective_date, "%m/%d/%Y").date()
@@ -472,7 +472,7 @@ class PRSitePage(BasePage):
                                     npi_name = group_name.split('-')[
                                         0].strip() if '-' in group_name else group_name.strip()
 
-                                    if web_date == db_date and not termination_date.strip() and has_green_tick:
+                                    if web_date == db_date and not termination_date.strip():
                                         new_record = NPIAddress(
                                             npi=record.npi_number,
                                             address_line1=address_line_1,
