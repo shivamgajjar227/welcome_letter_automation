@@ -193,8 +193,8 @@ def test_qc(quickcap_test):
     try:
         with allure.step("Clicking Company & Logging into QuickCap"):
             quickcap_test.click_company()
-            quickcap_test.login("autoprocess@pns-mgmt.com", "Pns@072025")
 
+        quickcap_test.login("autoprocess@pns-mgmt.com", "Pns@072025")
         with allure.step("Fetching NPIs from Database with status=1 and update=0"):
             npi_records = db.query(PRSiteData.network,PRSiteData.health_plan,PRSiteData.npi_number,PRSiteData.last_name,PRSiteData.effective_date,PRSiteData.gender,PRSiteData.first_name,PRSiteData.category,PRSiteData.speciality
                                   , NPIAddress.state, NPIAddress.group_npi,NPIAddress.name,NPIAddress.address_line1,NPIAddress.address_line2,NPIAddress.zip_code,NPIAddress.city,PRSiteData.status,NPIAddress.update, PRSiteData.taxonomy_code).join(NPIAddress, PRSiteData.npi_number == NPIAddress.npi).filter(NPIAddress.update == 0,PRSiteData.status == 1).distinct(NPIAddress.zip_code).all()
@@ -290,7 +290,7 @@ def test_qc(quickcap_test):
                         if not quickcap_test.is_edit_button_available():
                             time.sleep(3)
                             quickcap_test.click_quick_add_button()
-                            quickcap_test.switch_to_new_window()
+                            quickcap_test.switch_to_new_window1()
                             allure.attach("Quick Add invoked", "QuickAdd", allure.attachment_type.TEXT)
                         else:
                             time.sleep(5)
@@ -338,7 +338,7 @@ def test_qc(quickcap_test):
                                         continue
 
                             with allure.step("Location entry"):
-                                quickcap_test.switch_to_previous_window()
+                                quickcap_test.switch_to_new_window1()
                                 quickcap_test.click_add_new_location()
 
                             with allure.step(f"Enter Name: {name}"):
@@ -588,6 +588,16 @@ def test_qc(quickcap_test):
 
             with allure.step(f"Searching NPI {npi_number}"):
                 try:
+                    # quickcap_test.expand_menu_if_cigna(company_name="Cigna")
+
+                    if quickcap_test.is_access_denied():
+                        allure.attach("Access Denied page encountered. Navigating back...",
+                                      name="Access Denied",
+                                      attachment_type=allure.attachment_type.TEXT)
+                        quickcap_test.driver.back()
+                        time.sleep(2)
+                        # try again expanding menu
+                        # quickcap_test.expand_menu_if_cigna(company_name="Cigna")
                     if quickcap_test.check_npi_search_field():
                         quickcap_test.enter_npi(npi_number)
                         quickcap_test.click_search_button()
@@ -609,12 +619,12 @@ def test_qc(quickcap_test):
                     if not quickcap_test.is_edit_button_available():
                         # time.sleep(3)
                         quickcap_test.click_quick_add_button()
-                        quickcap_test.switch_to_new_window()
+                        quickcap_test.switch_to_new_window1()
                         allure.attach("Quick Add invoked", "QuickAdd", allure.attachment_type.TEXT)
                     else:
                         quickcap_test.click_edit_button()
                         time.sleep(3)
-                        quickcap_test.switch_to_new_window()
+                        quickcap_test.switch_to_new_window1()
 
                         with allure.step("Provider setup"):
                             quickcap_test.click_provider_button()
@@ -950,51 +960,112 @@ def test_monday_status(monday_status_test):
         for record in npi_records:
             with allure.step(f"Processing NPI: {record.npi_number} (Status: {record.status})"):
                 try:
-                    if first_iteration:
-                        with allure.step("Clicking search button for first iteration"):
-                            monday_status_test.click_search_button()
+                    # if first_iteration:
+                    #     with allure.step("Clicking search button for first iteration"):
+                    #         monday_status_test.click_search_button()
+                    #         first_iteration = False
+                    #
+                    # monday_status_test.enter_npi_button(record.npi_number)
+                    # time.sleep(2)
+
+                    if record.status == 2 or record.status == 5:
+                        # First search NPI and get health plans from Monday
+                        if first_iteration:
+                            with allure.step("Clicking search button for first iteration"):
+                                monday_status_test.click_search_button()
                             first_iteration = False
 
-                    monday_status_test.enter_npi_button(record.npi_number)
-                    time.sleep(2)
+                        monday_status_test.enter_npi_button(record.npi_number)
+                        time.sleep(2)
 
-                    if record.status == 2:
-                        with allure.step("Marking NPI as Done"):
-                            monday_status_test.click_not_started()
-                            monday_status_test.click_done_button()
-                            time.sleep(2)
-                            monday_status_test.click_cross_button()
-                            time.sleep(2)
+                        # Get health plans from Monday UI for the searched NPI
+                        monday_health_plans = monday_status_test.get_all_health_plans_from_ui()
 
-                            record.status = 3
-                            db.commit()
-                            allure.attach(f"NPI {record.npi_number} processed as Done.",
-                                          name="Processing Success",
-                                          attachment_type=allure.attachment_type.TEXT)
-                            print(f"✅ NPI {record.npi_number} processed as Done.")
+                        # Compare with database health plan
+                        health_plan_match = False
+                        db_health_plan_clean = record.health_plan.strip().lower() if record.health_plan else ""
 
-                    elif record.status == 5:
-                        with allure.step("Marking NPI as Roadblock"):
-                            monday_status_test.click_not_started()
-                            monday_status_test.click_roadblock_button()
-                            npi_address = db.query(NPIAddress).filter(NPIAddress.npi == record.npi_number).first()
-                            if npi_address and npi_address.remarks:
-                                monday_status_test.enter_remarks1(npi_address.remarks)
+                        if monday_health_plans and db_health_plan_clean:
+                            for monday_health_plan in monday_health_plans:
+                                monday_health_plan_clean = monday_health_plan.strip().lower()
+                                # Handle truncated names and partial matches
+                                if (monday_health_plan_clean == db_health_plan_clean or
+                                        db_health_plan_clean.startswith(
+                                            monday_health_plan_clean.replace('...', '').replace('…', '').strip()) or
+                                        monday_health_plan_clean.startswith(db_health_plan_clean.split()[0].lower())):
+                                    health_plan_match = True
+                                    matched_health_plan = monday_health_plan
+                                    break
+
+                        # Only proceed if health plans match
+                        if health_plan_match:
+                            with allure.step(
+                                    f"Health plan match found: {matched_health_plan} - Processing NPI {record.npi_number}"):
+
+                                if record.status == 2:
+                                    with allure.step("Marking NPI as Done"):
+                                        monday_status_test.click_not_started_for_matching_health_plans(db_health_plan=record.health_plan)
+                                        monday_status_test.click_review_button()
+                                        time.sleep(2)
+                                        monday_status_test.click_cross_button()
+                                        time.sleep(2)
+
+                                        record.status = 3
+                                        db.commit()
+                                        allure.attach(f"NPI {record.npi_number} processed as Done.",
+                                                      name="Processing Success",
+                                                      attachment_type=allure.attachment_type.TEXT)
+                                        print(f"✅ NPI {record.npi_number} processed as Done.")
+
+                                elif record.status == 5:
+                                    with allure.step("Marking NPI as Roadblock"):
+                                        npi_address = db.query(NPIAddress).filter(
+                                            NPIAddress.npi == record.npi_number).first()
+
+                                        if npi_address and npi_address.remarks:
+                                            remarks_text = npi_address.remarks
+                                            print(f"📝 Found remarks in DB for NPI {record.npi_number}: {remarks_text}")
+                                        else:
+                                            remarks_text = "Organisation Data Missing"
+                                            print(
+                                                f"⚠No remarks found in DB for NPI {record.npi_number}, using default")
+
+                                        remarks_added = monday_status_test.process_rows_and_enter_remarks(
+                                            db_health_plan=record.health_plan,
+                                            db_effective_date=record.effective_date,
+                                            # Make sure you have this field
+                                            remarks_text=remarks_text
+                                        )
+
+                                        if remarks_added:
+                                            print(f"✅ Remarks added to matching rows for NPI {record.npi_number}")
+                                            # Continue with Roadblock process
+                                            # monday_status_test.click_not_started()
+                                            monday_status_test.click_not_started_for_matching_health_plans(db_health_plan=record.health_plan)
+                                            monday_status_test.click_roadblock_button()
+                                            time.sleep(2)
+                                            monday_status_test.click_cross_button()
+                                            time.sleep(2)
+                                            record.status = 6
+                                            db.commit()
+                                        else:
+                                            print(f" No matching rows found for NPI {record.npi_number}")
+                                else:
+                                    print(f"No remarks found in DB for NPI {record.npi_number}")
+                        else:
+                            # Health plans don't match - skip this NPI
+                            if monday_health_plans:
+                                monday_plans_str = ", ".join(monday_health_plans)
                             else:
-                                print(f"No remarks found in DB for NPI {record.npi_number}")
-                                allure.attach(f"No remarks found in DB for NPI {record.npi_number}",
-                                              name="No Remarks",
-                                              attachment_type=allure.attachment_type.TEXT)
-                            time.sleep(2)
-                            monday_status_test.click_cross_button()
-                            time.sleep(2)
+                                monday_plans_str = "No health plans found in UI"
 
-                            record.status = 6
-                            db.commit()
-                            allure.attach(f"NPI {record.npi_number} marked as Roadblock.",
-                                          name="Processing Success",
-                                          attachment_type=allure.attachment_type.TEXT)
-                            print(f"NPI {record.npi_number} marked as Roadblock.")
+                            allure.attach(
+                                f"No health plan match for NPI {record.npi_number}. DB: {record.health_plan}, Monday.com: {monday_plans_str}",
+                                name="Health Plan Mismatch",
+                                attachment_type=allure.attachment_type.TEXT)
+                            print(
+                                f"⚠️ Skipping NPI {record.npi_number} - Health plan mismatch. DB: {record.health_plan}, Monday.com: {monday_plans_str}")
+                            continue
 
                 except Exception as e:
                     allure.attach(f"Error processing NPI {record.npi_number}: {str(e)}",

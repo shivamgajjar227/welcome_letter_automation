@@ -25,6 +25,7 @@ class QuickcapPage(BasePage):
     PASSWORD_FIELD = (By.XPATH, "//input[@id='TaRpas_password']")
     LOGIN_BUTTON = (By.XPATH, "//input[@value='LOGIN']")
     select_company = (By.XPATH, "//td[@class='clientBold']//a[@id='comptda_DNSWC']")
+    # select_company = (By.XPATH, "//td[@class='clientBold']//a[@id='comptda_PCI']")
     credentialing_tab = (By.XPATH, "(//h3[normalize-space()='Credentialing'])[1]")
     practitioner_data = (By.XPATH, "//a[normalize-space()='Practitioner Data']")
     npi_fields = (By.XPATH, "//input[@id='Sr_Tatxt_npi']")
@@ -631,7 +632,9 @@ class QuickcapPage(BasePage):
                 "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
                 "cardiology": "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]",
                 "neurology": "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]",
-                "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]"
+                "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
+                "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
+
             }
 
             # Step 3: Get correct xpath
@@ -1361,6 +1364,7 @@ class QuickcapPage(BasePage):
                 "orthopedic": "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
                 "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
                 "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
+                "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
 
             }
 
@@ -1737,6 +1741,33 @@ class QuickcapPage(BasePage):
 
         except Exception as e:
             print(f"❌ Error in select_npi_ending_with_A: {e}")
+            return False
+
+    def expand_menu_if_cigna(self, company_name: str):
+        """
+        Expands the left menu only if company is Cigna.
+        """
+        try:
+            if company_name.lower() == "cigna":
+                arrow_locator = (By.XPATH, "//img[@id='links_handler']")
+                arrow = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable(arrow_locator)
+                )
+                arrow.click()
+                print("✅ Left arrow clicked for Cigna")
+            else:
+                print("➡️ No need to expand menu, company is not Cigna")
+        except Exception as e:
+            print(f"❌ Could not expand menu for Cigna: {e}")
+
+    def is_access_denied(self):
+
+        try:
+            error_element = WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.XPATH, "//font[normalize-space()='Access Denied']"))
+            )
+            return error_element is not None
+        except:
             return False
 
 

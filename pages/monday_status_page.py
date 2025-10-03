@@ -7,6 +7,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from core import loggin_utils
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+
 
 
 log_name = "MondayPage"
@@ -24,10 +26,11 @@ class MondayStatusPage(BasePage):
                         "//div[@class='board-filter-input-container boardFilterInputContainer--6Cols board-filter-search board-filter-input-container--expandable']")
     not_started = (By.XPATH, "//div[contains(text(),'Not Started')]")
     done_button = (By.XPATH,
-                   "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
+                   "//span[normalize-space()='Review']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
     roadblock_button = (By.XPATH, "//span[normalize-space()='Roadblock']")
     remarks = (By.XPATH, "(//div[@role='presentation'])[52]")
+    enter_remarks = (By.XPATH, "//div[contains(@class,'text-cell-view-module_wrapperComponent__VMKAw')]")
 
     @allure.story("Do login with username: {1} and password: ****")
     def login(self, username, password):
@@ -161,7 +164,7 @@ class MondayStatusPage(BasePage):
         except Exception as e:
             print(f"Error while click not started: {e}")
 
-    def click_done_button(self):
+    def click_review_button(self):
         logger.info(f"Inside Click Done Button")
         try:
             WebDriverWait(self.driver, 10).until(
@@ -224,17 +227,228 @@ class MondayStatusPage(BasePage):
         try:
             remarks_cell = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH,
-                                            "(//div[@class='text-cell-view-module_wrapperComponent__VMKAw'])[13]"))
+                                            "(//div[contains(@class,'text-cell-view-module_wrapperComponent__VMKAw')])[4]"))
             )
             remarks_cell.click()
 
-            input_box = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "(//div[@class='text-cell-view-module_wrapperComponent__VMKAw'])[13]"))
+            # Step 2: Wait for input field to appear inside the cell
+            input_field = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH,
+                                                "(//div[contains(@class,'text-cell-view-module_wrapperComponent__VMKAw')])[4]//input | "
+                                                "(//div[contains(@class,'text-cell-view-module_wrapperComponent__VMKAw')])[4]//textarea"
+                                                ))
             )
-            input_box.clear()
-            input_box.send_keys(value)
+
+            # Step 3: Clear and type
+            input_field.clear()
+            input_field.send_keys(value)
 
             print(f"Remarks '{value}' entered successfully.")
             logger.info(f"Out from Enter Remarks: {value}")
+
         except Exception as e:
             print(f"Error in entering Remarks: {e}")
+
+    def get_all_health_plans_from_ui(self):
+        """
+        Return ALL health plans including duplicates
+        """
+        health_plans = []
+        try:
+            time.sleep(3)
+
+            all_chips = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+            non_healthplans = ['Medicare', 'Medicaid', 'Commercial']
+
+            for chip in all_chips:
+                text = chip.text.strip()
+                if text and text not in non_healthplans:
+                    health_plans.append(text)  # Allow duplicates
+                    print(f"✅ Health plan: {text}")
+
+            print(f"🎯 All health plans (with duplicates): {health_plans}")
+            return health_plans
+
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            return None
+
+    def process_rows_and_enter_remarks(self, db_health_plan, db_effective_date, remarks_text):
+        """
+        Process all rows, check health plan and effective date, and enter remarks in matching rows
+        """
+        try:
+            time.sleep(3)
+
+            # Get all rows
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'pulse-component-wrapper')]"))
+            )
+            print(f"📊 Found {len(rows)} rows to check")
+
+            matching_rows_count = 0
+
+            for row_index, row in enumerate(rows):
+                print(f"🔍 Checking row {row_index + 1}...")
+
+                # Get health plan from this row
+                row_health_plan = None
+                try:
+                    health_plan_elements = row.find_elements(By.XPATH,
+                                                             ".//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+                    for element in health_plan_elements:
+                        text = element.text.strip()
+                        if text and text not in ['Medicare', 'Medicaid', 'Commercial']:
+                            row_health_plan = text
+                            break
+                except Exception as e:
+                    print(f"Error getting health plan from row: {e}")
+
+                # Get effective date from this row
+                row_effective_date = None
+                try:
+                    date_selectors = [
+                        ".//div[contains(@class, 'date-cell-component')]//div[contains(@class, 'ds-text-component')]",
+                        ".//div[contains(@class, 'grid-cell-component-wrapper')][6]//div[contains(@class, 'ds-text-component')]",
+                        ".//div[contains(@class, 'date-cell')]//span"
+                    ]
+                    for selector in date_selectors:
+                        try:
+                            date_elements = row.find_elements(By.XPATH, selector)
+                            for element in date_elements:
+                                text = element.text.strip()
+                                if text and any(month in text.lower() for month in
+                                                ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct',
+                                                 'nov', 'dec']):
+                                    row_effective_date = text
+                                    break
+                            if row_effective_date:
+                                break
+                        except:
+                            continue
+                except Exception as e:
+                    print(f"Error getting effective date from row: {e}")
+
+                # Compare health plans
+                health_plan_match = False
+                if row_health_plan and db_health_plan:
+                    db_hp_clean = db_health_plan.strip().lower()
+                    ui_hp_clean = row_health_plan.strip().lower()
+                    health_plan_match = db_hp_clean in ui_hp_clean or ui_hp_clean in db_hp_clean
+
+                # Compare dates
+                effective_date_match = False
+                if row_effective_date and db_effective_date:
+                    db_date_clean = db_effective_date.strip().lower()
+                    ui_date_clean = row_effective_date.strip().lower()
+                    month_abbreviations = {
+                        'jan': 'january', 'feb': 'february', 'mar': 'march', 'apr': 'april',
+                        'may': 'may', 'jun': 'june', 'jul': 'july', 'aug': 'august',
+                        'sep': 'september', 'oct': 'october', 'nov': 'november', 'dec': 'december'
+                    }
+                    effective_date_match = (db_date_clean in ui_date_clean or
+                                            ui_date_clean in db_date_clean or
+                                            any(db_date_clean.startswith(month) and ui_date_clean.startswith(month)
+                                                for month in month_abbreviations.keys()))
+
+                # Check if BOTH health plan AND effective date match
+                if health_plan_match and effective_date_match:
+                    print(
+                        f"✅ FULL MATCH found in row {row_index + 1}: Health Plan: {row_health_plan}, Date: {row_effective_date}")
+
+                    # Add remarks to this specific row
+                    try:
+                        remarks_cell = row.find_element(By.XPATH,
+                                                        ".//div[contains(@class,'text-cell-view-module_wrapperComponent__VMKAw')]")
+
+                        (ActionChains(self.driver)
+                         .click(remarks_cell)
+                         .pause(2)
+                         .send_keys(remarks_text)
+                         .pause(0.5)
+                         .send_keys(Keys.RETURN)
+                         .perform())
+
+                        time.sleep(1)
+                        matching_rows_count += 1
+                        print(f"✅ Remarks added to row {row_index + 1}")
+
+                    except Exception as e:
+                        print(f" Failed to add remarks to row {row_index + 1}: {e}")
+                else:
+                    print(f" No match in row {row_index + 1}")
+                    print(f"   Row HP: {row_health_plan}, Row Date: {row_effective_date}")
+                    print(f"   DB HP: {db_health_plan}, DB Date: {db_effective_date}")
+                    print(f"   HP Match: {health_plan_match}, Date Match: {effective_date_match}")
+
+            print(f"🎯 Total {matching_rows_count} rows updated with remarks")
+            return matching_rows_count > 0
+
+        except Exception as e:
+            print(f"❌ Error in process_rows_and_enter_remarks: {e}")
+            return False
+
+    def click_not_started_for_matching_health_plans(self, db_health_plan):
+        """
+        Process all rows, check health plan, and click Not Started on matching rows
+        """
+        try:
+            time.sleep(3)
+
+            # Get all rows
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'pulse-component-wrapper')]"))
+            )
+            print(f"📊 Found {len(rows)} rows to check")
+
+            matching_rows_count = 0
+
+            for row_index, row in enumerate(rows):
+                print(f"🔍 Checking row {row_index + 1}...")
+
+                # Get health plan from this row
+                row_health_plan = None
+                try:
+                    health_plan_elements = row.find_elements(By.XPATH,
+                                                             ".//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+                    for element in health_plan_elements:
+                        text = element.text.strip()
+                        if text and text not in ['Medicare', 'Medicaid', 'Commercial']:
+                            row_health_plan = text
+                            break
+                except Exception as e:
+                    print(f"Error getting health plan from row: {e}")
+
+                # Compare health plans
+                health_plan_match = False
+                if row_health_plan and db_health_plan:
+                    db_hp_clean = db_health_plan.strip().lower()
+                    ui_hp_clean = row_health_plan.strip().lower()
+                    health_plan_match = db_hp_clean in ui_hp_clean or ui_hp_clean in db_hp_clean
+
+                # Check if health plan matches
+                if health_plan_match:
+                    print(f"✅ Health plan match found in row {row_index + 1}: {row_health_plan}")
+
+                    try:
+                        # Click Not Started for this row
+                        not_started_btn = row.find_element(By.XPATH,
+                                                           ".//div[contains(@class, 'status-cell-component')]")
+                        not_started_btn.click()
+                        time.sleep(1)
+                        print(f"✅ Not Started clicked on row {row_index + 1}")
+
+                        matching_rows_count += 1
+
+                    except Exception as e:
+                        print(f"❌ Failed to click Not Started on row {row_index + 1}: {e}")
+                else:
+                    print(f"❌ No health plan match in row {row_index + 1}")
+                    print(f"   Row HP: {row_health_plan}, DB HP: {db_health_plan}")
+
+            print(f"🎯 Total {matching_rows_count} rows with Not Started clicked")
+            return matching_rows_count > 0
+
+        except Exception as e:
+            print(f"❌ Error in click_not_started_for_matching_health_plans: {e}")
+            return False
