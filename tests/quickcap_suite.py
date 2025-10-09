@@ -88,7 +88,7 @@ def test_pr_site(pr_sites_test):
                     npi = str(record.npi_number)
                     pr_sites_test.enter_npi_search(npi)
                     pr_sites_test.click_search_npi()
-                    time.sleep(3)
+                    # time.sleep(3)
 
                 with allure.step("Fetching Individual NPI Details"):
                     last_name = pr_sites_test.get_last_name()
@@ -125,12 +125,12 @@ def test_pr_site(pr_sites_test):
                     npi = str(record.npi_number)
                     pr_sites_test.enter_npi_search(npi)
                     pr_sites_test.click_search_npi()
-                    time.sleep(15)
+                    # time.sleep(15)
                     group_npi = pr_sites_test.get_group_npi()
                     group_name = pr_sites_test.get_group_name()
                     # pr_sites_test.select_click_for_tax_id()
                     # tax_id = pr_sites_test.get_tax_id()
-                    pr_sites_test.get_ind_npi_list_with_grp_npi_locations(record, group_npi, group_name)
+                    pr_sites_test.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
                     allure.attach(
                         f"Group NPI: {group_npi}, Group Name: {group_name}",
                         f"Group Details for {npi}"
@@ -263,7 +263,7 @@ def test_qc(quickcap_test):
                         if quickcap_test.check_npi_search_field():
                             quickcap_test.enter_npi(npi_number)
                             quickcap_test.click_search_button()
-                            time.sleep(5)
+                            # time.sleep(5)
                         else:
                             quickcap_test.ensure_credentialing_tab()
                             quickcap_test.choose_credentialing_tab()
@@ -288,12 +288,12 @@ def test_qc(quickcap_test):
                     # check_no_data_found = quickcap_test.check_no_data_found_text()
                     with allure.step(f"Handling Quick Add / Edit for {npi_number}"):
                         if not quickcap_test.is_edit_button_available():
-                            time.sleep(3)
+                            # time.sleep(3)
                             quickcap_test.click_quick_add_button()
                             quickcap_test.switch_to_new_window1()
                             allure.attach("Quick Add invoked", "QuickAdd", allure.attachment_type.TEXT)
                         else:
-                            time.sleep(5)
+                            # time.sleep(5)
                             quickcap_test.click_edit_button()
                             quickcap_test.switch_to_new_window1()
 
@@ -361,19 +361,21 @@ def test_qc(quickcap_test):
                             with allure.step("Click Primary"):
                                 quickcap_test.click_primary()
                                 # quickcap_test.click_cancel1()
-                                time.sleep(5)
+                                # time.sleep(5)
 
                             with allure.step("Click Save"):
                                 quickcap_test.click_save1()
-                                quickcap_test.driver.close()
-                                quickcap_test.switch_to_new_window1()
-                                quickcap_test.switch_to_new_window1()
+
+                            with allure.step("Closing popup safely if exists"):
+                                if quickcap_test.driver.current_window_handle != main_window:
+                                    quickcap_test.driver.close()
+                                    quickcap_test.driver.switch_to.window(main_window)
 
                             with allure.step("Healthplan entry"):
                                 quickcap_test.enter_npi(npi_number)
                                 quickcap_test.click_search_button()
                                 quickcap_test.click_edit_button()
-                                time.sleep(3)
+                                # time.sleep(3)
                                 quickcap_test.switch_to_new_window()
                                 quickcap_test.click_provider_button()
                                 quickcap_test.click_edit_for_healthplan(provider_id)
@@ -385,6 +387,7 @@ def test_qc(quickcap_test):
                                 quickcap_test.enter_membership_date(full_date or "")
                                 quickcap_test.click_plus_button()
                                 quickcap_test.click_save_healthplan()
+                                quickcap_test.driver.close()
 
                             with allure.step("Taxonomy entry"):
                                 quickcap_test.switch_to_new_window()
@@ -519,7 +522,7 @@ def test_qc(quickcap_test):
                     quickcap_test.enter_npi(npi_number)
                     quickcap_test.click_search_button()
                     quickcap_test.click_edit_button()
-                    time.sleep(3)
+                    # time.sleep(3)
                     quickcap_test.switch_to_new_window()
                     quickcap_test.click_provider_button()
                     quickcap_test.click_edit_for_healthplan_for_A()
@@ -532,6 +535,7 @@ def test_qc(quickcap_test):
                     quickcap_test.enter_membership_date(full_date or "")
                     quickcap_test.click_plus_button()
                     quickcap_test.click_save_healthplan()
+                    quickcap_test.driver.close()
                     quickcap_test.switch_to_new_window()
 
                 with allure.step("Adding Taxonomy details"):
@@ -584,7 +588,7 @@ def test_qc(quickcap_test):
                 # quickcap_test.click_agree_inside_iframe()
                 # quickcap_test.click_cancel()
                 # quickcap_test.click_links_handler()
-                time.sleep(5)
+                # time.sleep(5)
 
             with allure.step(f"Searching NPI {npi_number}"):
                 try:
@@ -595,18 +599,18 @@ def test_qc(quickcap_test):
                                       name="Access Denied",
                                       attachment_type=allure.attachment_type.TEXT)
                         quickcap_test.driver.back()
-                        time.sleep(2)
+                        # time.sleep(2)
                         # try again expanding menu
                         # quickcap_test.expand_menu_if_cigna(company_name="Cigna")
                     if quickcap_test.check_npi_search_field():
                         quickcap_test.enter_npi(npi_number)
                         quickcap_test.click_search_button()
-                        time.sleep(5)
+                        # time.sleep(5)
                     else:
                         quickcap_test.ensure_credentialing_tab()
                         quickcap_test.choose_credentialing_tab()
                         quickcap_test.choose_practitioner_data()
-                        time.sleep(5)
+                        # time.sleep(5)
                         quickcap_test.enter_npi(npi_number)
                         quickcap_test.click_search_button()
                         # time.sleep(5)
@@ -693,7 +697,7 @@ def test_qc(quickcap_test):
                         with allure.step("Select Primary"):
                             quickcap_test.click_primary()
                             # quickcap_test.click_cancel1()
-                            time.sleep(5)
+                            # time.sleep(5)
 
                         with allure.step("Click Save"):
                             quickcap_test.click_save1()
@@ -707,7 +711,7 @@ def test_qc(quickcap_test):
                             quickcap_test.enter_npi(npi_number)
                             quickcap_test.click_search_button()
                             quickcap_test.click_edit_button()
-                            time.sleep(3)
+                            # time.sleep(3)
                             quickcap_test.switch_to_new_window()
                             quickcap_test.click_provider_button()
                             quickcap_test.click_edit_for_healthplan(provider_id)
@@ -719,6 +723,7 @@ def test_qc(quickcap_test):
                             quickcap_test.enter_membership_date(full_date or "")
                             quickcap_test.click_plus_button()
                             quickcap_test.click_save_healthplan()
+                            quickcap_test.driver.close()
 
                         with allure.step("Adding Taxonomy"):
                             quickcap_test.switch_to_new_window()
@@ -820,6 +825,7 @@ def test_qc(quickcap_test):
             with allure.step(f"Enter Name: {name}"):
                 quickcap_test.enter_name(name)
 
+
             with allure.step(f"Enter Address Line1: {address_line1}"):
                 quickcap_test.enter_address1(address_line1 or "")
 
@@ -840,13 +846,13 @@ def test_qc(quickcap_test):
                 quickcap_test.select_contract_template (company_name)
 
             with allure.step("Saving contract form"):
-                time.sleep(5)
+                # time.sleep(5)
                 quickcap_test.click_save()
-                time.sleep(5)
+                # time.sleep(5)
                 quickcap_test.accept_alert()
-                time.sleep(5)
+                # time.sleep(5)
                 quickcap_test.dismiss_alert()
-                time.sleep(5)
+                # time.sleep(5)
                 allure.attach(f"NPI {npi_number} contract form saved successfully",
                               name="Contract Save",
                               attachment_type=allure.attachment_type.TEXT)
@@ -861,7 +867,7 @@ def test_qc(quickcap_test):
                 quickcap_test.enter_npi(npi_number)
                 quickcap_test.click_search_button()
                 quickcap_test.click_edit_button()
-                time.sleep(3)
+                # time.sleep(3)
                 quickcap_test.switch_to_new_window()
                 quickcap_test.click_provider_button()
                 quickcap_test.click_edit_for_healthplan_for_A()
@@ -874,6 +880,7 @@ def test_qc(quickcap_test):
                 quickcap_test.enter_membership_date(full_date or "")
                 quickcap_test.click_plus_button()
                 quickcap_test.click_save_healthplan()
+                quickcap_test.driver.close()
                 allure.attach(f"Membership date {full_date} saved for NPI {npi_number}",
                               name="Membership Save",
                               attachment_type=allure.attachment_type.TEXT)
@@ -969,19 +976,16 @@ def test_monday_status(monday_status_test):
                     # time.sleep(2)
 
                     if record.status == 2 or record.status == 5:
-                        # First search NPI and get health plans from Monday
                         if first_iteration:
                             with allure.step("Clicking search button for first iteration"):
                                 monday_status_test.click_search_button()
                             first_iteration = False
 
                         monday_status_test.enter_npi_button(record.npi_number)
-                        time.sleep(2)
+                        # time.sleep(2)
 
-                        # Get health plans from Monday UI for the searched NPI
                         monday_health_plans = monday_status_test.get_all_health_plans_from_ui()
 
-                        # Compare with database health plan
                         health_plan_match = False
                         db_health_plan_clean = record.health_plan.strip().lower() if record.health_plan else ""
 
@@ -997,7 +1001,6 @@ def test_monday_status(monday_status_test):
                                     matched_health_plan = monday_health_plan
                                     break
 
-                        # Only proceed if health plans match
                         if health_plan_match:
                             with allure.step(
                                     f"Health plan match found: {matched_health_plan} - Processing NPI {record.npi_number}"):
@@ -1006,16 +1009,16 @@ def test_monday_status(monday_status_test):
                                     with allure.step("Marking NPI as Done"):
                                         monday_status_test.click_not_started_for_matching_health_plans(db_health_plan=record.health_plan)
                                         monday_status_test.click_review_button()
-                                        time.sleep(2)
+                                        # time.sleep(2)
                                         monday_status_test.click_cross_button()
-                                        time.sleep(2)
+                                        # time.sleep(2)
 
                                         record.status = 3
                                         db.commit()
                                         allure.attach(f"NPI {record.npi_number} processed as Done.",
                                                       name="Processing Success",
                                                       attachment_type=allure.attachment_type.TEXT)
-                                        print(f"✅ NPI {record.npi_number} processed as Done.")
+                                        print(f" NPI {record.npi_number} processed as Done.")
 
                                 elif record.status == 5:
                                     with allure.step("Marking NPI as Roadblock"):
@@ -1024,7 +1027,7 @@ def test_monday_status(monday_status_test):
 
                                         if npi_address and npi_address.remarks:
                                             remarks_text = npi_address.remarks
-                                            print(f"📝 Found remarks in DB for NPI {record.npi_number}: {remarks_text}")
+                                            print(f" Found remarks in DB for NPI {record.npi_number}: {remarks_text}")
                                         else:
                                             remarks_text = "Organisation Data Missing"
                                             print(
@@ -1033,19 +1036,18 @@ def test_monday_status(monday_status_test):
                                         remarks_added = monday_status_test.process_rows_and_enter_remarks(
                                             db_health_plan=record.health_plan,
                                             db_effective_date=record.effective_date,
-                                            # Make sure you have this field
                                             remarks_text=remarks_text
                                         )
 
                                         if remarks_added:
-                                            print(f"✅ Remarks added to matching rows for NPI {record.npi_number}")
+                                            print(f" Remarks added to matching rows for NPI {record.npi_number}")
                                             # Continue with Roadblock process
                                             # monday_status_test.click_not_started()
                                             monday_status_test.click_not_started_for_matching_health_plans(db_health_plan=record.health_plan)
                                             monday_status_test.click_roadblock_button()
-                                            time.sleep(2)
+                                            # time.sleep(2)
                                             monday_status_test.click_cross_button()
-                                            time.sleep(2)
+                                            # time.sleep(2)
                                             record.status = 6
                                             db.commit()
                                         else:
@@ -1053,7 +1055,6 @@ def test_monday_status(monday_status_test):
                                 else:
                                     print(f"No remarks found in DB for NPI {record.npi_number}")
                         else:
-                            # Health plans don't match - skip this NPI
                             if monday_health_plans:
                                 monday_plans_str = ", ".join(monday_health_plans)
                             else:
@@ -1064,7 +1065,7 @@ def test_monday_status(monday_status_test):
                                 name="Health Plan Mismatch",
                                 attachment_type=allure.attachment_type.TEXT)
                             print(
-                                f"⚠️ Skipping NPI {record.npi_number} - Health plan mismatch. DB: {record.health_plan}, Monday.com: {monday_plans_str}")
+                                f"Skipping NPI {record.npi_number} - Health plan mismatch. DB: {record.health_plan}, Monday.com: {monday_plans_str}")
                             continue
 
                 except Exception as e:

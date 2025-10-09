@@ -86,3 +86,13 @@ def pytest_runtest_makereport(item, call):
                 )
             except Exception as e:
                 print("Could not attach screenshot:", e)
+
+@pytest.fixture(scope="function")
+def open_two_windows(driver):
+    driver.get("https://monday-site.com")
+    monday_page = MondayPage(driver)
+    monday_handle = driver.current_window_handle
+
+    if monday_page.is_login_page():
+        monday_page.login("autoprocess@pns-mgmt.com", "@VEnger200@@@@")
+

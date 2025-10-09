@@ -169,14 +169,21 @@ class QuickcapPage(BasePage):
         logger.info(f"Inside Enter NPI")
         try:
             logger.info(f"Inside enter npi: {npi}")
+            WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(self.npi_fields)
+            )
             self.click(self.npi_fields)
+
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.npi_fields)
+            )
             self.enter_text(self.npi_fields, npi)
             print(f"NPI entered successfully: {npi}")
             logger.info(f"Out from Enter NPI")
         except Exception as e:
             print(f"Error in enter_npi while entering NPI '{npi}': {e}")
 
-    def accept_alert(self, timeout=5):
+    def accept_alert(self, timeout=10):
         logger.info(f"Inside Accept Alert")
         """
         Waits for an alert up to `timeout` seconds and clicks OK if present.
@@ -220,7 +227,7 @@ class QuickcapPage(BasePage):
             print(f"Error Type: {type(e).__name__}")
             print(f"Error Message: Element 'No data found' not visible within timeout")
 
-    def dismiss_alert(self, timeout=5):
+    def dismiss_alert(self, timeout=10):
         logger.info(f"Inside Dismiss Alert")
         """
         Waits for alert up to `timeout` seconds and clicks Cancel if present.
@@ -256,7 +263,7 @@ class QuickcapPage(BasePage):
 
             for selector in selectors:
                 try:
-                    element = WebDriverWait(self.driver, 5).until(
+                    element = WebDriverWait(self.driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, selector))
                     )
                     self.driver.execute_script("arguments[0].click();", element)
@@ -611,6 +618,9 @@ class QuickcapPage(BasePage):
     def click_save(self):
         logger.info(f"Inside Click Save")
         try:
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.save)
+            )
             self.click(self.save)
             print("Save button clicked successfully.")
             logger.info(f"Out from Click Save")
@@ -634,6 +644,7 @@ class QuickcapPage(BasePage):
                 "neurology": "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]",
                 "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
                 "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
+                "orthopedic": "//li[contains(normalize-space(), 'OS - Other Specialty')]",
 
             }
 
@@ -850,12 +861,16 @@ class QuickcapPage(BasePage):
 
             # If not visible, click the arrow to expand menu
             print("⚠️ Credentialing tab not found. Expanding menu...")
-            arrow_button = self.driver.find_element(By.XPATH, "//div[@id='menu']//span[@class='arrow']")
+            arrow_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@id='menu']//span[@class='arrow']"))
+            )
             arrow_button.click()
             time.sleep(2)
 
             # Check again after expanding
-            tabs = self.driver.find_elements(By.XPATH, "//a[contains(text(),'Credentialing')]")
+            tabs = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//a[contains(text(),'Credentialing')]"))
+            )
             if tabs:
                 print("✅ Credentialing tab is now visible after expanding.")
                 return True
@@ -875,7 +890,11 @@ class QuickcapPage(BasePage):
             if not dropdown_value:
                 raise ValueError(f"No contract template mapping found for company: {company_name}")
 
-            dropdown = Select(self.driver.find_element(By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
+            dropdown_element = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located((By.XPATH, "//select[@id='slt_CONTRACT_TEMPLATE_ID']"))
+            )
+
+            dropdown = Select(dropdown_element)
             dropdown.select_by_visible_text(dropdown_value)
             print(f"Contract template for company '{company_name}' selected as '{dropdown_value}'.")
             logger.info(f"Out from Select Contract Template:{company_name}")
@@ -1326,7 +1345,7 @@ class QuickcapPage(BasePage):
                 raise ValueError("npi_fields must be defined as a tuple (By.<METHOD>, 'locator')")
 
             # Wait for element to be present (not necessarily visible)
-            elements = WebDriverWait(self.driver, 5).until(
+            elements = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located(self.npi_fields)
             )
             return len(elements) > 0
@@ -1365,6 +1384,7 @@ class QuickcapPage(BasePage):
                 "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
                 "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
                 "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
+                "orthopedic": "//li[contains(normalize-space(), 'OS - Other Specialty')]",
 
             }
 
@@ -1384,7 +1404,11 @@ class QuickcapPage(BasePage):
     def click_primary(self):
         logger.info(f"Inside Click Primary")
         try:
-            self.click(self.primary)
+            element = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.primary)
+            )
+
+            element.click()
             print("Primary button clicked successfully.")
             logger.info(f"Out from Click Primary")
         except Exception as e:
@@ -1478,7 +1502,7 @@ class QuickcapPage(BasePage):
         print("Edit button not available after retries")
         return False
 
-    def click_edit_for_healthplan(self, provider_id: str):
+    def click_edit_for_healthplan(self, provider_id: str= 'A'):
         logger.info(f"Inside Click Edit Button for Provider ID ending with: {provider_id}")
         try:
             # ✅ Extract last letter from provider_id (inside brackets)
@@ -1763,7 +1787,7 @@ class QuickcapPage(BasePage):
     def is_access_denied(self):
 
         try:
-            error_element = WebDriverWait(self.driver, 3).until(
+            error_element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//font[normalize-space()='Access Denied']"))
             )
             return error_element is not None

@@ -136,7 +136,7 @@ class MondayStatusPage(BasePage):
         return npis
 
     def click_search_button(self):
-        WebDriverWait(self.driver, 8).until(
+        WebDriverWait(self.driver, 15).until(
             EC.element_to_be_clickable(self.search_button)
         ).click()
 
@@ -170,6 +170,7 @@ class MondayStatusPage(BasePage):
             WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.done_button)
             ).click()
+            time.sleep(3)
             logger.info(f"Out from Click Done Button")
         except Exception as e:
             print(f"Error while click done button: {e}")
@@ -177,9 +178,10 @@ class MondayStatusPage(BasePage):
     def click_cross_button(self):
         logger.info(f"Inside Click Cross Button")
         try:
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 15).until(
                 EC.element_to_be_clickable(self.cross)
             ).click()
+            time.sleep(3)
             logger.info(f"Out from Click Cross Button")
         except Exception as e:
             print(f"Error while click cross button: {e}")
@@ -193,9 +195,10 @@ class MondayStatusPage(BasePage):
     def click_roadblock_button(self):
         logger.info(f"Inside Click Roadblock Button")
         try:
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 15).until(
                 EC.element_to_be_clickable(self.roadblock_button)
             ).click()
+            time.sleep(3)
             logger.info(f"Out from Click Roadblock Button")
         except Exception as e:
             print(f"Error while click Roadblock button: {e}")
@@ -256,6 +259,11 @@ class MondayStatusPage(BasePage):
         health_plans = []
         try:
             time.sleep(3)
+
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located(
+                    (By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]"))
+            )
 
             all_chips = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
             non_healthplans = ['Medicare', 'Medicaid', 'Commercial']

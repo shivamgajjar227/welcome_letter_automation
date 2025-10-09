@@ -64,26 +64,28 @@ COMPANY_MAP = {
     }
 
 CATEGORY_MAP = {
-        "ARNP": "ARNP - ARNP",
-        "CRNA": "CRNA - CRNA",
-        "CRNP": "CRNP - CRNP",
+        "ARNP": "EX - EXTENDER",
+        "CRNA": "EX - EXTENDER",
+        "CRNP": "EX - EXTENDER",
         "DC": "DC - CHIROPRACTORS",
-        "DDS": "DDS - DDS",
+        "DDS": "EX - EXTENDER",
         "DO": "DO - OSTEOPATHIC PHYSICIAN",
         "DPM": "DPM - DPM",
-        "FNP": "FNP - FAMILY NURSE PRACTITIONER",
-        "LM": "LM - LICENCE MIDWIFE",
+        "FNP": "EX - EXTENDER",
+        "LM": "EX - EXTENDER",
         "MD": "MD - MD",
-        "MID": "MID - MIDWIFE",
-        "ND": "ND - NATUROPATHIC DOCTOR",
-        "NMW": "NMW - NURSE MIDWIFE",
-        "NP": "NP - NURSE PRACITIONER",
-        "PA": "PA - PHYSICIAN ASSISTANT",
-        "PHD": "PHD - PHD",
-        "PT": "PT - PHYSICAL THERAPY",
-        "RD": "RD - REGISTERED DIETICIAN",
-        "RN": "RN - REGISTERED NURSE",
-        "PA-C": "PA - PHYSICIAN ASSISTANT",
+        "MID": "EX - EXTENDER",
+        "ND": "EX - EXTENDER",
+        "NMW": "EX - EXTENDER",
+        "NP": "EX - EXTENDER",
+        "PA": "EX - EXTENDER",
+        "PHD": "EX - EXTENDER",
+        "PT": "EX - EXTENDER",
+        "RD": "EX - EXTENDER",
+        "RN": "EX - EXTENDER",
+        "PA-C": "EX - EXTENDER",
+        "APRN": "EX - EXTENDER",
+        "APN": "EX - EXTENDER",
     }
 
 STATE_DROPDOWN_MAP = {
@@ -143,11 +145,14 @@ STATE_DROPDOWN_MAP = {
     }
 PRIMARY_SPECIALITY_MAP = {
         "Dermatology": "D - DERMATOLOGY",
+        "Dermatology": "D - Dermatology",
         "Podiatry": "POD - PODIATRY",
         "Podiatry, Wound Care": "POD - PODIATRY",
         "Orthopedic": "ORT - ORTHOPEDICS",
+        "orthopedic": "OS - Other Specialty",
         "Pain Management": "APM - ANESTHESIOLOGY/PAIN MANAGEMENT",
-    }
+
+}
 
 TEMPLATE_MAP = {
     "DNS BCBS": "NON CONTRACTED [1980/01/01]",
@@ -162,5 +167,7 @@ TEMPLATE_MAP = {
     "DNS Simply": "Non Contracted [2022/05/01]",
     "PNS Aetna": "NON CONTRACTED PROVIDER [2017/07/01]",
     "PNS BCBS": "NON CONTRACTED PROVIDER [2010/01/01]",
-    "DNS Cigna": "NON CONTRACTED PROVIDER [1980/01/01]"
+    "DNS Cigna": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PMC Cigna": "NON CONTRACTED PROVIDER [1980/01/01]",
+    "PNS Cigna": "NON CONTRACTED PROVIDER [1980/01/01]"
 }

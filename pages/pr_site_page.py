@@ -118,7 +118,7 @@ class PRSitePage(BasePage):
     def click_search_npi(self):
         logger.info(f"Inside Click Search NPI")
         try:
-            element = WebDriverWait(self.driver, 5).until(
+            element = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(self.search_button)
             )
             element.click()
@@ -262,7 +262,7 @@ class PRSitePage(BasePage):
     def get_group_npi(self):
         logger.info(f"Inside get Group NPI")
         try:
-            element = WebDriverWait(self.driver, 10).until(
+            element = WebDriverWait(self.driver, 15).until(
                 EC.visibility_of_element_located(self.click_for_npi)
             )
             return element.text.strip()
@@ -362,7 +362,7 @@ class PRSitePage(BasePage):
             print("Taxonomy Code element not found.")
             return None
 
-    def get_ind_npi_list_with_grp_npi_locations(self, record, group_npi, group_name):
+    def get_ind_npi_list_with_grp_npi_locations(self, record, group_npi):
         logger.info(f"Inside get address for NPI {record.npi_number}")
         table_xpath = "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr[position()>1]"
         addresses = []
@@ -388,6 +388,13 @@ class PRSitePage(BasePage):
                         By.XPATH, ".//a[contains(@id,'LnkProvPractPlanAddress')]")
                     address = address_element.text.strip()
                     print(f"Extracted address for row {i}: {address}")
+
+                    group_name = practice_row.find_element(
+                        By.XPATH, ".//a[contains(@id,'LnkGroupName')]")
+                    name = group_name.text.strip()
+
+                    print(f"Extracted group name for row {i}: {group_name}")
+
 
                     address_data = pr_site_data.RequestAPi.split_address(address)
                     address_line_1 = address_data.get("address_line_1", "").upper()
@@ -467,10 +474,10 @@ class PRSitePage(BasePage):
                                         continue
 
                                     cleaned_zip_code = zipcode.replace("-", "") if zipcode else None
-                                    npi_number = group_npi.split('-')[
-                                        -1].strip() if '-' in group_npi else group_npi.strip()
-                                    npi_name = group_name.split('-')[
-                                        0].strip() if '-' in group_name else group_name.strip()
+                                    npi_number = name.split('-')[
+                                        -1].strip() if '-' in name else name.strip()
+                                    npi_name = name.split('-')[
+                                        0].strip() if '-' in name else name.strip()
 
                                     if web_date == db_date and not termination_date.strip():
                                         new_record = NPIAddress(
@@ -518,6 +525,38 @@ class PRSitePage(BasePage):
             db.close()
 
         return addresses
+
+    def get_group_name_from_same_table(self, practice_row):
+        """Extract group name from the same table/section as the address"""
+        try:
+            # Method 1: Find the header in the same parent div as the practice row
+            group_header = practice_row.find_element(By.XPATH, "./ancestor::div[1]//h2[contains(text(), '-')]")
+            full_group_text = group_header.text.strip()
+            group_name = full_group_text.split('-')[0].strip()
+            return group_name
+
+        except Exception as e:
+            print(f"Method 1 failed: {e}")
+            try:
+                # Method 2: Find the immediate parent container and look for h2
+                parent_div = practice_row.find_element(By.XPATH, "./ancestor::div[position()=1]")
+                group_header = parent_div.find_element(By.XPATH, ".//h2[contains(text(), '-')]")
+                full_group_text = group_header.text.strip()
+                group_name = full_group_text.split('-')[0].strip()
+                return group_name
+
+            except Exception as e:
+                print(f"Method 2 failed: {e}")
+                try:
+                    # Method 3: Look for the closest h2 in the same section
+                    group_header = practice_row.find_element(By.XPATH, "./preceding::h2[1]")
+                    full_group_text = group_header.text.strip()
+                    group_name = full_group_text.split('-')[0].strip()
+                    return group_name
+
+                except Exception as e:
+                    print(f"Method 3 failed: {e}")
+                    return "Unknown Group"
 
 
 
