@@ -1,6 +1,8 @@
 from email.policy import default
 import allure
-import pytest
+import pytest, time
+from selenium.webdriver.support.wait import WebDriverWait
+import requests
 from drivers.webdriver_manager import get_driver
 from pages.login_page import LoginPage
 from pages.monday_page import MondayPage
@@ -86,3 +88,24 @@ def pytest_runtest_makereport(item, call):
                 )
             except Exception as e:
                 print("Could not attach screenshot:", e)
+
+@pytest.fixture(scope="function")
+def open_two_windows(driver, request):
+    base_url = request.config.getoption("--base-url1")
+    driver.get(base_url)
+    monday_handle = driver.current_window_handle
+
+    username = "autoprocess@ad.pns-mgmt.com"
+    password = "P%23194714496192ab"
+    url_with_auth = f"https://{username}:{password}@pss.ad.pns-mgmt.com"
+
+    driver.execute_script(f"window.open('{url_with_auth}');")
+
+    WebDriverWait(driver, 10).until(lambda d: len(d.window_handles) > 1)
+    time.sleep(5)
+    all_handles = driver.window_handles
+    pr_handle = [h for h in all_handles if h != monday_handle][0]
+
+    print("Two windows opened successfully:")
+
+    return monday_handle, pr_handle

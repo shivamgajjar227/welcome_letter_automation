@@ -1,6 +1,8 @@
 import time
 from sqlalchemy.orm import Session
 import pytest
+
+from pages.monday_page import MondayPage
 from utils import safe_str
 import constants
 from datetime import datetime
@@ -72,8 +74,13 @@ def test_monday(monday_test):
 @pytest.mark.order(2)
 @allure.feature("PR Site Data Grabbing")
 @allure.story("Taking NPI Details From PR Site")
-def test_pr_site(pr_sites_test):
+def test_pr_site(driver, open_two_windows):
+    monday_handle, pr_handle = open_two_windows
     db = SessionLocal()
+    driver.switch_to.window(monday_handle)
+    monday_test = MondayPage(driver)
+    if monday_test.is_login_page():
+        monday_test.login("autoprocess@pns-mgmt.com", "@VEnger200@@@@")
     try:
         with allure.step("Fetching NPI records with status 0 from DB"):
             npi_records = db.query(PRSiteData).filter(PRSiteData.status == 0).all()
@@ -81,6 +88,17 @@ def test_pr_site(pr_sites_test):
             print("📄 Found NPI records with status 0:", [r.npi_number for r in npi_records])
 
         for record in npi_records:
+            driver.switch_to.window(monday_handle)
+            with allure.step("Change Status of NPI to 'Work in Process'"):
+                monday_test.click_search_button()
+                monday_test.enter_npi_button(record.npi_number)
+                monday_test.enter_npi_search()
+                monday_test.click_review()
+                monday_test.click_working_on_it()
+                monday_test.click_cross_button()
+
+            driver.switch_to.window(pr_handle)
+
             with allure.step(f"Processing NPI: {record.npi_number}"):
                 pr_sites_test.hover_over_update_menuu()
 
