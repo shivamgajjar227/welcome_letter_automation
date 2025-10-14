@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 import pytest
 
 from pages.monday_page import MondayPage
+from pages.pr_site_page import PRSitePage
 from utils import safe_str
 import constants
 from datetime import datetime
-from conftest import monday_test
+from conftest import monday_test, pr_sites_test
 from db.session import SessionLocal
 from models.pr_site_data import PRSiteData
 from models.npi_address import NPIAddress
@@ -79,26 +80,54 @@ def test_pr_site(driver, open_two_windows):
     db = SessionLocal()
     driver.switch_to.window(monday_handle)
     monday_test = MondayPage(driver)
+    pr_sites_test = PRSitePage(driver)
     if monday_test.is_login_page():
         monday_test.login("autoprocess@pns-mgmt.com", "@VEnger200@@@@")
+    time.sleep(3)
     try:
         with allure.step("Fetching NPI records with status 0 from DB"):
             npi_records = db.query(PRSiteData).filter(PRSiteData.status == 0).all()
             allure.attach(str([r.npi_number for r in npi_records]), "Fetched NPI Records")
             print("📄 Found NPI records with status 0:", [r.npi_number for r in npi_records])
 
+        first_iteration = True
         for record in npi_records:
             driver.switch_to.window(monday_handle)
-            with allure.step("Change Status of NPI to 'Work in Process'"):
-                monday_test.click_search_button()
+            with allure.step("Change Status of NPI to 'Working on it'"):
+                if first_iteration:
+                    with allure.step("Clicking search button for first iteration"):
+                        monday_test.click_search_button()
+                    first_iteration = False
                 monday_test.enter_npi_button(record.npi_number)
-                monday_test.enter_npi_search()
-                monday_test.click_review()
-                monday_test.click_working_on_it()
-                monday_test.click_cross_button()
+                monday_health_plans = monday_test.get_all_health_plans_from_ui()
+                health_plan_match = False
+                db_health_plan_clean = record.health_plan.strip().lower() if record.health_plan else ""
 
+                if monday_health_plans and db_health_plan_clean:
+                    for monday_health_plan in monday_health_plans:
+                        monday_health_plan_clean = monday_health_plan.strip().lower()
+                        # Handle truncated names and partial matches
+                        if (monday_health_plan_clean == db_health_plan_clean or
+                                db_health_plan_clean.startswith(
+                                    monday_health_plan_clean.replace('...', '').replace('…', '').strip()) or
+                                monday_health_plan_clean.startswith(db_health_plan_clean.split()[0].lower())):
+                            health_plan_match = True
+                            matched_health_plan = monday_health_plan
+                            break
+                if health_plan_match:
+                    with allure.step( f"Health plan match found: {matched_health_plan} - Marking NPI as Working on it"):
+                        time.sleep(3)
+                        try:
+                            monday_test.click_not_started()
+                            time.sleep(3)
+                            monday_test.click_working_on_it()
+                            time.sleep(3)
+                        except Exception as e:
+                            print(f"Status 'Not started' Not found for NPI: {record.npi_number}, Error: {e}")
+                        monday_test.click_cross_button()
+                        time.sleep(3)
             driver.switch_to.window(pr_handle)
-
+            time.sleep(3)
             with allure.step(f"Processing NPI: {record.npi_number}"):
                 pr_sites_test.hover_over_update_menuu()
 
@@ -175,8 +204,8 @@ def test_pr_site(driver, open_two_windows):
             # # npi_number = group_npi.split('-')[-1].strip()
 
                     with allure.step("Updating Database Record"):
-                        record.last_name = last_name.upper()
-                        record.first_name = first_name.upper()
+                        record.last_name = last_name.upper() if last_name else None
+                        record.first_name = first_name.upper() if first_name else None
                         record.gender = gender
                         record.network = network
                         record.city = city

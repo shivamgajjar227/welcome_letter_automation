@@ -24,6 +24,9 @@ class MondayPage(BasePage):
     not_started = (By.XPATH, "//div[contains(text(),'Not Started')]")
     done_button = (By.XPATH, "//li[@id='1']//div[@class='status-color-background']//div//div[@class='ds-text-component']")
     cross = (By.XPATH, "//button[@aria-label='Clear search']//*[name()='svg']")
+    review = (By.XPATH, "//div[normalize-space()='Review']")
+    working_on_it_button = (By.XPATH, "//span[normalize-space()='Working on it']")
+
 
     @allure_log_step("Login to Monday.com")
     @allure.story("Do login with username: {1} and password: ****")
@@ -199,4 +202,46 @@ class MondayPage(BasePage):
         except:
             return False
 
+    def click_review(self):
+        logger.info(f"Inside Click Review")
+        try:
+            WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(self.review)).click()
+        except Exception as e:
+            print(f"Error while click review: {e}")
 
+    def click_working_on_it(self):
+        logger.info(f"Inside Click Working on It")
+        try:
+            WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(self.working_on_it_button)).click()
+            print("Successfully clicked Working on It")
+        except Exception as e:
+            print(f"Error while click working on it: {e}")
+
+    def get_all_health_plans_from_ui(self):
+        """
+        Return ALL health plans including duplicates
+        """
+        health_plans = []
+        try:
+            time.sleep(3)
+
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located(
+                    (By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]"))
+            )
+
+            all_chips = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+            non_healthplans = ['Medicare', 'Medicaid', 'Commercial']
+
+            for chip in all_chips:
+                text = chip.text.strip()
+                if text and text not in non_healthplans:
+                    health_plans.append(text)  # Allow duplicates
+                    print(f"✅ Health plan: {text}")
+
+            print(f"🎯 All health plans (with duplicates): {health_plans}")
+            return health_plans
+
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            return None

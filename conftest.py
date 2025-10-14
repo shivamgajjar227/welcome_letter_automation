@@ -94,7 +94,7 @@ def open_two_windows(driver, request):
     base_url = request.config.getoption("--base-url1")
     driver.get(base_url)
     monday_handle = driver.current_window_handle
-
+    time.sleep(3)
     username = "autoprocess@ad.pns-mgmt.com"
     password = "P%23194714496192ab"
     url_with_auth = f"https://{username}:{password}@pss.ad.pns-mgmt.com"
@@ -105,7 +105,7 @@ def open_two_windows(driver, request):
     time.sleep(5)
     all_handles = driver.window_handles
     pr_handle = [h for h in all_handles if h != monday_handle][0]
-
+    time.sleep(3)
     print("Two windows opened successfully:")
 
     return monday_handle, pr_handle
