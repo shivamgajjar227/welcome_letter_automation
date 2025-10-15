@@ -436,7 +436,7 @@ def test_qc(quickcap_test):
                     quickcap_test.select_provider_type_dropdown(category, network, speciality)
 
                 with allure.step("Selecting primary speciality"):
-                    quickcap_test.select_primary_speciality_dropdown(network)
+                    quickcap_test.select_speciality(network)
 
                 with allure.step(f"Click Quick Add NPI button for {npi_number}"):
                     quickcap_test.click_quick_add_window_npi_button(npi_number)

@@ -122,6 +122,7 @@ class PRSitePage(BasePage):
                 EC.element_to_be_clickable(self.search_button)
             )
             element.click()
+            time.sleep(10)
             print("Search button clicked successfully.")
             logger.info(f"Out from Search NPI")
         except Exception as e:
@@ -382,6 +383,7 @@ class PRSitePage(BasePage):
                     practice_row = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, practice_row_xpath))
                     )
+                    time.sleep(5)
 
                     # Extract address from the practice row
                     address_element = practice_row.find_element(

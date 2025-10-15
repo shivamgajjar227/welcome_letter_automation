@@ -526,6 +526,7 @@ class QuickcapPage(BasePage):
                 EC.element_to_be_clickable(self.search_npi)
             )
             element.click()
+            time.sleep(5)
             print("Search NPI button clicked successfully.")
             logger.info(f"Out from Click Search NPI")
         except Exception as e:
@@ -629,37 +630,58 @@ class QuickcapPage(BasePage):
             print(f"Error in clicking Save button: {e}")
 
     def select_speciality(self, network):
-        logger.info(f"Inside Select Speciality:{network}")
+        logger.info(f"Inside Select Speciality: {network}")
         try:
             wait = WebDriverWait(self.driver, 10)
             self.click(self.primary_specialist)
 
-            # Step 2: Define option mapping (adjust text as it appears in UI)
+            # Step 2: Define multiple XPaths per speciality (use lists, not sets)
             option_map = {
-                "podiatry": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
-                "dermatology": "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
-                "orthopedic": "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
-                "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
-                "cardiology": "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]",
-                "neurology": "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]",
-                "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
-                "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
-                "orthopedic": "//li[contains(normalize-space(), 'OS - Other Specialty')]",
-
+                "podiatry": [
+                    "//li[contains(normalize-space(), 'POD - PODIATRY')]"
+                ],
+                "dermatology": [
+                    "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
+                    "//li[contains(normalize-space(), 'D - Dermatology')]"
+                ],
+                "orthopedic": [
+                    "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
+                    "//li[contains(normalize-space(), 'OS - Other Specialty')]"
+                ],
+                "pain management": [
+                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                ],
+                "cardiology": [
+                    "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
+                ],
+                "neurology": [
+                    "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]"
+                ]
             }
 
-            # Step 3: Get correct xpath
-            option_xpath = option_map.get(network)
-            if not option_xpath:
+            # Step 3: Get XPaths for given network
+            xpaths = option_map.get(network.lower())
+            if not xpaths:
                 raise ValueError(f"No speciality mapping found for: {network}")
 
-            option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
-            option.click()
-            print(f"✅ Selected speciality for {network}")
-            logger.info(f"Out from Select Speciality:{network}")
+            # Step 4: Try each XPath until one is clickable
+            for xpath in xpaths:
+                try:
+                    option = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                    option.click()
+                    print(f"✅ Selected speciality for {network} using XPath: {xpath}")
+                    logger.info(f"Selected speciality: {network} ({xpath})")
+                    return  # stop after successful click
+                except Exception as inner_e:
+                    logger.warning(f"XPath not clickable for {network}: {xpath} ({inner_e})")
+                    continue  # try next one if failed
+
+            # If none worked
+            raise Exception(f"No matching speciality element found for {network}")
 
         except Exception as e:
             print(f"❌ Failed to click speciality: {str(e)}")
+            logger.error(f"Failed to click speciality {network}: {str(e)}")
 
     def click_agree_inside_iframe(self):
         # Wait until iframes are present
@@ -801,6 +823,7 @@ class QuickcapPage(BasePage):
                 EC.element_to_be_clickable(self.org_id)
             )
             self.driver.execute_script("arguments[0].click();", element)
+            time.sleep(5)
             print("✅ Organization ID clicked successfully")
             logger.info(f"Out from Click Org ID: {npi_number}")
             return True
@@ -808,6 +831,7 @@ class QuickcapPage(BasePage):
         except Exception as e:
             error_message = "Organization ID not found or clickable"
             print(f"❌ {error_message}")
+            time.sleep(5)
 
             # Update only remarks
             try:
@@ -1369,38 +1393,58 @@ class QuickcapPage(BasePage):
             print(f"<UNK> Failed to click credentialing tab: {e}")
 
     def select_speciality1(self, network):
-        logger.info(f"Inside Select Speciality1:{network}")
+        logger.info(f"Inside Select Speciality: {network}")
         try:
             wait = WebDriverWait(self.driver, 10)
+            self.click(self.primary_specialist)
 
-            # Step 1: Click the dropdown to open options
-            self.click(self.primary_specialist1)
-
-            # Step 2: Define option mapping
+            # Step 2: Define multiple XPaths per speciality (use lists, not sets)
             option_map = {
-                "podiatry": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
-                "dermatology": "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
-                "orthopedic": "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
-                "pain management": "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]",
-                "podiatry, wound care": "//li[contains(normalize-space(), 'POD - PODIATRY')]",
-                "dermatology": "//li[contains(normalize-space(), 'D - Dermatology')]",
-                "orthopedic": "//li[contains(normalize-space(), 'OS - Other Specialty')]",
-
+                "podiatry": [
+                    "//li[contains(normalize-space(), 'POD - PODIATRY')]"
+                ],
+                "dermatology": [
+                    "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
+                    "//li[contains(normalize-space(), 'D - Dermatology')]"
+                ],
+                "orthopedic": [
+                    "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
+                    "//li[contains(normalize-space(), 'OS - Other Specialty')]"
+                ],
+                "pain management": [
+                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                ],
+                "cardiology": [
+                    "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
+                ],
+                "neurology": [
+                    "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]"
+                ]
             }
 
-            # Step 3: Get correct xpath
-            option_xpath = option_map.get(network)
-            if not option_xpath:
-                raise ValueError(f"No speciality mapping found for network: {network}")
+            # Step 3: Get XPaths for given network
+            xpaths = option_map.get(network.lower())
+            if not xpaths:
+                raise ValueError(f"No speciality mapping found for: {network}")
 
-            # Step 4: Wait for option to be visible and click
-            option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
-            option.click()
-            print(f"✅ Selected speciality: {network}")
-            logger.info(f"Out from Select Speciality1:{network}")
+            # Step 4: Try each XPath until one is clickable
+            for xpath in xpaths:
+                try:
+                    option = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                    option.click()
+                    print(f"✅ Selected speciality for {network} using XPath: {xpath}")
+                    logger.info(f"Selected speciality: {network} ({xpath})")
+                    return  # stop after successful click
+                except Exception as inner_e:
+                    logger.warning(f"XPath not clickable for {network}: {xpath} ({inner_e})")
+                    continue  # try next one if failed
+
+            # If none worked
+            raise Exception(f"No matching speciality element found for {network}")
+
         except Exception as e:
-            print(f"<UNK> Failed to click speciality: {str(e)}")
-
+            print(f"❌ Failed to click speciality: {str(e)}")
+            logger.error(f"Failed to click speciality {network}: {str(e)}")
     def click_primary(self):
         logger.info(f"Inside Click Primary")
         try:

@@ -13,7 +13,7 @@ class RequestAPi:
         pass
 
     def split_address(address):
-        url = "http://160.250.204.165:8000/parse_address"
+        url = "http://160.250.204.165:8100/parse_address"
 
         # Define the payload (query parameters) you want to send
         payload = {
@@ -25,7 +25,7 @@ class RequestAPi:
         return response.json()
 
     def get_provider_id(plan_data):
-        url = "http://160.250.204.165:8000/check_missing_ids"
+        url = "http://160.250.204.165:8100/check_missing_ids"
 
         payload = {
             "ids": plan_data

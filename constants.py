@@ -144,11 +144,11 @@ STATE_DROPDOWN_MAP = {
         "Wyoming": "WY - WYOMING",
     }
 PRIMARY_SPECIALITY_MAP = {
-        "Dermatology": "D - DERMATOLOGY",
-        "Dermatology": "D - Dermatology",
+        "dermatology": "D - DERMATOLOGY",
+        "dermatology": "D - Dermatology",
         "Podiatry": "POD - PODIATRY",
         "Podiatry, Wound Care": "POD - PODIATRY",
-        "Orthopedic": "ORT - ORTHOPEDICS",
+        "orthopedic": "ORT - ORTHOPEDICS",
         "orthopedic": "OS - Other Specialty",
         "Pain Management": "APM - ANESTHESIOLOGY/PAIN MANAGEMENT",
 

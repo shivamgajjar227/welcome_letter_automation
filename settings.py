@@ -22,7 +22,7 @@ DB Credencials
 id = 'root'
 password = '12345678'
 port = 3306
-db_name = 'welcome_letter'
+db_name = 'test_db'
 
 AUTH_SERVER_HOST = os.getenv("HOST", "0.0.0.0")
 AUTH_SERVER_PORT = int(os.getenv("PORT", 10022))
