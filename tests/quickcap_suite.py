@@ -272,9 +272,6 @@ def test_qc(quickcap_test):
                             quickcap_test.click_search_button()
                             # time.sleep(5)
                         allure.attach(f"NPI {npi_number} searched", "NPI Search", allure.attachment_type.TEXT)
-
-
-
                 except Exception as e:
                     with allure.step("Search Error"):
                         allure.attach(str(e), "Error", allure.attachment_type.TEXT)

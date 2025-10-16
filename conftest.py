@@ -9,6 +9,9 @@ from pages.quickcap_page import QuickcapPage, logger
 from pages.sql_server_page import SqlServerPage
 from pages.quickcap_case_page import QuickcapCasePage
 from pages.monday_status_page import MondayStatusPage
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 
 def pytest_addoption(parser):
@@ -18,6 +21,18 @@ def pytest_addoption(parser):
     parser.addoption("--base-url2", action="store", default="https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1")
     parser.addoption("--base-url3", action="store", default="https://larch.ad.pns-mgmt.com/Reports_PROD/browse")
     parser.addoption("--base-url4", action="store", default="https://pns-mgmt.monday.com/")
+    """Add custom command line options"""
+    try:
+        parser.addoption("--base-url", action="store", default="", help="Base URL for tests")
+        parser.addoption("--browser", action="store", default="chrome", help="Browser to use")
+        parser.addoption("--headless", action="store_true", help="Run in headless mode")
+    except ValueError as e:
+        # Options already exist, ignore the error
+        if "already added" in str(e):
+            pass
+        else:
+            raise
+
 
 
 @pytest.fixture(scope="function")
@@ -95,4 +110,41 @@ def open_two_windows(driver):
 
     if monday_page.is_login_page():
         monday_page.login("autoprocess@pns-mgmt.com", "@VEnger200@@@@")
+
+
+@pytest.fixture
+def browser(request):
+    browser_name = request.config.getoption("--browser")
+    headless = request.config.getoption("--headless")
+
+    if browser_name == "chrome":
+        chrome_options = Options()
+        if headless:
+            chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+
+        driver = webdriver.Remote(
+            command_executor='http://localhost:4444/wd/hub',
+            options=chrome_options
+        )
+
+    elif browser_name == "firefox":
+        firefox_options = FirefoxOptions()
+        if headless:
+            firefox_options.add_argument("--headless")
+
+        driver = webdriver.Remote(
+            command_executor='http://selenium-chrome:4444/wd/hub',  # or selenium-firefox container name
+            options=firefox_options
+        )
+
+    else:
+        raise ValueError(f"Unsupported browser: {browser_name}")
+
+    driver.implicitly_wait(10)
+    yield driver
+    driver.quit()
 

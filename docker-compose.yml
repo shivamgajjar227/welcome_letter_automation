@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  selenium-hub:
+    image: selenium/hub:latest
+    ports:
+      - "4444:4444"
+
+  chrome:
+    image: selenium/node-chrome:latest
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+    shm_size: 2gb
+
+  test-runner:
+    build: .
+    volumes:
+      - .:/app
+      - ./app_logs:/app/app_logs
+    working_dir: /app
+    depends_on:
+      - selenium-hub
+    environment:
+      - SELENIUM_URL=http://selenium-hub:4444/wd/hub
+    command: |
+      sh -c "
+        echo 'Waiting for Selenium to be ready...'
+        while ! curl -s http://selenium-hub:4444/wd/hub/status > /dev/null; do
+          sleep 1
+        done
+        echo 'Selenium is ready! Running tests...'
+        python tasks.py
+      "
