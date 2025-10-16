@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: automation-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: automation-api
+  template:
+    metadata:
+      labels:
+        app: automation-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/example/automation-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          envFrom:
+            - configMapRef:
+                name: automation-config
+            - secretRef:
+                name: automation-secrets
+          env:
+            - name: MONDAY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: monday-username
+            - name: MONDAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: monday-password
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: mariadb-username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: mariadb-password
+            - name: DB_HOST
+              value: mariadb
+            - name: DB_NAME
+              value: welcome_letter
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: media
+              mountPath: /data/media
+            - name: logs
+              mountPath: /data/logs
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: automation-media
+        - name: logs
+          persistentVolumeClaim:
+            claimName: automation-logs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: automation-api
+spec:
+  selector:
+    app: automation-api
+  ports:
+    - port: 8000
+      targetPort: 8000

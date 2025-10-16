@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: automation-celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: automation-celery-worker
+  template:
+    metadata:
+      labels:
+        app: automation-celery-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/example/automation-worker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["celery", "-A", "tasks", "worker", "--loglevel=INFO"]
+          envFrom:
+            - configMapRef:
+                name: automation-config
+            - secretRef:
+                name: automation-secrets
+          env:
+            - name: MONDAY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: monday-username
+            - name: MONDAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: monday-password
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: mariadb-username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: mariadb-password
+            - name: DB_HOST
+              value: mariadb
+            - name: DB_NAME
+              value: welcome_letter
+          volumeMounts:
+            - name: media
+              mountPath: /data/media
+            - name: logs
+              mountPath: /data/logs
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: automation-media
+        - name: logs
+          persistentVolumeClaim:
+            claimName: automation-logs
+

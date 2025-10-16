@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: automation-flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: automation-flower
+  template:
+    metadata:
+      labels:
+        app: automation-flower
+    spec:
+      containers:
+        - name: flower
+          image: mher/flower:latest
+          args:
+            - "--broker=amqp://automation:automation@rabbitmq:5672//"
+            - "--port=5555"
+          ports:
+            - containerPort: 5555
+          env:
+            - name: FLOWER_BASIC_AUTH
+              value: admin:admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: automation-flower
+spec:
+  selector:
+    app: automation-flower
+  ports:
+    - port: 5555
+      targetPort: 5555
+

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: automation-config
+data:
+  MEDIA_ROOT: /data/media
+  LOG_ROOT: /data/logs
+  CELERY_BROKER_URL: amqp://automation:automation@rabbitmq:5672//
+  CELERY_RESULT_BACKEND: rpc://
+  MONDAY_BASE_URL: https://pns-mgmt.monday.com/
+  SELENIUM_URL: http://selenium-hub:4444/wd/hub
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: automation-secrets
+type: Opaque
+stringData:
+  rabbitmq-username: automation
+  rabbitmq-password: automation
+  mariadb-username: automation
+  mariadb-password: automation
+  mariadb-root-password: automation-root
+  monday-username: ""
+  monday-password: ""
