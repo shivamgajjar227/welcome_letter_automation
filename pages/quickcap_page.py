@@ -649,7 +649,7 @@ class QuickcapPage(BasePage):
                     "//li[contains(normalize-space(), 'OS - Other Specialty')]"
                 ],
                 "pain management": [
-                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                    "//li[contains(normalize-space(), 'PMD - Pain Medicine')]"
                 ],
                 "cardiology": [
                     "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
@@ -1412,7 +1412,7 @@ class QuickcapPage(BasePage):
                     "//li[contains(normalize-space(), 'OS - Other Specialty')]"
                 ],
                 "pain management": [
-                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                    "//li[contains(normalize-space(), 'PMD - Pain Medicine')]"
                 ],
                 "cardiology": [
                     "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"

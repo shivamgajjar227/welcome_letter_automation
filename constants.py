@@ -150,7 +150,7 @@ PRIMARY_SPECIALITY_MAP = {
         "Podiatry, Wound Care": "POD - PODIATRY",
         "orthopedic": "ORT - ORTHOPEDICS",
         "orthopedic": "OS - Other Specialty",
-        "Pain Management": "APM - ANESTHESIOLOGY/PAIN MANAGEMENT",
+        "Pain Management": "PMD - Pain Medicine",
 
 }
 
