@@ -1546,8 +1546,16 @@ class QuickcapPage(BasePage):
         print("Edit button not available after retries")
         return False
 
-    def click_edit_for_healthplan(self, provider_id: str= 'A'):
+    def click_edit_for_healthplan(self, npi_number: str, address_line1: str, provider_id: str):
+        """
+        Clicks the Edit button for the provider whose ID ends with the given letter.
+        If no matching provider found, updates remarks in DB and closes extra windows.
+        Returns True if clicked successfully, else False.
+        """
         logger.info(f"Inside Click Edit Button for Provider ID ending with: {provider_id}")
+        db: Session = SessionLocal()
+        main_window = self.driver.window_handles[0]
+
         try:
             # ✅ Extract last letter from provider_id (inside brackets)
             if "(" in provider_id and ")" in provider_id:
@@ -1562,7 +1570,7 @@ class QuickcapPage(BasePage):
                 EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
             )
 
-            matching_rows = []  # Store all matching rows
+            matching_rows = []
 
             for row in rows:
                 try:
@@ -1571,25 +1579,67 @@ class QuickcapPage(BasePage):
 
                     if provider_id_text.endswith(f"({target_letter})"):
                         logger.info(f"✅ Found matching provider row: {provider_id_text}")
-                        matching_rows.append(row)  # Add matching row to list
-
+                        matching_rows.append(row)
                 except Exception as inner_e:
                     logger.warning(f"Skipping row due to error: {inner_e}")
                     continue
 
             if matching_rows:
-                # Get the last matching row
+                # ✅ Click last matching row
                 last_matching_row = matching_rows[-1]
                 provider_id_text = last_matching_row.find_element(By.XPATH, "./td[2]").text.strip()
                 logger.info(f"🔄 Clicking Edit for LAST matching Provider ID: {provider_id_text}")
 
                 edit_btn = last_matching_row.find_element(By.XPATH, ".//img[@title='Edit']")
                 self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
-                self.driver.execute_script("arguments[0].click();", edit_btn)  # safer click
+                self.driver.execute_script("arguments[0].click();", edit_btn)
                 logger.info("Clicked Edit Button successfully")
                 return True
+
             else:
-                logger.error(f"No Provider ID found in table ending with ({target_letter})")
+                # ❌ No matching Provider ID found
+                error_message = "Address already added (no matching provider ID found)"
+                print(f"❌ {error_message}")
+
+                try:
+                    # Update only remarks in NPIAddress
+                    db.query(NPIAddress).filter(
+                        NPIAddress.address_line1 == address_line1,
+                        NPIAddress.npi == npi_number,
+                        NPIAddress.update == 0
+                    ).update({"remarks": error_message[:500]})
+                    db.commit()
+                    logger.info(f"Remarks updated for NPI {npi_number}")
+                except Exception as db_error:
+                    print(f"Database update error: {db_error}")
+                finally:
+                    db.close()
+
+                # Close popups and switch back
+                try:
+                    all_windows = self.driver.window_handles
+                    current_window = self.driver.current_window_handle
+
+                    if current_window != main_window:
+                        # Close popup
+                        self.driver.close()
+                        print("🔒 Healthplan popup closed.")
+
+                        # If another popup exists, close that too
+                        all_windows = self.driver.window_handles
+                        if len(all_windows) > 1:
+                            self.driver.switch_to.window(all_windows[-1])
+                            self.driver.close()
+                            print("🔒 Next window closed.")
+
+                        # Switch back to main
+                        self.driver.switch_to.window(main_window)
+                        print("✅ Returned to main window.")
+                        logger.info(f"Out from Click Edit for {npi_number}")
+
+                except Exception as win_err:
+                    print(f"Window handling error: {win_err}")
+
                 return False
 
         except Exception as e:
@@ -1756,8 +1806,15 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f"Error in click_save_taxonomy: {e}")
 
-    def click_edit_for_healthplan_for_A(self):
-        logger.info("Inside Click Edit Button for Healthplan (looking for IDs ending with 'A')")
+    def click_edit_for_healthplan_for_A(self, npi_number: str, address_line1: str) -> bool:
+        """
+        Clicks the Edit button for Healthplan (only for IDs ending with 'A').
+        Returns True if successful, False if not found.
+        Updates remarks in NPIAddress table if Edit button not found.
+        """
+        logger.info(f"Inside Click Edit Button for Healthplan for NPI: {npi_number}")
+        db: Session = SessionLocal()
+
         try:
             rows = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
@@ -1779,11 +1836,43 @@ class QuickcapPage(BasePage):
                     logger.warning(f"Skipping row due to error: {inner_e}")
                     continue
 
-            logger.error("No provider ID found in table ending with 'A'")
+            # If loop completes without clicking any Edit button
+            error_message = "Address already added"
+            print(f"❌ {error_message}")
+
+            # Update remarks in DB
+            try:
+                db.query(NPIAddress).filter(
+                    NPIAddress.address_line1 == address_line1,
+                    NPIAddress.npi == npi_number,
+                    NPIAddress.update == 0
+                ).update({"remarks": error_message[:500]})
+                db.commit()
+                logger.info(f"Remarks updated for NPI {npi_number}: {error_message}")
+            except Exception as db_error:
+                print(f"Database update error: {db_error}")
+            finally:
+                db.close()
+
             return False
 
         except Exception as e:
             print(f"Error in click_edit_for_healthplan_for_A: {e}")
+            error_message = "Failed to locate Healthplan table or Edit button"
+
+            # Update remarks in DB for major errors too
+            try:
+                db.query(NPIAddress).filter(
+                    NPIAddress.address_line1 == address_line1,
+                    NPIAddress.npi == npi_number,
+                    NPIAddress.update == 0
+                ).update({"remarks": error_message[:500]})
+                db.commit()
+            except Exception as db_error:
+                print(f"Database update error: {db_error}")
+            finally:
+                db.close()
+
             return False
 
     def click_provider_id_for_A(self):

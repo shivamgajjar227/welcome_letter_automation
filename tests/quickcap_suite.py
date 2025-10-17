@@ -375,7 +375,30 @@ def test_qc(quickcap_test):
                                 # time.sleep(3)
                                 quickcap_test.switch_to_new_window()
                                 quickcap_test.click_provider_button()
-                                quickcap_test.click_edit_for_healthplan(provider_id)
+                                success = quickcap_test.click_edit_for_healthplan(npi_number, address_line1,
+                                                                                  provider_id)
+
+                                if not success:
+                                    with allure.step("No Edit button found → marking in DB and skipping NPI"):
+                                        # Update status and remarks
+                                        db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                                            {"status": 2})
+                                        db.query(NPIAddress).filter(
+                                            NPIAddress.address_line1 == address_line1,
+                                            NPIAddress.npi == npi_number
+                                        ).update({
+                                            "remarks": "Address already added",
+                                            "update": 1
+                                        })
+                                        db.commit()
+
+                                        # Add this info in Allure report
+                                        allure.attach(f"NPI {npi_number} skipped — Address already added",
+                                                      name="Healthplan Edit Missing",
+                                                      attachment_type=allure.attachment_type.TEXT)
+
+                                        continue
+
                                 quickcap_test.click_healthplan_panel()
 
                                 quickcap_test.switch_to_new_window1()
@@ -522,7 +545,22 @@ def test_qc(quickcap_test):
                     # time.sleep(3)
                     quickcap_test.switch_to_new_window()
                     quickcap_test.click_provider_button()
-                    quickcap_test.click_edit_for_healthplan_for_A()
+                    success = quickcap_test.click_edit_for_healthplan_for_A(npi_number, address_line1)
+                    if not success:
+                        with allure.step("Edit button not found → marking failure in DB"):
+                            db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update({"status": 2})
+                            db.query(NPIAddress).filter(
+                                NPIAddress.address_line1 == address_line1,
+                                NPIAddress.npi == npi_number
+                            ).update({
+                                "remarks": "Address already added",
+                                "update": 1
+                            })
+                            db.commit()
+                            allure.attach(f"NPI {npi_number} failed — Address already added.",
+                                          name="Edit Button Failure",
+                                          attachment_type=allure.attachment_type.TEXT)
+                            continue
                     quickcap_test.click_healthplan_panel()
 
                 with allure.step("Adding Healthplan details"):
@@ -711,7 +749,27 @@ def test_qc(quickcap_test):
                             # time.sleep(3)
                             quickcap_test.switch_to_new_window()
                             quickcap_test.click_provider_button()
-                            quickcap_test.click_edit_for_healthplan(provider_id)
+                            success = quickcap_test.click_edit_for_healthplan(npi_number, address_line1, provider_id)
+                            if not success:
+                                with allure.step("No Edit button found → marking in DB and skipping NPI"):
+                                    # Update status and remarks
+                                    db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                                        {"status": 2})
+                                    db.query(NPIAddress).filter(
+                                        NPIAddress.address_line1 == address_line1,
+                                        NPIAddress.npi == npi_number
+                                    ).update({
+                                        "remarks": "Address already added",
+                                        "update": 1
+                                    })
+                                    db.commit()
+
+                                    # Add this info in Allure report
+                                    allure.attach(f"NPI {npi_number} skipped — Address already added",
+                                                  name="Healthplan Edit Missing",
+                                                  attachment_type=allure.attachment_type.TEXT)
+
+                                    continue
                             quickcap_test.click_healthplan_panel()
 
                             quickcap_test.switch_to_new_window1()
@@ -867,7 +925,21 @@ def test_qc(quickcap_test):
                 # time.sleep(3)
                 quickcap_test.switch_to_new_window()
                 quickcap_test.click_provider_button()
-                quickcap_test.click_edit_for_healthplan_for_A()
+                success = quickcap_test.click_edit_for_healthplan_for_A(npi_number, address_line1)
+                if not success:
+                    with allure.step("Edit button not found → marking failure in DB"):
+                        db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update({"status": 2})
+                        db.query(NPIAddress).filter(
+                            NPIAddress.address_line1 == address_line1,
+                            NPIAddress.npi == npi_number
+                        ).update({
+                            "remarks": "Address already added",
+                            "update": 1
+                        })
+                        db.commit()
+                        allure.attach(f"NPI {npi_number} failed — Address already added.", name="Edit Button Failure",
+                                      attachment_type=allure.attachment_type.TEXT)
+                        continue
                 quickcap_test.click_healthplan_panel()
 
             with allure.step("Adding membership and health plan details"):
