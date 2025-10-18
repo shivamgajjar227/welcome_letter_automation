@@ -1,11 +1,9 @@
-import os
-
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sshtunnel import SSHTunnelForwarder
 
-import settings
+from config import get_settings
 
 
 def test_connection(engine):
@@ -18,7 +16,9 @@ def test_connection(engine):
     except Exception as e:
         print("Database connection failed:", e)
 
-REMOTE_CONNECTION = int(os.getenv("REMOTE_DB_TUNNEL", "0"))
+app_settings = get_settings()
+
+REMOTE_CONNECTION = app_settings.remote_db_tunnel
 
 
 def db_connection():
@@ -35,12 +35,12 @@ def db_connection():
         port = server.local_bind_port
     else:
         print("local connection")
-        port = int(os.getenv("DB_PORT", settings.port))
+        port = app_settings.db_port
 
-    db_user = os.getenv("DB_USER", settings.id)
-    db_password = os.getenv("DB_PASSWORD", settings.password)
-    db_host = os.getenv("DB_HOST", "127.0.0.1")
-    db_name = os.getenv("DB_NAME", settings.db_name)
+    db_user = app_settings.db_user
+    db_password = app_settings.db_password
+    db_host = app_settings.db_host
+    db_name = app_settings.db_name
 
     SQLALCHEMY_DATABASE_URL = (
         f"mysql+mysqlconnector://{db_user}:{db_password}"

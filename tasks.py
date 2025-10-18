@@ -11,11 +11,11 @@ This module is responsible for:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict, Iterable, List, Optional
 
 from celery import Celery
 
+from config import get_settings
 from runner.context import CredentialRef, RunnerMetadata, StageConfig, StageName
 from runner.headless_runner import run_headless_flow
 import task_tracking
@@ -24,8 +24,10 @@ import task_tracking
 # Celery application setup
 # ------------------------------------------------------------------------------
 
-BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
-RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
+settings = get_settings()
+
+BROKER_URL = settings.celery_broker_url
+RESULT_BACKEND = settings.celery_result_backend
 
 celery_app = Celery("welcome_letter_automation", broker=BROKER_URL, backend=RESULT_BACKEND)
 celery_app.conf.update(
@@ -41,7 +43,7 @@ celery_app.conf.update(
 # Logging
 # ------------------------------------------------------------------------------
 
-LOG_LEVEL = os.getenv("TASKS_LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = settings.tasks_log_level.upper()
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 logger = logging.getLogger("tasks")
 
@@ -50,25 +52,44 @@ logger = logging.getLogger("tasks")
 # ------------------------------------------------------------------------------
 
 
-def _get_env(name: str, *, required: bool = False, default: Optional[str] = None) -> Optional[str]:
-    value = os.getenv(name, default)
-    if required and not value:
-        raise RuntimeError(f"Environment variable '{name}' is required")
-    return value
-
-
 def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
     stages = list(enabled_stages)
     stage_config: Dict[StageName, StageConfig] = {}
     credentials: Dict[str, CredentialRef] = {}
     base_urls: Dict[str, str] = {}
 
-    def register_stage(stage: StageName, user_env: str, pass_env: str, url_env: str, default_url: str) -> None:
-        username = _get_env(user_env)
-        password = _get_env(pass_env)
+    stage_credentials = {
+        StageName.MONDAY: (
+            settings.monday_username,
+            settings.monday_password,
+            settings.monday_base_url,
+        ),
+        StageName.PR_SITE: (
+            settings.pr_site_username,
+            settings.pr_site_password,
+            settings.pr_site_base_url,
+        ),
+        StageName.QUICKCAP: (
+            settings.quickcap_username,
+            settings.quickcap_password,
+            settings.quickcap_base_url,
+        ),
+    }
+    stage_toggles = {
+        StageName.MONDAY: settings.monday_enabled,
+        StageName.PR_SITE: settings.pr_site_enabled,
+        StageName.QUICKCAP: settings.quickcap_enabled,
+    }
+
+    def register_stage(stage: StageName) -> None:
+        if not stage_toggles.get(stage, True):
+            stage_config[stage] = StageConfig(enabled=False)
+            logger.info("Stage %s disabled via configuration toggle", stage.value)
+            return
+        username, password, default_url = stage_credentials.get(stage, (None, None, None))
         if username and password:
             credentials[stage.value] = CredentialRef(username=username, password=password)
-            base_urls[stage.value] = _get_env(url_env, default=default_url) or default_url
+            base_urls[stage.value] = default_url
             stage_config[stage] = StageConfig(enabled=True)
         else:
             stage_config[stage] = StageConfig(enabled=False)
@@ -81,18 +102,11 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
             stage_config[stage] = StageConfig(enabled=False)
             continue
 
-        if stage == StageName.MONDAY:
-            register_stage(stage, "MONDAY_USERNAME", "MONDAY_PASSWORD", "MONDAY_BASE_URL", "https://pns-mgmt.monday.com/")
-        elif stage == StageName.PR_SITE:
-            register_stage(stage, "PR_SITE_USERNAME", "PR_SITE_PASSWORD", "PR_SITE_BASE_URL", "https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1")
-        elif stage == StageName.QUICKCAP:
-            register_stage(stage, "QUICKCAP_USERNAME", "QUICKCAP_PASSWORD", "QUICKCAP_BASE_URL", "https://pnstest.quickcap.net")
-        else:
-            stage_config[stage] = StageConfig(enabled=False)
+        register_stage(stage)
 
-    selenium_url = _get_env("SELENIUM_URL")
-    media_root = _get_env("MEDIA_ROOT", default="media") or "media"
-    log_root = _get_env("LOG_ROOT", default="app_logs") or "app_logs"
+    selenium_url = settings.selenium_url
+    media_root = settings.media_root or "media"
+    log_root = settings.log_root or "app_logs"
 
     metadata = RunnerMetadata(
         selenium_url=selenium_url,
