@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.python-version
+.env
+venv/
+.env*/
+.idea/
+.vscode/
+
+db.sqlite3
+
+# Logs & reports
+app_logs/
+logs/
+reports/
+tests/reports/
+
+# Artifacts
+media/
+*.png
+*.html
+*.json
+
+# Selenium downloads
+*.log
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+
+# Docker
+*.log
+
+# Kubernetes
+*.yaml
+
