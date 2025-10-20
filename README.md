@@ -39,6 +39,12 @@ This repository automates the Monday → PR Site → QuickCap workflow using hea
 5. Trigger Monday automation: `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"stage":"monday_ingest"}'`.
 6. Query status: `curl http://localhost:8000/tasks/{task_id}` or `curl http://localhost:8000/tasks/{task_id}/events`.
 
+### FastAPI ↔ Celery (Roadmap)
+- FastAPI will remain the central coordination service, persisting task data in MariaDB and exposing webhook endpoints for worker callbacks.
+- Celery is moving toward a utility model: workers consume jobs from Redis and report lifecycle events to FastAPI via REST (no direct DB access).
+- Keep logging approachable—INFO by default, with `TASKS_LOG_LEVEL=DEBUG` surfacing detailed runner logs for troubleshooting when needed.
+- The same Celery framework can power other automation pipelines (e.g., AI workloads) by reusing metadata schemas and REST hooks.
+
 `python tasks.py` can still run the headless pipeline without creating task records—useful for quick smoke tests.
 
 ## Kubernetes Deployment

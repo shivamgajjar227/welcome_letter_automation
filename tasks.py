@@ -11,6 +11,8 @@ This module is responsible for:
 from __future__ import annotations
 
 import logging
+import os
+from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional
 
 from celery import Celery
@@ -44,8 +46,18 @@ celery_app.conf.update(
 # ------------------------------------------------------------------------------
 
 LOG_LEVEL = settings.tasks_log_level.upper()
-logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
-logger = logging.getLogger("tasks")
+
+
+def configure_logging() -> logging.Logger:
+    worker_name = os.getenv("CELERY_WORKER_NAME", "celery-worker")
+    logging.basicConfig(
+        level=LOG_LEVEL,
+        format=f"%(asctime)s %(levelname)s [{worker_name}:%(name)s] %(message)s",
+    )
+    return logging.getLogger("tasks")
+
+
+logger = configure_logging()
 
 # ------------------------------------------------------------------------------
 # Metadata builders
@@ -90,7 +102,10 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
         if username and password:
             credentials[stage.value] = CredentialRef(username=username, password=password)
             base_urls[stage.value] = default_url
-            stage_config[stage] = StageConfig(enabled=True)
+            cfg = StageConfig(enabled=True)
+            if stage == StageName.MONDAY and settings.monday_ingest_api_url:
+                cfg.extra["webhook_url"] = settings.monday_ingest_api_url
+            stage_config[stage] = cfg
         else:
             stage_config[stage] = StageConfig(enabled=False)
             logger.warning("Disabling stage %s due to missing credentials", stage.value)
@@ -151,6 +166,7 @@ def run_monday(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] 
         raise
 
     stage = result.stages.get(StageName.MONDAY)
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
     task_tracking.update_task_status(
         task_id or result.task_id,
         "completed" if stage and stage.success else "failed",
@@ -159,7 +175,7 @@ def run_monday(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] 
     return {
         "task_id": result.task_id,
         "success": bool(stage and stage.success),
-        "artifacts": [artifact.__dict__ for artifact in stage.artifacts] if stage else [],
+        "artifacts": artifacts,
         "data": stage.data if stage else {},
     }
 
@@ -184,6 +200,7 @@ def run_pr_site(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]]
         )
         raise
     stage = result.stages.get(StageName.PR_SITE)
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
     task_tracking.update_task_status(
         task_id or result.task_id,
         "completed" if stage and stage.success else "failed",
@@ -192,7 +209,7 @@ def run_pr_site(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]]
     return {
         "task_id": result.task_id,
         "success": bool(stage and stage.success),
-        "artifacts": [artifact.__dict__ for artifact in stage.artifacts] if stage else [],
+        "artifacts": artifacts,
         "data": stage.data if stage else {},
     }
 
@@ -217,6 +234,7 @@ def run_quickcap(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
         )
         raise
     stage = result.stages.get(StageName.QUICKCAP)
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
     task_tracking.update_task_status(
         task_id or result.task_id,
         "completed" if stage and stage.success else "failed",
@@ -225,7 +243,7 @@ def run_quickcap(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
     return {
         "task_id": result.task_id,
         "success": bool(stage and stage.success),
-        "artifacts": [artifact.__dict__ for artifact in stage.artifacts] if stage else [],
+        "artifacts": artifacts,
         "data": stage.data if stage else {},
     }
 
@@ -262,7 +280,7 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
             stage.value: {
                 "success": record.success,
                 "error": record.error,
-                "artifacts": [artifact.__dict__ for artifact in record.artifacts],
+                "artifacts": [asdict(artifact) for artifact in record.artifacts],
                 "data": record.data,
             }
             for stage, record in result.stages.items()

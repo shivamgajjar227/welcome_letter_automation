@@ -1,0 +1,141 @@
+{
+  "received_at": "2025-10-20T10:22:19.327224",
+  "method": "POST",
+  "path": "/",
+  "query": {},
+  "headers": {
+    "host": "0.0.0.0:8070",
+    "user-agent": "python-requests/2.32.4",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept": "*/*",
+    "connection": "keep-alive",
+    "content-length": "2332",
+    "content-type": "application/json"
+  },
+  "body": {
+    "task_id": "d828e736-024b-4fa3-a36d-d8774fa98b6a",
+    "stage": "monday_ingest",
+    "records": [
+      {
+        "npi_number": "1508446295",
+        "effective_date": "Oct 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1912217936",
+        "effective_date": "Oct 1",
+        "health_plan": "Doctors",
+        "lines_of_business": "Doctors"
+      },
+      {
+        "npi_number": "1154306314",
+        "effective_date": "Oct 1",
+        "health_plan": "Doctors Health",
+        "lines_of_business": "Doctors Health"
+      },
+      {
+        "npi_number": "1548241573",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1235126186",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1033115209",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1780691436",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1780876623",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1043390875",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1063130995",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1487098059",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1164403192",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1922259316",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1174260301",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1548945793",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1457332488",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1710656707",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1902224553",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1700235470",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      },
+      {
+        "npi_number": "1851090237",
+        "effective_date": "Nov 1",
+        "health_plan": "Aetna",
+        "lines_of_business": "Aetna"
+      }
+    ]
+  }
+}

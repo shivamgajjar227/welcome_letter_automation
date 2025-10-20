@@ -4,8 +4,8 @@ Goal: Transition the welcome-letter automation project from pytest-driven test s
 
 ## Current Status (Updated)
 - ✅ Phase 0 scaffolding complete: runner package now includes context models, browser factory, artifact helpers, logging setup, and a production-ready Monday ingestion flow (PR Site/QuickCap scaffolds remain to be expanded).
-- ✅ Celery tasks now persist lifecycle data in MariaDB (`automation_tasks`, `automation_task_events`) and the FastAPI API exposes task creation/query endpoints for Monday-only runs.
-- ⏳ Pending: add full Selenium automation for QuickCap, expose PR Site once validated, and extend observability/metrics before multi-stage rollout.
+- ✅ Celery task framework operational, slated for refactor into a standalone utility service that communicates with FastAPI via REST webhooks (no shared DB session).
+- ⏳ Pending: redesign Celery↔FastAPI integration (Redis broker + HTTP callbacks), improve debug logging visibility, and extend observability/metrics before multi-stage rollout.
 
 ## Phase 0 – Stabilize Headless Runner Core
 1. Implement `runner/` package:
@@ -23,27 +23,16 @@ Goal: Transition the welcome-letter automation project from pytest-driven test s
 2. Provide CLI (`python scripts/run_pipeline.py`) for manual runs using the same runner function.
 3. Remove direct pytest dependencies from Celery tasks; keep pytest only for automated testing.
 
-## Phase 2 – Celery & RabbitMQ Integration
-1. Configure Celery app:
-   - Use RabbitMQ as broker (`CELERY_BROKER_URL=amqp://`); Redis optional as result backend.
-   - Define task state updates via helper module (write to MariaDB `tasks` table, emit heartbeats).
-2. Implement Celery tasks:
-   - `tasks.run_monday`, `tasks.run_pr_site`, `tasks.run_quickcap` call `run_headless_flow` with stage filters.
-   - `tasks.run_pipeline` chains/ groups tasks using Celery primitives; store combined results.
-3. Add Flower monitoring service in docker-compose.
-4. Ensure tasks capture artifacts/log paths and persist them to DB.
+## Phase 2 – Celery Utility Service
+1. Configure Celery to use Redis (`CELERY_BROKER_URL=redis://`) as the single broker/result backend.
+2. Remove direct DB imports from Celery; instead, on task state changes, call FastAPI webhooks (HTTP POST) to persist updates in MariaDB.
+3. Keep logging simple: INFO-level by default, verbose DEBUG output when `TASKS_LOG_LEVEL=DEBUG`.
+4. Flower remains optional for monitoring Redis queues.
 
 ## Phase 3 – FastAPI Service Layer
-1. Create `app/` package:
-   - `app/main.py`: FastAPI init with routers, websocket manager, Prometheus metrics endpoint.
-   - `app/config.py`: Pydantic settings for DB, RabbitMQ, media paths.
-   - `app/db.py`: SQLAlchemy session factory, Alembic migrations.
-   - `app/models.py` / `app/schemas.py`: ORM models for `task_queues`, `task_types`, `tasks`, `task_events`, `task_logs`.
-   - `app/routers/tasks.py`: CRUD endpoints (`POST /tasks`, `GET /tasks/{id}`, `POST /tasks/{id}/cancel`, etc.).
-   - `app/services/task_service.py`: encapsulates DB writes and Celery invocation.
-   - `app/websocket.py`: push task updates/logs to connected clients.
-2. Integrate secrets workflow (for now, CRUD in MariaDB table with encryption-at-rest or environment-based key).
-3. Add dependency-injected logger and artifact resolver for API.
+1. Offer REST task management, including webhook endpoints to receive notifications from the Celery utility service.
+2. Drive all MariaDB writes from FastAPI (no shared DB sessions with Celery).
+3. Provide optional debug mode that streams runner logs/artifacts back to clients for troubleshooting.
 
 ## Phase 4 – Docker & Deployment Targets
 1. Create separate Dockerfiles:

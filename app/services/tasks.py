@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Dict, Optional
 
 from fastapi import HTTPException, status
@@ -7,6 +8,8 @@ from fastapi import HTTPException, status
 import task_tracking
 from runner.context import StageName
 from tasks import run_monday, run_pipeline
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_STAGES = {
     StageName.MONDAY.value: run_monday,
@@ -19,10 +22,20 @@ def enqueue_task(stage: str, metadata: Optional[Dict] = None) -> Dict:
     if stage not in SUPPORTED_STAGES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported stage '{stage}'")
 
+    logger.info("Creating task for stage '%s' with metadata=%s", stage, metadata)
     task_record = task_tracking.create_task(stage, metadata)
 
-    celery_task = SUPPORTED_STAGES[stage].delay(task_record.id, metadata or {})
+    try:
+        celery_task = SUPPORTED_STAGES[stage].delay(task_record.id, metadata or {})
+    except Exception as exc:
+        logger.exception("Failed to enqueue Celery task for task_id=%s stage=%s", task_record.id, stage)
+        # re-raise as HTTPException so FastAPI emits a structured 500 response
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue task. Check worker/broker logs.",
+        ) from exc
 
+    logger.info("Enqueued Celery task", extra={"task_id": task_record.id, "celery_id": celery_task.id, "stage": stage})
     return {"task_id": task_record.id, "celery_id": celery_task.id}
 
 

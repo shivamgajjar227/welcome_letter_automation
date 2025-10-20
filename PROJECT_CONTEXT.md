@@ -66,11 +66,10 @@ When deploying to Kubernetes, ensure `automation-secrets` is populated with live
 - Multi-window handling lives in `BasePage` and `QuickcapPage`; QuickCap flows open popups for organization selection, and PR Site flow navigates multiple tabs when loading group NPIs.
 - Logging hooks on page objects feed rotating file handlers; ensure `/app/app_logs` exists when running in Docker.
 
-## FastAPI & Celery Integration
-- `app/main.py` exposes REST endpoints for automation task management (`POST /tasks`, `GET /tasks`, `GET /tasks/{id}`, `/tasks/{id}/events`).
-- Task lifecycle data persists via `models/task_models.py` (`automation_tasks`, `automation_task_events`). Helpers in `task_tracking.py` handle creation, status transitions, and event logging.
-- `tasks.py` now builds `RunnerMetadata` from environment variables, updates task state during execution, and only requires the Monday credentials to run successfully. Additional stages remain disabled until credentials are provided.
-- Celery workers should point to RabbitMQ (`CELERY_BROKER_URL`) and share media/log volumes for artifact capture; Flower deployment in Kubernetes provides basic observability.
+## FastAPI & Celery Integration (Next Iteration)
+- FastAPI remains the central API: it will create tasks, persist state in MariaDB, and expose webhook endpoints for Celery workers to report status updates.
+- Celery evolves into a standalone utility service: workers communicate with FastAPI over HTTP only (no direct DB access) and switch to Redis as the broker/result backend.
+- Logging should remain approachable: INFO by default, with a DEBUG mode that surfaces runner logs for developers when needed.
 
 ## Potential Follow-Ups
 - Externalize secrets/credentials and Monday API keys to `.env` or secrets manager.

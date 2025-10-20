@@ -19,7 +19,7 @@ class AutomationTask(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     stage = Column(String(50), nullable=False)
     status = Column(String(32), nullable=False, default="created")
-    metadata = Column(Text, nullable=True)
+    metadata_json = Column("metadata", Text, nullable=True)
     result = Column(Text, nullable=True)
     message = Column(Text, nullable=True)
     attempt_count = Column(Integer, nullable=False, default=0)
@@ -29,15 +29,15 @@ class AutomationTask(Base):
     events = relationship("AutomationTaskEvent", back_populates="task", cascade="all, delete-orphan")
 
     def set_metadata(self, payload: Dict[str, Any]) -> None:
-        self.metadata = json.dumps(payload, default=str)
+        self.metadata_json = json.dumps(payload, default=str)
 
     def set_result(self, payload: Dict[str, Any]) -> None:
         self.result = json.dumps(payload, default=str)
 
     def metadata_dict(self) -> Optional[Dict[str, Any]]:
-        if not self.metadata:
+        if not self.metadata_json:
             return None
-        return json.loads(self.metadata)
+        return json.loads(self.metadata_json)
 
     def result_dict(self) -> Optional[Dict[str, Any]]:
         if not self.result:
@@ -55,4 +55,3 @@ class AutomationTaskEvent(Base):
     created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     task = relationship("AutomationTask", back_populates="events")
-
