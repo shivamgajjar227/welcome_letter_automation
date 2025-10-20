@@ -25,7 +25,7 @@ Goal: Transition the welcome-letter automation project from pytest-driven test s
 
 ## Phase 2 – Celery Utility Service
 1. Configure Celery to use Redis (`CELERY_BROKER_URL=redis://`) as the single broker/result backend.
-2. Remove direct DB imports from Celery; instead, on task state changes, call FastAPI webhooks (HTTP POST) to persist updates in MariaDB.
+2. Workers now send lifecycle updates via HTTP (`TASK_STATUS_WEBHOOK_URL`); MariaDB writes are the FastAPI API’s responsibility.
 3. Keep logging simple: INFO-level by default, verbose DEBUG output when `TASKS_LOG_LEVEL=DEBUG`.
 4. Flower remains optional for monitoring Redis queues.
 

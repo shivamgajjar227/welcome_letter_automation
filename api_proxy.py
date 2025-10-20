@@ -41,6 +41,19 @@ async def monday_webhook(request: Request) -> Dict[str, Any]:
     return {"status": "ok"}
 
 
+@app.post("/webhooks/task-status")
+async def task_status_webhook(request: Request) -> Dict[str, Any]:
+    payload = await request.json()
+    entry = {
+        "received_at": datetime.utcnow().isoformat(),
+        "path": str(request.url.path),
+        "payload": payload,
+    }
+    _append_log(entry)
+    logger.info("Received task status update: %s", payload)
+    return {"status": "ok"}
+
+
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
 async def catch_all(full_path: str, request: Request) -> Response:
     body_bytes = await request.body()

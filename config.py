@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     log_root: str = Field("app_logs", env="LOG_ROOT")
 
     monday_ingest_api_url: Optional[str] = Field("http://0.0.0.0:8070", env="MONDAY_INGEST_API_URL")
+    task_status_webhook_url: Optional[str] = Field("http://0.0.0.0:8070", env="TASK_STATUS_WEBHOOK_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")

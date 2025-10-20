@@ -16,11 +16,12 @@ from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional
 
 from celery import Celery
+import requests
+from requests import RequestException
 
 from config import get_settings
 from runner.context import CredentialRef, RunnerMetadata, StageConfig, StageName
 from runner.headless_runner import run_headless_flow
-import task_tracking
 
 # ------------------------------------------------------------------------------
 # Celery application setup
@@ -58,6 +59,37 @@ def configure_logging() -> logging.Logger:
 
 
 logger = configure_logging()
+
+
+def send_status_update(
+    task_id: str,
+    status: str,
+    *,
+    stage: Optional[str] = None,
+    result: Optional[Dict[str, Any]] = None,
+    message: Optional[str] = None,
+) -> None:
+    webhook = settings.task_status_webhook_url
+    if not webhook:
+        logger.debug("Task %s status %s (no webhook configured)", task_id, status)
+        return
+
+    payload: Dict[str, Any] = {
+        "task_id": task_id,
+        "status": status,
+    }
+    if stage:
+        payload["stage"] = stage
+    if result is not None:
+        payload["result"] = result
+    if message:
+        payload["message"] = message
+
+    try:
+        response = requests.post(webhook, json=payload, timeout=30)
+        response.raise_for_status()
+    except RequestException as exc:
+        logger.warning("Failed to send task status update: %s", exc)
 
 # ------------------------------------------------------------------------------
 # Metadata builders
@@ -154,23 +186,33 @@ def run_monday(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] 
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
-    task_tracking.update_task_status(task_id or metadata.task_id, "in_progress", attempt_delta=1)
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.MONDAY.value,
+    )
     try:
         result = run_headless_flow(metadata)
     except Exception as exc:
-        task_tracking.update_task_status(
-            task_id or metadata.task_id,
+        send_status_update(
+            current_task_id,
             "failed",
+            stage=StageName.MONDAY.value,
             message=str(exc),
         )
         raise
 
     stage = result.stages.get(StageName.MONDAY)
     artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
-    task_tracking.update_task_status(
-        task_id or result.task_id,
+    send_status_update(
+        current_task_id,
         "completed" if stage and stage.success else "failed",
-        result={"monday": stage.data if stage else {}},
+        stage=StageName.MONDAY.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
     )
     return {
         "task_id": result.task_id,
@@ -189,22 +231,32 @@ def run_pr_site(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
-    task_tracking.update_task_status(task_id or metadata.task_id, "in_progress", attempt_delta=1)
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.PR_SITE.value,
+    )
     try:
         result = run_headless_flow(metadata)
     except Exception as exc:
-        task_tracking.update_task_status(
-            task_id or metadata.task_id,
+        send_status_update(
+            current_task_id,
             "failed",
+            stage=StageName.PR_SITE.value,
             message=str(exc),
         )
         raise
     stage = result.stages.get(StageName.PR_SITE)
     artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
-    task_tracking.update_task_status(
-        task_id or result.task_id,
+    send_status_update(
+        current_task_id,
         "completed" if stage and stage.success else "failed",
-        result={"pr_site": stage.data if stage else {}},
+        stage=StageName.PR_SITE.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
     )
     return {
         "task_id": result.task_id,
@@ -223,22 +275,32 @@ def run_quickcap(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
-    task_tracking.update_task_status(task_id or metadata.task_id, "in_progress", attempt_delta=1)
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.QUICKCAP.value,
+    )
     try:
         result = run_headless_flow(metadata)
     except Exception as exc:
-        task_tracking.update_task_status(
-            task_id or metadata.task_id,
+        send_status_update(
+            current_task_id,
             "failed",
+            stage=StageName.QUICKCAP.value,
             message=str(exc),
         )
         raise
     stage = result.stages.get(StageName.QUICKCAP)
     artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
-    task_tracking.update_task_status(
-        task_id or result.task_id,
+    send_status_update(
+        current_task_id,
         "completed" if stage and stage.success else "failed",
-        result={"quickcap": stage.data if stage else {}},
+        stage=StageName.QUICKCAP.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
     )
     return {
         "task_id": result.task_id,
@@ -258,20 +320,30 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
-    task_tracking.update_task_status(task_id or metadata.task_id, "in_progress", attempt_delta=1)
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+    )
     try:
         result = run_headless_flow(metadata)
     except Exception as exc:
-        task_tracking.update_task_status(
-            task_id or metadata.task_id,
+        send_status_update(
+            current_task_id,
             "failed",
             message=str(exc),
         )
         raise
-    task_tracking.update_task_status(
-        task_id or result.task_id,
+    send_status_update(
+        current_task_id,
         "completed" if result.success else "failed",
-        result={stage.value: stage_result.data for stage, stage_result in result.stages.items()},
+        result={
+            stage.value: {
+                "data": stage_result.data,
+                "artifacts": [asdict(artifact) for artifact in stage_result.artifacts],
+            }
+            for stage, stage_result in result.stages.items()
+        },
     )
     return {
         "task_id": result.task_id,
