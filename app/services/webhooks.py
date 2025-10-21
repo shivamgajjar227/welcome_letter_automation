@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict
 
 import task_tracking
-from app.schemas import MondayWebhookPayload, TaskStatusPayload
+from app.schemas import MondayWebhookPayload, StageResultPayload, TaskStatusPayload
 
 logger = logging.getLogger(__name__)
 
@@ -32,3 +32,16 @@ def handle_task_status(payload: TaskStatusPayload) -> None:
         "Updated task status",
         extra={"task_id": payload.task_id, "status": payload.status, "stage": payload.stage},
     )
+
+
+def handle_stage_payload(payload: StageResultPayload) -> None:
+    logger.info(
+        "Received stage payload",
+        extra={
+            "task_id": payload.task_id,
+            "stage": payload.stage,
+            "processed": len(payload.processed or payload.records or []),
+            "failed": len(payload.failed or []),
+        },
+    )
+    # Extend here to persist payload data if required.

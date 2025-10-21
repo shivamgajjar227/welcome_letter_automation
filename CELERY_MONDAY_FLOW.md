@@ -66,15 +66,14 @@ _send_records_to_api(npis, metadata)
 - Click "Welcome Letter QC" and collect NPIs with status "Not Started".
 - Instead of inserting into the DB, call `_send_records_to_api` to post records to the webhook.
 
-### 5. Webhook (New `api_proxy.py`)
+### 5. Webhook (FastAPI `/webhooks/monday`)
 ```python
 @app.post("/webhooks/monday")
 async def monday_webhook(request: Request):
     payload = await request.json()
     # log payload for debugging (JSONL file)
 ```
-- Acts as a debugging proxy—you can inspect `proxy_logs.jsonl` or hit `GET /logs` to review received payloads.
-- Replace with your FastAPI endpoint once ready to persist records to MariaDB.
+- The FastAPI hook currently logs payloads; extend it to persist records or trigger downstream workflows.
 
 ### 6. Task Completion
 - On success: `RunnerResult` holds artifacts and `stage_result.data`; Celery task returns `{"success": true, ...}` and notifies FastAPI.
@@ -92,3 +91,9 @@ async def monday_webhook(request: Request):
 5. **Keep logging consistent:** INFO by default, DEBUG when `TASKS_LOG_LEVEL=DEBUG` to capture more granular details.
 
 With this template, developers can replicate the pattern for additional pipelines while keeping code approachable.
+
+### 7. Pipeline orchestration
+
+`tasks.run_pipeline` invokes the stages in enum order (`monday_ingest`, `monday_status_update`, `pr_site_enrichment`, `quickcap_submission`).
+For stages that require existing data (status updates, PR Site enrichment, QuickCap), the runner first looks for records in the task payload and, if absent, fetches them from the configured REST endpoints (e.g., `MONDAY_STATUS_FETCH_API_URL`, `PR_SITE_FETCH_API_URL`, `QUICKCAP_FETCH_API_URL`).
+

@@ -222,6 +222,51 @@ def run_monday(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] 
     }
 
 
+@celery_app.task(name="tasks.run_monday_status")
+def run_monday_status(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
+    """Execute the Monday board status update stage."""
+    metadata = build_metadata(enabled_stages=[StageName.MONDAY_STATUS])
+    _ensure_stage_enabled(metadata, StageName.MONDAY_STATUS)
+    if task_id:
+        metadata.task_id = task_id
+    if payload:
+        metadata.request_payload = payload
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.MONDAY_STATUS.value,
+    )
+    try:
+        result = run_headless_flow(metadata)
+    except Exception as exc:
+        send_status_update(
+            current_task_id,
+            "failed",
+            stage=StageName.MONDAY_STATUS.value,
+            message=str(exc),
+        )
+        raise
+
+    stage = result.stages.get(StageName.MONDAY_STATUS)
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
+    send_status_update(
+        current_task_id,
+        "completed" if stage and stage.success else "failed",
+        stage=StageName.MONDAY_STATUS.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
+    )
+    return {
+        "task_id": result.task_id,
+        "success": bool(stage and stage.success),
+        "artifacts": artifacts,
+        "data": stage.data if stage else {},
+    }
+
+
 @celery_app.task(name="tasks.run_pr_site")
 def run_pr_site(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
     """Execute only the PR Site enrichment stage."""

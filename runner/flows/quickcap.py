@@ -1,27 +1,19 @@
-"""
-Headless runner implementation for the QuickCap submission stage.
-
-NOTE: This initial port focuses on establishing the headless plumbing,
-logging, and database state transitions. The UI interactions needed to
-complete Quick Add workflows should be implemented in a follow-up pass.
-"""
+"""Headless runner implementation for the QuickCap submission stage."""
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from selenium.webdriver.remote.webdriver import WebDriver
 
 import constants
-from db.session import SessionLocal
-from models.pr_site_data import PRSiteData
 from pages.quickcap_page import QuickcapPage
 
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
+from ..webhooks import post_webhook, fetch_stage_payload
 
 logger = logging.getLogger(__name__)
 
@@ -49,109 +41,113 @@ def _get_base_url(metadata: RunnerMetadata) -> str:
     raise RuntimeError("QuickCap base URL not configured")
 
 
-def _collect_records(db) -> List[PRSiteData]:
-    return db.query(PRSiteData).filter(PRSiteData.status == 1).all()
-
-
-def _map_company(record: PRSiteData) -> Optional[str]:
-    network = (record.network or "").strip().lower()
-    health_plan = (record.health_plan or "").strip().lower()
-    return constants.COMPANY_MAP.get(network, {}).get(health_plan)
+def _map_company(network: str, health_plan: str) -> Optional[str]:
+    return constants.COMPANY_MAP.get((network or "").strip().lower(), {}).get((health_plan or "").strip().lower())
 
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
-    """
-    Execute the QuickCap submission stage.
-
-    Currently, the implementation validates credentials, captures artifacts,
-    and marks eligible records as processed (status=2).  UI automation for
-    QuickCap data entry will be added in a future iteration.
-    """
     stage_result = StageResult(stage=StageName.QUICKCAP)
+    records: List[Dict] = list(metadata.request_payload.get("records", []))
+
+    structured_log(
+        logger,
+        "stage_start",
+        stage=StageName.QUICKCAP.value,
+        task_id=metadata.task_id,
+        payload_count=len(records),
+    )
+
+    if not records:
+        stage_result.mark_finished(success=True)
+        stage_result.data["processed"] = []
+        return stage_result
+
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
-
-    structured_log(logger, "stage_start", stage=StageName.QUICKCAP.value, task_id=metadata.task_id, url=base_url)
 
     driver.get(base_url)
     quickcap_page = QuickcapPage(driver)
 
     try:
-        quickcap_page.click_company()
         quickcap_page.login(cred.username, cred.password)
         stage_result.artifacts.append(
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "after_login")
         )
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover
         structured_log(
             logger,
             "login_failure",
-            task_id=metadata.task_id,
             stage=StageName.QUICKCAP.value,
+            task_id=metadata.task_id,
             error=str(exc),
         )
         stage_result.artifacts.append(
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "login_failure")
         )
-        stage_result.artifacts.append(
-            artifacts.capture_dom(driver, metadata, StageName.QUICKCAP, "login_failure")
-        )
         stage_result.mark_finished(success=False, error=str(exc))
         return stage_result
 
-    db = SessionLocal()
-    processed: List[int] = []
-    skipped: Dict[str, str] = {}
-    try:
-        records = _collect_records(db)
-        structured_log(logger, "records_loaded", task_id=metadata.task_id, count=len(records))
-        if not records:
-            stage_result.mark_finished(success=True)
-            stage_result.data["processed"] = []
-            return stage_result
+    processed: List[Dict] = []
+    failures: List[Dict] = []
+    current_company: Optional[str] = None
 
-        for record in records:
-            company = _map_company(record)
-            if not company:
-                skipped[str(record.npi_number)] = "company_mapping_missing"
-                structured_log(
-                    logger,
-                    "record_skipped",
-                    task_id=metadata.task_id,
-                    npi=record.npi_number,
-                    reason="company_mapping_missing",
-                )
-                continue
+    for record in records:
+        npi = str(record.get("npi_number") or record.get("npi") or "").strip()
+        if not npi:
+            failures.append({"reason": "missing_npi", "record": record})
+            continue
 
-            # Placeholder for future UI automation.
-            record.status = 2
-            record.updated_at = datetime.utcnow()
-            processed.append(record.npi_number)
+        network = (record.get("network") or "").strip().lower()
+        health_plan = (record.get("health_plan") or "").strip().lower()
+        company_name = record.get("company") or _map_company(network, health_plan)
 
-        db.commit()
-        structured_log(logger, "records_updated", task_id=metadata.task_id, count=len(processed))
-    except Exception as exc:  # pragma: no cover - depends on live systems
-        db.rollback()
-        structured_log(
-            logger,
-            "stage_exception",
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP.value,
-            error=str(exc),
-        )
-        stage_result.artifacts.append(
-            artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "exception")
-        )
-        stage_result.artifacts.append(
-            artifacts.capture_dom(driver, metadata, StageName.QUICKCAP, "exception")
-        )
-        stage_result.mark_finished(success=False, error=str(exc))
-        return stage_result
-    finally:
-        db.close()
+        try:
+            structured_log(
+                logger,
+                "record_start",
+                stage=StageName.QUICKCAP.value,
+                task_id=metadata.task_id,
+                npi=npi,
+                company=company_name,
+            )
+
+            if company_name and company_name != current_company:
+                if not quickcap_page.choose_company(company_name):
+                    raise RuntimeError(f"Unable to switch to company {company_name}")
+                current_company = company_name
+
+            quickcap_page.choose_credentialing_tab()
+            quickcap_page.choose_practitioner_data()
+            quickcap_page.enter_npi(npi)
+            quickcap_page.click_search_button()
+
+            stage_result.artifacts.append(
+                artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, f"search_{npi}")
+            )
+            processed.append({"npi_number": npi, "company": company_name})
+        except Exception as exc:  # pragma: no cover
+            failures.append({"npi_number": npi, "error": str(exc)})
+            stage_result.artifacts.append(
+                artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, f"failure_{npi}")
+            )
+            structured_log(
+                logger,
+                "record_failure",
+                stage=StageName.QUICKCAP.value,
+                task_id=metadata.task_id,
+                npi=npi,
+                error=str(exc),
+            )
+
+    payload = {
+        "task_id": metadata.task_id,
+        "stage": StageName.QUICKCAP.value,
+        "processed": processed,
+        "failed": failures,
+    }
+    post_webhook(metadata, StageName.QUICKCAP, payload)
 
     stage_result.data["processed"] = processed
-    stage_result.data["skipped"] = skipped
-    stage_result.mark_finished(success=len(processed) > 0 or not skipped)
+    stage_result.data["failed"] = failures
+    stage_result.mark_finished(success=not failures)
     return stage_result
-

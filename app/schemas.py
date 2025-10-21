@@ -60,3 +60,10 @@ class TaskStatusPayload(BaseModel):
     result: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
 
+
+class StageResultPayload(BaseModel):
+    task_id: str
+    stage: str
+    processed: Optional[List[Dict[str, Any]]] = None
+    records: Optional[List[Dict[str, Any]]] = None
+    failed: Optional[List[Dict[str, Any]]] = None

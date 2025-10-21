@@ -74,8 +74,3 @@ docker run -d --name maria-db   -e MARIADB_USER=dbroot -e MARIADB_PASSWORD=dbroo
 - Add Prometheus metrics, Grafana dashboards, and heartbeat monitoring.
 - Expand secrets management (Vault/cloud KMS) and Kubernetes RBAC/resource tuning.
 - Replace legacy constants (`constants.py`, `settings.py`) with configuration driven via env/DB.
-
-## Commit Message
-```
-feat: add headless monday runner with celery tracking and k8s manifests
-```

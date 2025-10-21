@@ -17,6 +17,7 @@ class StageName(str, Enum):
     MONDAY = "monday_ingest"
     PR_SITE = "pr_site_enrichment"
     QUICKCAP = "quickcap_submission"
+    MONDAY_STATUS = "monday_status_update"
 
 
 def _default_task_id() -> str:
@@ -113,4 +114,3 @@ class RunnerResult:
         if not self.stages:
             return False
         return all(stage.success for stage in self.stages.values())
-

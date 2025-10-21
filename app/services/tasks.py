@@ -7,12 +7,15 @@ from fastapi import HTTPException, status
 
 import task_tracking
 from runner.context import StageName
-from tasks import run_monday, run_pipeline
+from tasks import run_monday, run_monday_status, run_pr_site, run_quickcap, run_pipeline
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_STAGES = {
     StageName.MONDAY.value: run_monday,
+    StageName.MONDAY_STATUS.value: run_monday_status,
+    StageName.PR_SITE.value: run_pr_site,
+    StageName.QUICKCAP.value: run_quickcap,
     "pipeline": run_pipeline,
 }
 

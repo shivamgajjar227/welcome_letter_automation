@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas import MondayWebhookPayload, TaskStatusPayload
+from app.schemas import MondayWebhookPayload, StageResultPayload, TaskStatusPayload
 from app.services import webhooks as webhook_service
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -28,4 +28,22 @@ async def receive_task_status(payload: TaskStatusPayload) -> dict:
         webhook_service.handle_task_status(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "ok"}
+
+
+@router.post("/monday-status", summary="Receive Monday status update results")
+async def receive_monday_status(payload: StageResultPayload) -> dict:
+    webhook_service.handle_stage_payload(payload)
+    return {"status": "ok"}
+
+
+@router.post("/pr-site", summary="Receive PR Site enrichment data")
+async def receive_pr_site(payload: StageResultPayload) -> dict:
+    webhook_service.handle_stage_payload(payload)
+    return {"status": "ok"}
+
+
+@router.post("/quickcap", summary="Receive QuickCap submission data")
+async def receive_quickcap(payload: StageResultPayload) -> dict:
+    webhook_service.handle_stage_payload(payload)
     return {"status": "ok"}

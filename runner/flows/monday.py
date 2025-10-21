@@ -8,13 +8,12 @@ import logging
 from typing import Optional
 
 from selenium.webdriver.remote.webdriver import WebDriver
-import requests
-from requests import RequestException
 from pages.monday_page import MondayPage
 
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
+from ..webhooks import post_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -42,49 +41,19 @@ def _get_base_url(metadata: RunnerMetadata) -> str:
     raise RuntimeError("Monday base URL not configured")
 
 
-def _get_webhook_url(metadata: RunnerMetadata) -> Optional[str]:
-    config = metadata.stage_config.get(StageName.MONDAY)
-    if not config:
-        return None
-    return config.extra.get("webhook_url")
-
-
 def _send_records_to_api(npis, metadata: RunnerMetadata) -> None:
-    webhook_url = _get_webhook_url(metadata)
-    if not webhook_url:
+    payload = {
+        "task_id": metadata.task_id,
+        "stage": StageName.MONDAY.value,
+        "records": npis,
+    }
+    if not post_webhook(metadata, StageName.MONDAY, payload):
         structured_log(
             logger,
             "webhook_missing",
             stage=StageName.MONDAY.value,
             task_id=metadata.task_id,
         )
-        return
-
-    payload = {
-        "task_id": metadata.task_id,
-        "stage": StageName.MONDAY.value,
-        "records": npis,
-    }
-
-    try:
-        response = requests.post(webhook_url, json=payload, timeout=30)
-        response.raise_for_status()
-        structured_log(
-            logger,
-            "webhook_success",
-            stage=StageName.MONDAY.value,
-            task_id=metadata.task_id,
-            status_code=response.status_code,
-        )
-    except RequestException as exc:
-        structured_log(
-            logger,
-            "webhook_failure",
-            stage=StageName.MONDAY.value,
-            task_id=metadata.task_id,
-            error=str(exc),
-        )
-        raise
 
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:

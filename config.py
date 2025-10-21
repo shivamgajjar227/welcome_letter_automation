@@ -41,7 +41,13 @@ class Settings(BaseSettings):
     log_root: str = Field("app_logs", env="LOG_ROOT")
 
     monday_ingest_api_url: Optional[str] = Field(None, env="MONDAY_INGEST_API_URL")
+    monday_status_api_url: Optional[str] = Field(None, env="MONDAY_STATUS_API_URL")
+    monday_status_fetch_api_url: Optional[str] = Field(None, env="MONDAY_STATUS_FETCH_API_URL")
     task_status_webhook_url: Optional[str] = Field(None, env="TASK_STATUS_WEBHOOK_URL")
+    pr_site_ingest_api_url: Optional[str] = Field(None, env="PR_SITE_INGEST_API_URL")
+    pr_site_fetch_api_url: Optional[str] = Field(None, env="PR_SITE_FETCH_API_URL")
+    quickcap_ingest_api_url: Optional[str] = Field(None, env="QUICKCAP_INGEST_API_URL")
+    quickcap_fetch_api_url: Optional[str] = Field(None, env="QUICKCAP_FETCH_API_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")
@@ -51,6 +57,7 @@ class Settings(BaseSettings):
     remote_db_tunnel: bool = Field(False, env="REMOTE_DB_TUNNEL")
 
     monday_enabled: bool = Field(True, env="MONDAY_ENABLED")
+    monday_status_enabled: bool = Field(True, env="MONDAY_STATUS_ENABLED")
     pr_site_enabled: bool = Field(False, env="PR_SITE_ENABLED")
     quickcap_enabled: bool = Field(False, env="QUICKCAP_ENABLED")
 
@@ -64,6 +71,21 @@ class Settings(BaseSettings):
 
         if not self.monday_ingest_api_url:
             object.__setattr__(self, "monday_ingest_api_url", f"{base_url}/webhooks/monday")
+
+        if not self.monday_status_api_url:
+            object.__setattr__(self, "monday_status_api_url", f"{base_url}/webhooks/monday-status")
+        if not self.monday_status_fetch_api_url:
+            object.__setattr__(self, "monday_status_fetch_api_url", f"{base_url}/data/monday-status")
+
+        if not self.pr_site_ingest_api_url:
+            object.__setattr__(self, "pr_site_ingest_api_url", f"{base_url}/webhooks/pr-site")
+        if not self.pr_site_fetch_api_url:
+            object.__setattr__(self, "pr_site_fetch_api_url", f"{base_url}/data/pr-site")
+
+        if not self.quickcap_ingest_api_url:
+            object.__setattr__(self, "quickcap_ingest_api_url", f"{base_url}/webhooks/quickcap")
+        if not self.quickcap_fetch_api_url:
+            object.__setattr__(self, "quickcap_fetch_api_url", f"{base_url}/data/quickcap")
 
         if not self.task_status_webhook_url:
             object.__setattr__(self, "task_status_webhook_url", f"{base_url}/webhooks/task-status")
