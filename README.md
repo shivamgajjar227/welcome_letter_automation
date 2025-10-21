@@ -30,16 +30,30 @@ This repository automates the Monday → PR Site → QuickCap workflow using hea
 | `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME` | MariaDB connection | defaults to `settings.py` values |
 | `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | Celery broker/back-end (`redis://`) | ConfigMap defaults |
 | `TASKS_LOG_LEVEL` | Logging level for Celery tasks | `INFO` |
-| `MONDAY_INGEST_API_URL` | Webhook where Monday flow posts scraped NPIs | `http://0.0.0.0:8070/webhooks/monday` |
-| `TASK_STATUS_WEBHOOK_URL` | Endpoint that receives task lifecycle updates from Celery | _(unset)_ |
+| `MONDAY_INGEST_API_URL` | Webhook where Monday flow posts scraped NPIs | `http://localhost:8000/webhooks/monday` |
+| `TASK_STATUS_WEBHOOK_URL` | Endpoint that receives task lifecycle updates from Celery | `http://localhost:8000/webhooks/task-status` |
 
 ## Local Development
-1. Ensure MariaDB and Selenium are available (Docker compose or local installs).
-2. Export required env vars and install dependencies: `pip install -r requirements.txt`.
-3. Run FastAPI: `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
-4. Start Celery worker: `celery -A tasks worker --loglevel=INFO`.
-5. Trigger Monday automation: `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"stage":"monday_ingest"}'`.
-6. Query status: `curl http://localhost:8000/tasks/{task_id}` or `curl http://localhost:8000/tasks/{task_id}/events`.
+
+### 1. Start supporting services (Docker)
+
+```bash
+# Redis broker (maps container port 6379 -> host 10080 to match config defaults)
+docker run -d --name redis-broker -p 10080:6379 redis:7-alpine
+
+# Selenium hub + Chrome node (single-container standalone)
+docker run -d --name selenium-hub -p 4444:4444 -p 7900:7900 selenium/standalone-chrome:latest
+
+# Optional: MariaDB (skip if you already have an instance)
+docker run -d --name maria-db   -e MARIADB_USER=dbroot -e MARIADB_PASSWORD=dbroot   -e MARIADB_ROOT_PASSWORD=dbroot   -e MARIADB_DATABASE=test_db   -p 3306:3306 mariadb:11
+```
+
+### 2. Run application components
+1. Export required env vars and install dependencies: `pip install -r requirements.txt`.
+2. Run FastAPI: `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+3. Start Celery worker: `celery -A tasks worker --loglevel=INFO`.
+4. Trigger Monday automation: `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"stage":"monday_ingest"}'`.
+5. Query status: `curl http://localhost:8000/tasks/{task_id}` or `curl http://localhost:8000/tasks/{task_id}/events`.
 
 ### FastAPI ↔ Celery (Roadmap)
 - FastAPI will remain the central coordination service, persisting task data in MariaDB and exposing webhook endpoints for worker callbacks.

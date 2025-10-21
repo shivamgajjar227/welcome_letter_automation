@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     media_root: str = Field("media", env="MEDIA_ROOT")
     log_root: str = Field("app_logs", env="LOG_ROOT")
 
-    monday_ingest_api_url: Optional[str] = Field("http://0.0.0.0:8070", env="MONDAY_INGEST_API_URL")
-    task_status_webhook_url: Optional[str] = Field("http://0.0.0.0:8070", env="TASK_STATUS_WEBHOOK_URL")
+    monday_ingest_api_url: Optional[str] = Field(None, env="MONDAY_INGEST_API_URL")
+    task_status_webhook_url: Optional[str] = Field(None, env="TASK_STATUS_WEBHOOK_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")
@@ -57,6 +57,16 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    def model_post_init(self, __context: Dict[str, Any]) -> None:  # type: ignore[override]
+        base_host = "127.0.0.1" if self.api_host in {"0.0.0.0", "::", "localhost"} else self.api_host
+        base_url = f"http://{base_host}:{self.api_port}"
+
+        if not self.monday_ingest_api_url:
+            object.__setattr__(self, "monday_ingest_api_url", f"{base_url}/webhooks/monday")
+
+        if not self.task_status_webhook_url:
+            object.__setattr__(self, "task_status_webhook_url", f"{base_url}/webhooks/task-status")
 
 
 @lru_cache()

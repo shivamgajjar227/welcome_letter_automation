@@ -321,18 +321,11 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
     if payload:
         metadata.request_payload = payload
     current_task_id = task_id or metadata.task_id
-    send_status_update(
-        current_task_id,
-        "in_progress",
-    )
+    send_status_update(current_task_id, "in_progress")
     try:
         result = run_headless_flow(metadata)
     except Exception as exc:
-        send_status_update(
-            current_task_id,
-            "failed",
-            message=str(exc),
-        )
+        send_status_update(current_task_id, "failed", message=str(exc))
         raise
     send_status_update(
         current_task_id,
@@ -341,6 +334,8 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
             stage.value: {
                 "data": stage_result.data,
                 "artifacts": [asdict(artifact) for artifact in stage_result.artifacts],
+                "success": stage_result.success,
+                "error": stage_result.error,
             }
             for stage, stage_result in result.stages.items()
         },

@@ -9,6 +9,7 @@ import uvicorn
 
 from config import get_settings
 from app.routers import tasks as tasks_router
+from app.routers import webhooks as webhooks_router
 from db.session import engine
 from models.task_models import AutomationTask, AutomationTaskEvent
 
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.api_title, version=settings.api_version)
     app.include_router(tasks_router.router)
+    app.include_router(webhooks_router.router)
 
     logger = logging.getLogger("app")
     logger.info("FastAPI application initialised", extra={"title": settings.api_title, "version": settings.api_version})

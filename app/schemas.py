@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
 
 class TaskCreatePayload(BaseModel):
@@ -31,4 +32,31 @@ class TaskListResponse(BaseModel):
 class TaskEventResponse(BaseModel):
     task_id: str
     events: List[Dict[str, Any]]
+
+
+class MondayRecord(BaseModel):
+    npi_number: str
+    effective_date: str
+    health_plan: str
+    lines_of_business: str
+
+
+class MondayWebhookPayload(BaseModel):
+    task_id: str
+    stage: Optional[str] = Field(default="monday_ingest")
+    records: List[MondayRecord]
+
+
+class ArtifactPayload(BaseModel):
+    type: str
+    path: str
+    description: Optional[str] = None
+
+
+class TaskStatusPayload(BaseModel):
+    task_id: str
+    status: str
+    stage: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None
 
