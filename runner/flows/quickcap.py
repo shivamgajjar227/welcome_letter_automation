@@ -48,6 +48,10 @@ def _map_company(network: str, health_plan: str) -> Optional[str]:
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
     records: List[Dict] = list(metadata.request_payload.get("records", []))
+    if not records:
+        payload = fetch_stage_payload(metadata, StageName.QUICKCAP)
+        if payload:
+            records = list(payload.get("records", [])) or list(payload.get("processed", []))
 
     structured_log(
         logger,

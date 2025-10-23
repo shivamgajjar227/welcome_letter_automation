@@ -13,7 +13,7 @@ from pages.monday_page import MondayPage
 from .. import artifacts
 from ..context import RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook
+from ..webhooks import post_webhook, fetch_stage_payload
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.MONDAY_STATUS)
     records: List[Dict] = list(metadata.request_payload.get("records", []))
+    if not records:
+        payload = fetch_stage_payload(metadata, StageName.MONDAY_STATUS)
+        if payload:
+            records = list(payload.get("records", [])) or list(payload.get("processed", []))
 
     structured_log(
         logger,
@@ -42,7 +46,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         return stage_result
 
     monday_page = MondayPage(driver)
-    driver.get(metadata.base_urls.get(StageName.MONDAY.value, metadata.base_urls.get("monday", "")))
+    base_url = (
+        metadata.base_urls.get(StageName.MONDAY_STATUS.value)
+        or metadata.base_urls.get(StageName.MONDAY.value)
+        or metadata.base_urls.get("monday")
+    )
+    if not base_url:
+        raise RuntimeError("Monday base URL not configured for status update")
+    driver.get(base_url)
 
     try:
         structured_log(

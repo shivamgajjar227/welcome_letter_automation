@@ -108,6 +108,11 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
             settings.monday_password,
             settings.monday_base_url,
         ),
+        StageName.MONDAY_STATUS: (
+            settings.monday_username,
+            settings.monday_password,
+            settings.monday_base_url,
+        ),
         StageName.PR_SITE: (
             settings.pr_site_username,
             settings.pr_site_password,
@@ -121,6 +126,7 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
     }
     stage_toggles = {
         StageName.MONDAY: settings.monday_enabled,
+        StageName.MONDAY_STATUS: settings.monday_status_enabled,
         StageName.PR_SITE: settings.pr_site_enabled,
         StageName.QUICKCAP: settings.quickcap_enabled,
     }
@@ -137,6 +143,30 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
             cfg = StageConfig(enabled=True)
             if stage == StageName.MONDAY and settings.monday_ingest_api_url:
                 cfg.extra["webhook_url"] = settings.monday_ingest_api_url
+            elif stage == StageName.MONDAY_STATUS and settings.monday_status_api_url:
+                cfg.extra["webhook_url"] = settings.monday_status_api_url
+            elif stage == StageName.PR_SITE and settings.pr_site_ingest_api_url:
+                cfg.extra["webhook_url"] = settings.pr_site_ingest_api_url
+            elif stage == StageName.QUICKCAP and settings.quickcap_ingest_api_url:
+                cfg.extra["webhook_url"] = settings.quickcap_ingest_api_url
+
+            if stage == StageName.MONDAY_STATUS and settings.monday_status_fetch_api_url:
+                cfg.extra["input_url"] = settings.monday_status_fetch_api_url
+            elif stage == StageName.PR_SITE and settings.pr_site_fetch_api_url:
+                cfg.extra["input_url"] = settings.pr_site_fetch_api_url
+            elif stage == StageName.QUICKCAP and settings.quickcap_fetch_api_url:
+                cfg.extra["input_url"] = settings.quickcap_fetch_api_url
+
+            if stage == StageName.PR_SITE:
+                cfg.extra["payload_from"] = StageName.MONDAY.value
+                cfg.extra["payload_key"] = "npi_records"
+            elif stage == StageName.QUICKCAP:
+                cfg.extra["payload_from"] = StageName.PR_SITE.value
+                cfg.extra["payload_key"] = "records"
+            elif stage == StageName.MONDAY_STATUS:
+                cfg.extra["payload_from"] = StageName.QUICKCAP.value
+                cfg.extra["payload_key"] = "processed"
+
             stage_config[stage] = cfg
         else:
             stage_config[stage] = StageConfig(enabled=False)
@@ -162,6 +192,7 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
         base_urls=base_urls,
         credentials=credentials,
         stage_config=stage_config,
+        headless=settings.selenium_headless,
     )
 
     return metadata
@@ -186,6 +217,8 @@ def run_monday(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] 
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
     current_task_id = task_id or metadata.task_id
     send_status_update(
         current_task_id,
@@ -231,6 +264,8 @@ def run_monday_status(task_id: Optional[str] = None, payload: Optional[Dict[str,
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
     current_task_id = task_id or metadata.task_id
     send_status_update(
         current_task_id,
@@ -276,6 +311,8 @@ def run_pr_site(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
     current_task_id = task_id or metadata.task_id
     send_status_update(
         current_task_id,
@@ -320,6 +357,8 @@ def run_quickcap(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
     current_task_id = task_id or metadata.task_id
     send_status_update(
         current_task_id,
@@ -365,6 +404,8 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
         metadata.task_id = task_id
     if payload:
         metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
     current_task_id = task_id or metadata.task_id
     send_status_update(current_task_id, "in_progress")
     try:

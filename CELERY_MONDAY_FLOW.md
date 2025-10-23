@@ -3,6 +3,7 @@
 This document explains how a Monday ingestion task travels from `tasks.py` through the headless runner (`runner/flows/monday.py`) so that developers can maintain the existing flow and use it as a template for future stages (PR Site, QuickCap, etc.).
 
 ## Overview
+- Headless mode defaults to `True` (controlled by `SELENIUM_HEADLESS`); include `{ "headless": false }` in a task payload to run with a visible browser when debugging.
 1. FastAPI receives a `POST /tasks` request (e.g., `{"stage": "monday_ingest"}`) and persists a task record.
 2. FastAPI enqueues the job by calling `tasks.run_monday.delay(task_id, payload)`.
 3. Celery worker picks up the task, constructs `RunnerMetadata`, and executes `run_headless_flow`.
@@ -68,12 +69,12 @@ _send_records_to_api(npis, metadata)
 
 ### 5. Webhook (FastAPI `/webhooks/monday`)
 ```python
-@app.post("/webhooks/monday")
-async def monday_webhook(request: Request):
-    payload = await request.json()
-    # log payload for debugging (JSONL file)
+@router.post("/webhooks/monday")
+async def monday_webhook(payload: MondayWebhookPayload) -> dict:
+    webhook_service.handle_monday_payload(payload)
+    return {"status": "logged"}
 ```
-- The FastAPI hook currently logs payloads; extend it to persist records or trigger downstream workflows.
+- FastAPI can log, persist, or trigger downstream workflows based on the incoming payload.
 
 ### 6. Task Completion
 - On success: `RunnerResult` holds artifacts and `stage_result.data`; Celery task returns `{"success": true, ...}` and notifies FastAPI.

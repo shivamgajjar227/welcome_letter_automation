@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.api_title, version=settings.api_version)
     app.include_router(tasks_router.router)
     app.include_router(webhooks_router.router)
+    app.include_router(data_router.router)
 
     logger = logging.getLogger("app")
     logger.info("FastAPI application initialised", extra={"title": settings.api_title, "version": settings.api_version})

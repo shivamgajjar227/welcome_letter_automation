@@ -57,6 +57,10 @@ def _inject_basic_auth(url: str, cred: CredentialRef) -> str:
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.PR_SITE)
     records: List[Dict] = list(metadata.request_payload.get("records", []))
+    if not records:
+        payload = fetch_stage_payload(metadata, StageName.PR_SITE)
+        if payload:
+            records = list(payload.get("records", []))
 
     structured_log(
         logger,

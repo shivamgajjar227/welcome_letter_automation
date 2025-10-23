@@ -1,4 +1,4 @@
-gi# Welcome Letter Automation – Headless Runner Platform
+# Welcome Letter Automation – Headless Runner Platform
 
 This repository automates the Monday → PR Site → QuickCap workflow using headless Selenium, Celery task orchestration, and a FastAPI management API. The current production-ready path focuses on the Monday ingestion stage, with PR Site and QuickCap scaffolds in place for future expansion.
 
@@ -26,14 +26,24 @@ This repository automates the Monday → PR Site → QuickCap workflow using hea
 | `MONDAY_USERNAME`, `MONDAY_PASSWORD` | Credentials for Monday.com board automation | **required** |
 | `MONDAY_BASE_URL` | Monday board URL | `https://pns-mgmt.monday.com/` |
 | `SELENIUM_URL` | Remote Selenium hub URL | `http://selenium-hub:4444/wd/hub` |
+| `SELENIUM_HEADLESS` | Run Selenium browser without UI (`true`/`false`) | `true` |
 | `MEDIA_ROOT`, `LOG_ROOT` | Directories for artifacts/logs | `media`, `app_logs` |
 | `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME` | MariaDB connection | defaults to `settings.py` values |
 | `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | Celery broker/back-end (`redis://`) | ConfigMap defaults |
 | `TASKS_LOG_LEVEL` | Logging level for Celery tasks | `INFO` |
 | `MONDAY_INGEST_API_URL` | Webhook where Monday flow posts scraped NPIs | `http://localhost:8000/webhooks/monday` |
+| `MONDAY_STATUS_API_URL` | Webhook where Monday status results are posted | `http://localhost:8000/webhooks/monday-status` |
+| `PR_SITE_INGEST_API_URL` | Webhook where PR Site enrichment data is posted | `http://localhost:8000/webhooks/pr-site` |
+| `QUICKCAP_INGEST_API_URL` | Webhook where QuickCap processing results are posted | `http://localhost:8000/webhooks/quickcap` |
+| `MONDAY_STATUS_FETCH_API_URL` | Optional endpoint returning NPIs that need status updates | _(unset)_ |
+| `PR_SITE_FETCH_API_URL` | Optional endpoint returning NPIs for PR Site enrichment | _(unset)_ |
+| `QUICKCAP_FETCH_API_URL` | Optional endpoint returning QuickCap submission payloads | _(unset)_ |
 | `TASK_STATUS_WEBHOOK_URL` | Endpoint that receives task lifecycle updates from Celery | `http://localhost:8000/webhooks/task-status` |
 
 ## Local Development
+
+> **Note**: Stages requiring input data (Monday status, PR Site, QuickCap) can accept records via task payloads or by setting the corresponding `*_FETCH_API_URL` environment variables. Set `SELENIUM_HEADLESS=false` or include `"headless": false` in the payload to run with a visible browser.
+
 
 ### 1. Start supporting services (Docker)
 
@@ -54,6 +64,7 @@ docker run -d --name maria-db   -e MARIADB_USER=dbroot -e MARIADB_PASSWORD=dbroo
 3. Start Celery worker: `celery -A tasks worker --loglevel=INFO`.
 4. Trigger Monday automation: `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"stage":"monday_ingest"}'`.
 5. Query status: `curl http://localhost:8000/tasks/{task_id}` or `curl http://localhost:8000/tasks/{task_id}/events`.
+6. Run the full pipeline (optional): `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{\"stage\":\"pipeline\",\"headless\": false}'`.
 
 ### FastAPI ↔ Celery (Roadmap)
 - FastAPI will remain the central coordination service, persisting task data in MariaDB and exposing webhook endpoints for worker callbacks.

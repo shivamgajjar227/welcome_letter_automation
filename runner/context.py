@@ -54,6 +54,7 @@ class RunnerMetadata:
         credentials: Mapping of logical keys to credential references.
         stage_config: Per-stage toggles or specific metadata.
         request_payload: Original task payload (stored for auditing or replays).
+        headless: Whether Selenium should run in headless mode.
     """
 
     task_id: str = field(default_factory=_default_task_id)
@@ -64,6 +65,7 @@ class RunnerMetadata:
     credentials: Mapping[str, CredentialRef] = field(default_factory=dict)
     stage_config: Mapping[StageName, StageConfig] = field(default_factory=dict)
     request_payload: Mapping[str, Any] = field(default_factory=dict)
+    headless: bool = True
 
 
 @dataclass(slots=True)

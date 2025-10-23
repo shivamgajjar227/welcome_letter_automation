@@ -26,13 +26,15 @@ Goal: Transition the welcome-letter automation project from pytest-driven test s
 ## Phase 2 – Celery Utility Service
 1. Configure Celery to use Redis (`CELERY_BROKER_URL=redis://`) as the single broker/result backend.
 2. Workers now send lifecycle updates via HTTP (`TASK_STATUS_WEBHOOK_URL`); MariaDB writes are the FastAPI API’s responsibility.
-3. Keep logging simple: INFO-level by default, verbose DEBUG output when `TASKS_LOG_LEVEL=DEBUG`.
-4. Flower remains optional for monitoring Redis queues.
+3. Stage inputs for downstream automation (PR Site, QuickCap, Monday status) can be fetched via REST endpoints (`*_FETCH_API_URL`) when not supplied inline.
+4. Keep logging simple: INFO-level by default, verbose DEBUG output when `TASKS_LOG_LEVEL=DEBUG`.
+5. Flower remains optional for monitoring Redis queues.
 
 ## Phase 3 – FastAPI Service Layer
 1. Offer REST task management, including webhook endpoints to receive notifications from the Celery utility service.
 2. Drive all MariaDB writes from FastAPI (no shared DB sessions with Celery).
 3. Provide optional debug mode that streams runner logs/artifacts back to clients for troubleshooting.
+4. Surface configuration toggles (e.g., `SELENIUM_HEADLESS`, `*_FETCH_API_URL`) to support both headless automation and interactive UI testing.
 
 ## Phase 4 – Docker & Deployment Targets
 1. Create separate Dockerfiles:

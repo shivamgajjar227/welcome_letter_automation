@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     selenium_url: Optional[str] = Field(None, env="SELENIUM_URL")
     media_root: str = Field("media", env="MEDIA_ROOT")
     log_root: str = Field("app_logs", env="LOG_ROOT")
+    selenium_headless: bool = Field(True, env="SELENIUM_HEADLESS")
 
     monday_ingest_api_url: Optional[str] = Field(None, env="MONDAY_INGEST_API_URL")
     monday_status_api_url: Optional[str] = Field(None, env="MONDAY_STATUS_API_URL")

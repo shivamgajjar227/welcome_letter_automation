@@ -49,7 +49,7 @@ def run_headless_flow(metadata: RunnerMetadata) -> RunnerResult:
 
     result = RunnerResult(task_id=metadata.task_id, metadata=metadata)
 
-    with browser_session(metadata, headless=True) as driver:
+    with browser_session(metadata, headless=metadata.headless) as driver:
         for stage in StageName:
             impl = STAGE_IMPLEMENTATIONS.get(stage)
             if impl is None:
