@@ -7,29 +7,30 @@ from fastapi import HTTPException, status
 
 import task_tracking
 from runner.context import StageName
-from tasks import run_monday, run_monday_status, run_pr_site, run_quickcap, run_pipeline
+from celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_STAGES = {
-    StageName.MONDAY.value: run_monday,
-    StageName.MONDAY_STATUS.value: run_monday_status,
-    StageName.PR_SITE.value: run_pr_site,
-    StageName.QUICKCAP.value: run_quickcap,
-    "pipeline": run_pipeline,
+SUPPORTED_STAGE_TASKS = {
+    StageName.MONDAY.value: "tasks.run_monday",
+    StageName.MONDAY_STATUS.value: "tasks.run_monday_status",
+    StageName.PR_SITE.value: "tasks.run_pr_site",
+    StageName.QUICKCAP.value: "tasks.run_quickcap",
+    "pipeline": "tasks.run_pipeline",
 }
 
 
 def enqueue_task(stage: str, metadata: Optional[Dict] = None) -> Dict:
     stage = stage or StageName.MONDAY.value
-    if stage not in SUPPORTED_STAGES:
+    if stage not in SUPPORTED_STAGE_TASKS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported stage '{stage}'")
 
     logger.info("Creating task for stage '%s' with metadata=%s", stage, metadata)
     task_record = task_tracking.create_task(stage, metadata)
 
     try:
-        celery_task = SUPPORTED_STAGES[stage].delay(task_record.id, metadata or {})
+        task_name = SUPPORTED_STAGE_TASKS[stage]
+        celery_task = celery_app.send_task(task_name, args=[task_record.id, metadata or {}])
     except Exception as exc:
         logger.exception("Failed to enqueue Celery task for task_id=%s stage=%s", task_record.id, stage)
         # re-raise as HTTPException so FastAPI emits a structured 500 response

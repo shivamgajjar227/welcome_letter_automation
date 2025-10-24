@@ -15,11 +15,11 @@ import os
 from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional
 
-from celery import Celery
 import requests
 from requests import RequestException
 
 from config import get_settings
+from celery_app import celery_app
 from runner.context import CredentialRef, RunnerMetadata, StageConfig, StageName
 from runner.headless_runner import run_headless_flow
 
@@ -28,19 +28,6 @@ from runner.headless_runner import run_headless_flow
 # ------------------------------------------------------------------------------
 
 settings = get_settings()
-
-BROKER_URL = settings.celery_broker_url
-RESULT_BACKEND = settings.celery_result_backend
-
-celery_app = Celery("welcome_letter_automation", broker=BROKER_URL, backend=RESULT_BACKEND)
-celery_app.conf.update(
-    task_track_started=True,
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone="UTC",
-    enable_utc=True,
-)
 
 # ------------------------------------------------------------------------------
 # Logging

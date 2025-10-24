@@ -108,3 +108,81 @@ This document describes the REST interfaces that a FastAPI server should expose 
 - **Observability**: Log incoming webhook payloads (with caution for sensitive data) and expose metrics (count, failures) for monitoring.
 
 By implementing these endpoints, the FastAPI service can fully orchestrate the Celery-driven automation pipeline without workers accessing the database directly.
+
+## 3. Monday Status Webhook
+
+- **Endpoint**: `POST /webhooks/monday-status`
+- **Purpose**: Receive the subset of NPIs whose status was toggled on the Monday board so the API can mark the automation as complete.
+- **Request Body**:
+
+```json
+{
+  "task_id": "<uuid>",
+  "stage": "monday_status_update",
+  "processed": [
+    {"npi_number": "1508446295", "status": "done"}
+  ],
+  "failed": [
+    {"npi_number": "1912217936", "error": "unable to locate board row"}
+  ]
+}
+```
+
+- **Response**: `200 OK` with `{"status": "ok"}`.
+
+## 4. PR Site Enrichment Webhook
+
+- **Endpoint**: `POST /webhooks/pr-site`
+- **Purpose**: Receive enriched practitioner details scraped from the PR Site portal.
+- **Request Body**:
+
+```json
+{
+  "task_id": "<uuid>",
+  "stage": "pr_site_enrichment",
+  "records": [
+    {
+      "npi_number": "1234567890",
+      "last_name": "DOE",
+      "first_name": "JOHN",
+      "gender": "Male",
+      "city": "Tampa",
+      "state": "FL",
+      "taxonomy_code": "207N00000X"
+    }
+  ],
+  "failed": []
+}
+```
+
+- **Response**: `200 OK` with `{"status": "ok"}`.
+
+## 5. QuickCap Submission Webhook
+
+- **Endpoint**: `POST /webhooks/quickcap`
+- **Purpose**: Receive the results of QuickCap searches/submissions (processed NPIs or failures).
+- **Request Body**:
+
+```json
+{
+  "task_id": "<uuid>",
+  "stage": "quickcap_submission",
+  "processed": [
+    {"npi_number": "1234567890", "company": "DNS Aetna"}
+  ],
+  "failed": [
+    {"npi_number": "1987654321", "error": "company_mapping_missing"}
+  ]
+}
+```
+
+- **Response**: `200 OK` with `{"status": "ok"}`.
+
+## 6. Fetch Endpoints
+
+When a Celery task payload does not include records, the runner can optionally call read-only endpoints exposed by FastAPI (configured via `*_FETCH_API_URL`):
+- `GET /data/monday-status` – returns NPIs with status `2` that need Monday board updates.
+- `GET /data/pr-site` – returns NPIs with status `0` that require PR Site enrichment.
+- `GET /data/quickcap` – returns NPIs with status `1` that should be processed in QuickCap.
+
+If these endpoints are unavailable, ensure the task payload supplies the necessary records explicitly.

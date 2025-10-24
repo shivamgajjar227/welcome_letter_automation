@@ -10,6 +10,7 @@ import uvicorn
 from config import get_settings
 from app.routers import tasks as tasks_router
 from app.routers import webhooks as webhooks_router
+from app.routers import data as data_router
 from db.session import engine
 from models.task_models import AutomationTask, AutomationTaskEvent
 
