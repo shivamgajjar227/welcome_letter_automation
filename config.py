@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     )
     pr_site_login_url: Optional[str] = Field(None, env="PR_SITE_LOGIN_URL")
 
-    quickcap_username: Optional[str] = Field(None, env="QUICKCAP_USERNAME")
-    quickcap_password: Optional[str] = Field(None, env="QUICKCAP_PASSWORD")
+    quickcap_username: Optional[str] = Field("autoprocess@pns-mgmt.com", env="QUICKCAP_USERNAME")
+    quickcap_password: Optional[str] = Field("Pns@072025", env="QUICKCAP_PASSWORD")
     quickcap_base_url: str = Field("https://pnstest.quickcap.net", env="QUICKCAP_BASE_URL")
 
     selenium_url: Optional[str] = Field(None, env="SELENIUM_URL")
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     pr_site_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/pr-site", env="PR_SITE_INGEST_API_URL")
     pr_site_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/data/pr-site", env="PR_SITE_FETCH_API_URL")
     quickcap_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/quickcap", env="QUICKCAP_INGEST_API_URL")
-    quickcap_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="QUICKCAP_FETCH_API_URL")
+    quickcap_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/data/quickcap", env="QUICKCAP_FETCH_API_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     monday_enabled: bool = Field(True, env="MONDAY_ENABLED")
     monday_status_enabled: bool = Field(True, env="MONDAY_STATUS_ENABLED")
     pr_site_enabled: bool = Field(True, env="PR_SITE_ENABLED")
-    quickcap_enabled: bool = Field(False, env="QUICKCAP_ENABLED")
+    quickcap_enabled: bool = Field(True, env="QUICKCAP_ENABLED")
 
     class Config:
         env_file = ".env"
