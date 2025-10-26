@@ -1,13 +1,10 @@
 import time
-from models import NPIAddress
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from constants import TEMPLATE_MAP
 import api.pr_site_data
-from sqlalchemy.orm import Session
-from db.session import SessionLocal
 import constants
 from selenium.common.exceptions import NoAlertPresentException
 from pages.base_page import BasePage
@@ -812,10 +809,8 @@ class QuickcapPage(BasePage):
         """
         Clicks the Org ID for the given NPI.
         Returns True if successful, False if Org ID not found.
-        Updates remarks in NPIAddress table if Org ID not found.
         """
-        logger.info(f"Inside Click Org ID: {npi_number}")
-        db: Session = SessionLocal()
+        logger.info("Attempting to click Org ID for NPI %s", npi_number)
         main_window = self.driver.window_handles[0]
 
         try:
@@ -824,28 +819,12 @@ class QuickcapPage(BasePage):
             )
             self.driver.execute_script("arguments[0].click();", element)
             time.sleep(5)
-            print("✅ Organization ID clicked successfully")
-            logger.info(f"Out from Click Org ID: {npi_number}")
+            logger.info("Organization ID clicked successfully for NPI %s", npi_number)
             return True
 
         except Exception as e:
-            error_message = "Organization ID not found or clickable"
-            print(f"❌ {error_message}")
+            logger.warning("Organization ID not found/clickable for NPI %s: %s", npi_number, e)
             time.sleep(5)
-
-            # Update only remarks
-            try:
-                db.query(NPIAddress).filter(
-                    NPIAddress.address_line1 == address_line1,
-                    NPIAddress.npi == npi_number,
-                    NPIAddress.update == 0
-                ).update({"remarks": error_message[:500]})
-                db.commit()
-                logger.info(f"Remarks updated for NPI {npi_number}")
-            except Exception as db_error:
-                print(f"Database update error: {db_error}")
-            finally:
-                db.close()
 
             # Close current (Org) tab if open
             try:
@@ -855,22 +834,21 @@ class QuickcapPage(BasePage):
                 if current_window != main_window:
                     # Close Org popup first
                     self.driver.close()
-                    print("🔒 Org ID popup closed.")
+                    logger.debug("Org ID popup closed for NPI %s", npi_number)
 
                     # Switch to next window (if exists) and close it too
                     all_windows = self.driver.window_handles
                     if len(all_windows) > 1:
                         self.driver.switch_to.window(all_windows[-1])
                         self.driver.close()
-                        print("🔒 Next window closed.")
+                        logger.debug("Additional popup closed while handling Org ID for NPI %s", npi_number)
 
                     # Finally switch back to main window
                     self.driver.switch_to.window(main_window)
-                    print("✅ Returned to main window.")
-                    logger.info(f"Out from Click Org ID: {npi_number}")
+                    logger.info("Returned to main window after Org ID failure for NPI %s", npi_number)
 
             except Exception as win_err:
-                print(f"Window handling error: {win_err}")
+                logger.warning("Window handling error while closing Org ID popup: %s", win_err)
 
             return False
 
@@ -1837,8 +1815,6 @@ class QuickcapPage(BasePage):
             return error_element is not None
         except:
             return False
-
-
 
 
 

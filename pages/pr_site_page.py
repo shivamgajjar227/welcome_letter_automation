@@ -67,7 +67,7 @@ class PRSitePage(BasePage):
         logger.info("Inside of hover and over update menu")
         for attempt in range(1, max_retries + 1):
             try:
-                print(f"Attempt {attempt} of {max_retries} to hover and click Update")
+                logger.debug("Attempt %s of %s to hover and click Update", attempt, max_retries)
 
                 # Wait for and hover over provider menu
                 provider_element = WebDriverWait(self.driver, 10).until(
@@ -85,13 +85,13 @@ class PRSitePage(BasePage):
                 logger.info("Out from hover over update menu")
 
             except Exception as e:
-                print(f"Attempt {attempt} failed: {str(e)}")
+                logger.warning("Hover/update attempt %s failed: %s", attempt, e)
                 if attempt == max_retries:
-                    print("Max retries reached, giving up")
+                    logger.error("Unable to click Update after %s attempts", max_retries)
                     return False
 
                 # Recovery actions
-                print("Refreshing page and retrying...")
+                logger.debug("Refreshing page before retrying hover/update")
                 self.driver.refresh()
                 time.sleep(2)
 
@@ -111,7 +111,7 @@ class PRSitePage(BasePage):
             clickable_option.click()
             logger.info(f"Out from NPI Search")
         except Exception as e:
-            print(f" Unexpected error while enter npi search: {type(e).__name__}")
+            logger.exception("Unexpected error while entering NPI search: %s", e)
 
     def click_search_npi(self):
         logger.info(f"Inside Click Search NPI")
@@ -121,10 +121,9 @@ class PRSitePage(BasePage):
             )
             element.click()
             time.sleep(10)
-            print("Search button clicked successfully.")
             logger.info(f"Out from Search NPI")
         except Exception as e:
-            print(f" Unexpected error while clicking search npi: {type(e).__name__}")
+            logger.exception("Unexpected error while clicking search NPI: %s", e)
 
     def get_project_type(self):
         return self.driver.find_element(*self.project_type).text.strip()
@@ -143,7 +142,7 @@ class PRSitePage(BasePage):
             return element.text.strip()
             logger.info(f"Out from get Last Name")
         except Exception as e:
-            print(" Could not find Last Name:", e)
+            logger.warning("Could not find Last Name: %s", e)
             self.driver.save_screenshot("lname_error.png")
             return None
 
@@ -154,7 +153,7 @@ class PRSitePage(BasePage):
             return element.text.strip()
             logger.info(f"Out from get First Name")
         except NoSuchElementException:
-            print("First name element not found.")
+            logger.warning("First name element not found.")
             return None
 
     def get_gender(self):
@@ -163,14 +162,14 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.gender).text.strip()
             logger.info(f"Out from get Gender")
         except NoSuchElementException:
-            print("Gender element not found.")
+            logger.warning("Gender element not found.")
             return None
 
     def get_npi_number(self):
         try:
             return self.driver.find_element(*self.npi_number).text.strip()
         except NoSuchElementException:
-            print("NPI Number element not found.")
+            logger.warning("NPI Number element not found.")
             return None
 
     def get_city(self):
@@ -179,7 +178,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.city).text.strip()
             logger.info(f"Out from get City")
         except NoSuchElementException:
-            print("City element not found.")
+            logger.warning("City element not found.")
             return None
 
     def get_state(self):
@@ -188,7 +187,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.state).text.strip()
             logger.info(f"Out from get State")
         except NoSuchElementException:
-            print("State element not found.")
+            logger.warning("State element not found.")
             return None
 
     def get_zip_code(self):
@@ -197,7 +196,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.zip_code).text.strip()
             logger.info(f"Out from get Zip Code")
         except NoSuchElementException:
-            print("Zip Code element not found.")
+            logger.warning("Zip Code element not found.")
             return None
 
     def get_category(self):
@@ -206,7 +205,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.category).text.strip()
             logger.info(f"Out from get Category")
         except NoSuchElementException:
-            print("Category element not found.")
+            logger.warning("Category element not found.")
             return None
 
     def get_speciality(self):
@@ -215,7 +214,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.speciality).text.strip()
             logger.info(f"Out from get Speciality")
         except NoSuchElementException:
-            print("Speciality element not found.")
+            logger.warning("Speciality element not found.")
             return None
 
     def get_network(self):
@@ -224,7 +223,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.network).text.strip()
             logger.info(f"Out from get Network")
         except NoSuchElementException:
-            print("Network element not found.")
+            logger.warning("Network element not found.")
             return None
 
     def hover_over_practice_menu(self, retries: int = 3):
@@ -267,7 +266,7 @@ class PRSitePage(BasePage):
             return element.text.strip()
             logger.info(f"Out from get Group NPI")
         except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error getting group NPI: {e}")
+            logger.error("Error getting group NPI: %s", e)
             return None
 
     def get_group_name(self):
@@ -279,7 +278,7 @@ class PRSitePage(BasePage):
             return element.text.strip()
             logger.info(f"Out from get Group Name")
         except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error getting group Name: {e}")
+            logger.error("Error getting group Name: %s", e)
             return None
 
     def get_name(self):
@@ -292,7 +291,7 @@ class PRSitePage(BasePage):
         driver = self.driver
         wait = WebDriverWait(driver, 20)
         main_window = driver.current_window_handle
-        print(main_window)
+        logger.debug("Main window handle: %s", main_window)
         group_npi= ""
         try:
             # === STEP 1: Click Group Link with Stale Retry ===
@@ -304,7 +303,7 @@ class PRSitePage(BasePage):
                     group_link.click()
                     break  # Success, exit loop
                 except StaleElementReferenceException:
-                    print("Retrying due to stale element...")
+                    logger.debug("Retrying group link click due to stale element")
                     time.sleep(1)
             else:
                 raise Exception("Group link click failed after retries")
@@ -317,14 +316,14 @@ class PRSitePage(BasePage):
             if len(new_tabs) >= 2:
                 # === STEP 3: Switch to Last Tab ===
                 driver.switch_to.window(new_tabs[-1])
-                print("Switched to last tab. Title:", driver.title)
+                logger.debug("Switched to last tab. Title: %s", driver.title)
 
                 # === STEP 4: Wait and Extract Data ===
                 data_element = wait.until(EC.presence_of_element_located(
                     (By.XPATH, "(//div[@class='col-md-3']/span[@class='lbl-data'])[1]")
                 ))
                 group_npi = data_element.text
-                print("Extracted NPI:", data_element.text)
+                logger.debug("Extracted NPI: %s", data_element.text)
 
                 # === STEP 5: Close All New Tabs ===
                 for tab in new_tabs:
@@ -333,16 +332,16 @@ class PRSitePage(BasePage):
 
                 # === STEP 6: Return to Main Window ===
                 driver.switch_to.window(main_window)
-                print("Returned to main window. Title:", driver.title)
+                logger.debug("Returned to main window. Title: %s", driver.title)
                 return group_npi
 
             else:
-                print("Less than 2 new tabs opened. Found:", len(new_tabs))
+                logger.warning("Less than 2 new tabs opened. Found: %s", len(new_tabs))
 
         except TimeoutException as te:
-            print("Timeout while waiting for element or tab:", te)
+            logger.error("Timeout while waiting for element or tab: %s", te)
         except Exception as e:
-            print("Error in test_handle_multiple_tabs:", e)
+            logger.exception("Error in test_handle_multiple_tabs: %s", e)
             driver.save_screenshot("error_tab_switch.png")
             raise
 
@@ -358,7 +357,7 @@ class PRSitePage(BasePage):
             return self.driver.find_element(*self.texonomy_code).text.strip()
             logger.info(f"Out from get Taxonomy Code")
         except NoSuchElementException:
-            print("Taxonomy Code element not found.")
+            logger.warning("Taxonomy Code element not found.")
             return None
 
     def get_ind_npi_list_with_grp_npi_locations(self, record, group_npi):
@@ -397,7 +396,7 @@ class PRSitePage(BasePage):
                     address_element = practice_row.find_element(
                         By.XPATH, ".//a[contains(@id,'LnkProvPractPlanAddress')]")
                     address = address_element.text.strip()
-                    print(f"Extracted address for row {i}: {address}")
+                    logger.debug("Extracted address for row %s: %s", i, address)
 
                     group_name = practice_row.find_element(
                         By.XPATH, ".//a[contains(@id,'LnkGroupName')]")
@@ -451,7 +450,7 @@ class PRSitePage(BasePage):
                                     try:
                                         web_date = datetime.strptime(effective_date, "%m/%d/%Y").date()
                                     except ValueError:
-                                        print(f"Invalid date format from web: {effective_date}")
+                                        logger.warning("Invalid date format from web: %s", effective_date)
                                         continue
 
                                     match_effective_date = True
@@ -462,7 +461,7 @@ class PRSitePage(BasePage):
                                             )
                                             match_effective_date = web_date == db_date
                                         except Exception as e:
-                                            print(f"Invalid date format in source for NPI {record_npi}: {e}")
+                                            logger.warning("Invalid date format in source for NPI %s: %s", record_npi, e)
                                             match_effective_date = False
 
                                     cleaned_zip_code = zipcode.replace("-", "") if zipcode else None
@@ -486,19 +485,19 @@ class PRSitePage(BasePage):
                                     logger.info(f"Out from get address for NPI {record_npi} with address '{address}'")
 
                                 except Exception as e:
-                                    print(f"Error processing plan row: {e}")
+                                    logger.debug("Error processing plan row %s: %s", i, e)
                                     continue
 
                         except Exception as e:
-                            print(f"Error processing plan table: {e}")
+                            logger.debug("Error processing plan table: %s", e)
                             continue
 
                 except Exception as e:
-                    print(f"Error processing practice row {i}: {e}")
+                    logger.debug("Error processing practice row %s: %s", i, e)
                     continue
 
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            logger.exception("Unexpected error while collecting practice locations: %s", e)
 
         return addresses
 
@@ -512,7 +511,7 @@ class PRSitePage(BasePage):
             return group_name
 
         except Exception as e:
-            print(f"Method 1 failed: {e}")
+            logger.debug("Method 1 failed to resolve group name: %s", e)
             try:
                 # Method 2: Find the immediate parent container and look for h2
                 parent_div = practice_row.find_element(By.XPATH, "./ancestor::div[position()=1]")
@@ -522,7 +521,7 @@ class PRSitePage(BasePage):
                 return group_name
 
             except Exception as e:
-                print(f"Method 2 failed: {e}")
+                logger.debug("Method 2 failed to resolve group name: %s", e)
                 try:
                     # Method 3: Look for the closest h2 in the same section
                     group_header = practice_row.find_element(By.XPATH, "./preceding::h2[1]")
@@ -531,12 +530,8 @@ class PRSitePage(BasePage):
                     return group_name
 
                 except Exception as e:
-                    print(f"Method 3 failed: {e}")
+                    logger.debug("Method 3 failed to resolve group name: %s", e)
                     return "Unknown Group"
-
-
-
-
 
 
 
