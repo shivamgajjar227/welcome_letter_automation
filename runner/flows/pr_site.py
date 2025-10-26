@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Dict, List
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -46,11 +46,9 @@ def _inject_basic_auth(url: str, cred: CredentialRef) -> str:
     parsed = urlparse(url)
     if not parsed.netloc:
         raise RuntimeError(f"Invalid PR Site URL: {url}")
-    if "@" in parsed.netloc:
+    if parsed.username or parsed.password:
         return url
-    username = quote(cred.username, safe="")
-    password = quote(cred.password, safe="")
-    netloc = f"{username}:{password}@{parsed.netloc}"
+    netloc = f"{cred.username}:{cred.password}@{parsed.netloc}"
     return urlunparse(parsed._replace(netloc=netloc))
 
 

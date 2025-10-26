@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse, urlunparse
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -17,8 +18,8 @@ class Settings(BaseSettings):
     api_reload: bool = Field(False, env="API_RELOAD")
 
     celery_default_queue: str = Field("automation", env="CELERY_DEFAULT_QUEUE")
-    celery_broker_url: str = Field("redis://localhost:10080/0", env="CELERY_BROKER_URL")
-    celery_result_backend: str = Field("redis://localhost:10080/1", env="CELERY_RESULT_BACKEND")
+    celery_broker_url: str = Field("redis://localhost:10008/0", env="CELERY_BROKER_URL")
+    celery_result_backend: str = Field("redis://localhost:10008/1", env="CELERY_RESULT_BACKEND")
 
     tasks_log_level: str = Field("INFO", env="TASKS_LOG_LEVEL")
 
@@ -26,11 +27,12 @@ class Settings(BaseSettings):
     monday_password: Optional[str] = Field("@VEnger200@@@@", env="MONDAY_PASSWORD")
     monday_base_url: str = Field("https://pns-mgmt.monday.com/", env="MONDAY_BASE_URL")
 
-    pr_site_username: Optional[str] = Field(None, env="PR_SITE_USERNAME")
-    pr_site_password: Optional[str] = Field(None, env="PR_SITE_PASSWORD")
+    pr_site_username: Optional[str] = Field("autoprocess@ad.pns-mgmt.com", env="PR_SITE_USERNAME")
+    pr_site_password: Optional[str] = Field("P%23194714496192ab", env="PR_SITE_PASSWORD")
     pr_site_base_url: str = Field(
         "https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1", env="PR_SITE_BASE_URL"
     )
+    pr_site_login_url: Optional[str] = Field(None, env="PR_SITE_LOGIN_URL")
 
     quickcap_username: Optional[str] = Field(None, env="QUICKCAP_USERNAME")
     quickcap_password: Optional[str] = Field(None, env="QUICKCAP_PASSWORD")
@@ -40,15 +42,14 @@ class Settings(BaseSettings):
     media_root: str = Field("media", env="MEDIA_ROOT")
     log_root: str = Field("app_logs", env="LOG_ROOT")
     selenium_headless: bool = Field(True, env="SELENIUM_HEADLESS")
-
-    monday_ingest_api_url: Optional[str] = Field(None, env="MONDAY_INGEST_API_URL")
-    monday_status_api_url: Optional[str] = Field(None, env="MONDAY_STATUS_API_URL")
-    monday_status_fetch_api_url: Optional[str] = Field(None, env="MONDAY_STATUS_FETCH_API_URL")
-    task_status_webhook_url: Optional[str] = Field(None, env="TASK_STATUS_WEBHOOK_URL")
-    pr_site_ingest_api_url: Optional[str] = Field(None, env="PR_SITE_INGEST_API_URL")
-    pr_site_fetch_api_url: Optional[str] = Field(None, env="PR_SITE_FETCH_API_URL")
-    quickcap_ingest_api_url: Optional[str] = Field(None, env="QUICKCAP_INGEST_API_URL")
-    quickcap_fetch_api_url: Optional[str] = Field(None, env="QUICKCAP_FETCH_API_URL")
+    monday_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/monday", env="MONDAY_INGEST_API_URL")
+    monday_status_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="MONDAY_STATUS_API_URL")
+    monday_status_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/monday-status", env="MONDAY_STATUS_FETCH_API_URL")
+    task_status_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="TASK_STATUS_WEBHOOK_URL")
+    pr_site_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/pr-site", env="PR_SITE_INGEST_API_URL")
+    pr_site_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="PR_SITE_FETCH_API_URL")
+    quickcap_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/quickcap", env="QUICKCAP_INGEST_API_URL")
+    quickcap_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="QUICKCAP_FETCH_API_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")
@@ -59,7 +60,7 @@ class Settings(BaseSettings):
 
     monday_enabled: bool = Field(True, env="MONDAY_ENABLED")
     monday_status_enabled: bool = Field(True, env="MONDAY_STATUS_ENABLED")
-    pr_site_enabled: bool = Field(False, env="PR_SITE_ENABLED")
+    pr_site_enabled: bool = Field(True, env="PR_SITE_ENABLED")
     quickcap_enabled: bool = Field(False, env="QUICKCAP_ENABLED")
 
     class Config:
@@ -90,6 +91,23 @@ class Settings(BaseSettings):
 
         if not self.task_status_webhook_url:
             object.__setattr__(self, "task_status_webhook_url", f"{base_url}/webhooks/task-status")
+
+        if (
+            not self.pr_site_login_url
+            and self.pr_site_base_url
+            and self.pr_site_username
+            and self.pr_site_password
+        ):
+            normalized = self.pr_site_base_url
+            if "://" not in normalized:
+                normalized = f"https://{normalized}"
+            parsed = urlparse(normalized)
+            if parsed.username or parsed.password:
+                object.__setattr__(self, "pr_site_login_url", normalized)
+            elif parsed.netloc:
+                auth_netloc = f"{self.pr_site_username}:{self.pr_site_password}@{parsed.netloc}"
+                auth_url = urlunparse(parsed._replace(netloc=auth_netloc))
+                object.__setattr__(self, "pr_site_login_url", auth_url)
 
 
 @lru_cache()

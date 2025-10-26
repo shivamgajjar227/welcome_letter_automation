@@ -103,7 +103,7 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
         StageName.PR_SITE: (
             settings.pr_site_username,
             settings.pr_site_password,
-            settings.pr_site_base_url,
+            settings.pr_site_login_url or settings.pr_site_base_url,
         ),
         StageName.QUICKCAP: (
             settings.quickcap_username,
