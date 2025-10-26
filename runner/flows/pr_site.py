@@ -119,6 +119,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "speciality": pr_site_page.get_speciality(),
                 "network": pr_site_page.get_network(),
                 "taxonomy_code": pr_site_page.get_taxonomy_code(),
+                "effective_date": record.get("effective_date"),
+                "health_plan": record.get("health_plan"),
+                "lines_of_business": record.get("lines_of_business"),
             }
 
             try:

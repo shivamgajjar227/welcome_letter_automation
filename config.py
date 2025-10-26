@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     monday_status_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/monday-status", env="MONDAY_STATUS_FETCH_API_URL")
     task_status_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="TASK_STATUS_WEBHOOK_URL")
     pr_site_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/pr-site", env="PR_SITE_INGEST_API_URL")
-    pr_site_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="PR_SITE_FETCH_API_URL")
+    pr_site_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/data/pr-site", env="PR_SITE_FETCH_API_URL")
     quickcap_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/quickcap", env="QUICKCAP_INGEST_API_URL")
     quickcap_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/task-status", env="QUICKCAP_FETCH_API_URL")
 
