@@ -126,8 +126,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 pr_site_page.enter_npi_search(npi)
                 pr_site_page.click_search_npi()
                 time.sleep(3)
-                data["group_npi"] = pr_site_page.get_group_npi()
-                data["group_name"] = pr_site_page.get_group_name()
+                group_npi = pr_site_page.get_group_npi()
+                group_name = pr_site_page.get_group_name()
+                data["group_npi"] = group_npi
+                data["group_name"] = group_name
+                addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
+                if addresses:
+                    data["practice_addresses"] = addresses
             except Exception as inner_exc:  # pragma: no cover
                 structured_log(
                     logger,

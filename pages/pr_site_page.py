@@ -1,4 +1,5 @@
 import time
+from typing import Mapping
 
 from selenium.common import TimeoutException, StaleElementReferenceException ,  NoSuchElementException
 from selenium.webdriver import ActionChains, Keys
@@ -6,11 +7,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from models import PRSiteData
 from datetime import datetime
-from db.session import SessionLocal
 from api import pr_site_data
-from models import NPIAddress
 from pages.base_page import BasePage
 from core import loggin_utils
 import logging
@@ -364,28 +362,38 @@ class PRSitePage(BasePage):
             return None
 
     def get_ind_npi_list_with_grp_npi_locations(self, record, group_npi):
-        logger.info(f"Inside get address for NPI {record.npi_number}")
+        def _record_value(key, default=None):
+            fallback_key = "npi" if key == "npi_number" else None
+            if isinstance(record, Mapping):
+                if key in record:
+                    return record.get(key, default)
+                if fallback_key:
+                    return record.get(fallback_key, default)
+                return default
+            value = getattr(record, key, default)
+            if value is None and fallback_key:
+                return getattr(record, fallback_key, default)
+            return value
+
+        record_npi = _record_value("npi_number")
+        logger.info(f"Inside get address for NPI {record_npi}")
         table_xpath = "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr[position()>1]"
         addresses = []
 
-        db = SessionLocal()
-        try:
-            db_plan = (record.health_plan or "").strip().lower()
-            db_effective_date = record.effective_date
+        db_plan = (_record_value("health_plan") or "").strip().lower()
+        db_effective_date = _record_value("effective_date")
 
-            # Get count of practice rows first
+        try:
             practice_rows_count = len(self.driver.find_elements(By.XPATH, table_xpath))
 
             for i in range(1, practice_rows_count + 1):
                 try:
-                    # Get the row fresh each time to avoid stale elements
                     practice_row_xpath = f"{table_xpath}[{i}]"
                     practice_row = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, practice_row_xpath))
                     )
                     time.sleep(5)
 
-                    # Extract address from the practice row
                     address_element = practice_row.find_element(
                         By.XPATH, ".//a[contains(@id,'LnkProvPractPlanAddress')]")
                     address = address_element.text.strip()
@@ -395,9 +403,6 @@ class PRSitePage(BasePage):
                         By.XPATH, ".//a[contains(@id,'LnkGroupName')]")
                     name = group_name.text.strip()
 
-                    print(f"Extracted group name for row {i}: {group_name}")
-
-
                     address_data = pr_site_data.RequestAPi.split_address(address)
                     address_line_1 = address_data.get("address_line_1", "").upper()
                     address_line_2 = address_data.get("address_line_2", "").upper()
@@ -405,36 +410,30 @@ class PRSitePage(BasePage):
                     state = address_data.get("state", "").upper()
                     zipcode = address_data.get("zipcode", "")
 
-                    # Check if this row is already expanded
                     try:
                         plan_tables = practice_row.find_elements(By.XPATH, ".//table[contains(@id,'GvProvPractPlans')]")
                         is_expanded = len(plan_tables) > 0
-                    except:
+                    except Exception:
                         is_expanded = False
 
-                    # If not expanded, click the arrow to expand
                     if not is_expanded:
                         arrow_click = practice_row.find_element(By.XPATH, ".//a[contains(@id,'LnkExpandPract')]")
                         arrow_click.click()
                         time.sleep(2)
 
-                        # Wait for expansion - use a more specific locator
                         WebDriverWait(self.driver, 15).until(
                             EC.presence_of_element_located(
                                 (By.XPATH, f"{practice_row_xpath}//table[contains(@id,'GvProvPractPlans')]"))
                         )
 
-                    # Get fresh reference to the row after expansion
                     practice_row = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, practice_row_xpath))
                     )
 
-                    # Find all plan tables within the practice row
                     plan_tables = practice_row.find_elements(By.XPATH, ".//table[contains(@id,'GvProvPractPlans')]")
 
                     for plan_table in plan_tables:
                         try:
-                            # Get all plan rows (skip the header row)
                             plan_rows = plan_table.find_elements(
                                 By.XPATH,
                                 ".//tbody/tr[position()>1]"
@@ -443,22 +442,11 @@ class PRSitePage(BasePage):
                             for plan_row in plan_rows:
                                 try:
                                     plan = plan_row.find_element(By.XPATH, "./td[2]").text.strip().lower()
-                                    if plan != db_plan:
+                                    if db_plan and plan != db_plan:
                                         continue
 
                                     effective_date = plan_row.find_element(By.XPATH, "./td[5]").text.strip()
                                     termination_date = plan_row.find_element(By.XPATH, "./td[6]").text.strip()
-
-                                    # try:
-                                    #     status_img = plan_row.find_element(By.XPATH,
-                                    #                                        ".//td/img[contains(@src,'checkbox-checked-yes-small.png')]")
-                                    #     has_green_tick = True
-                                    # except:
-                                    #     has_green_tick = False
-                                    #
-                                    # if not has_green_tick:
-                                    #     print(f"Skipping NPI {record.npi_number}: No green tick in status")
-                                    #     continue
 
                                     try:
                                         web_date = datetime.strptime(effective_date, "%m/%d/%Y").date()
@@ -466,36 +454,21 @@ class PRSitePage(BasePage):
                                         print(f"Invalid date format from web: {effective_date}")
                                         continue
 
-                                    try:
-                                        # Handle DB date format (assuming format like "Jan 01")
-                                        db_date = datetime.strptime(db_effective_date, "%b %d").date().replace(
-                                            year=web_date.year
-                                        )
-                                    except Exception as e:
-                                        print(f"Invalid date format in DB for NPI {record.npi_number}: {e}")
-                                        continue
+                                    match_effective_date = True
+                                    if db_effective_date:
+                                        try:
+                                            db_date = datetime.strptime(db_effective_date, "%b %d").date().replace(
+                                                year=web_date.year
+                                            )
+                                            match_effective_date = web_date == db_date
+                                        except Exception as e:
+                                            print(f"Invalid date format in source for NPI {record_npi}: {e}")
+                                            match_effective_date = False
 
                                     cleaned_zip_code = zipcode.replace("-", "") if zipcode else None
-                                    npi_number = name.split('-')[
-                                        -1].strip() if '-' in name else name.strip()
-                                    npi_name = name.split('-')[
-                                        0].strip() if '-' in name else name.strip()
-
-                                    if web_date == db_date and not termination_date.strip():
-                                        new_record = NPIAddress(
-                                            npi=record.npi_number,
-                                            address_line1=address_line_1,
-                                            address_line2=address_line_2,
-                                            city=city,
-                                            state=state,
-                                            zip_code=cleaned_zip_code,
-                                            update=0,
-                                            group_npi=npi_number,
-                                            name=npi_name.upper()
-                                        )
-                                        db.add(new_record)
-                                        db.commit()
-                                        print(f"New record added for NPI {record.npi_number} with address '{address}'")
+                                    npi_number = name.split('-')[-1].strip() if '-' in name else name.strip()
+                                    npi_number = npi_number or group_npi or ""
+                                    npi_name = name.split('-')[0].strip() if '-' in name else name.strip()
 
                                     addresses.append({
                                         "address_line_1": address_line_1,
@@ -503,11 +476,14 @@ class PRSitePage(BasePage):
                                         "city": city,
                                         "state": state,
                                         "zipcode": zipcode,
-                                        "update": 0,
+                                        "zip_code_clean": cleaned_zip_code,
                                         "group_npi": npi_number,
-                                        "name": npi_name.upper()
+                                        "name": npi_name.upper(),
+                                        "plan": plan,
+                                        "effective_date": effective_date,
+                                        "matches_effective_date": match_effective_date and not termination_date.strip(),
                                     })
-                                    logger.info(f"Out from get address for NPI {record.npi_number} with address '{address}'")
+                                    logger.info(f"Out from get address for NPI {record_npi} with address '{address}'")
 
                                 except Exception as e:
                                     print(f"Error processing plan row: {e}")
@@ -523,8 +499,6 @@ class PRSitePage(BasePage):
 
         except Exception as e:
             print(f"Unexpected error: {e}")
-        finally:
-            db.close()
 
         return addresses
 
@@ -559,10 +533,6 @@ class PRSitePage(BasePage):
                 except Exception as e:
                     print(f"Method 3 failed: {e}")
                     return "Unknown Group"
-
-
-
-
 
 
 
