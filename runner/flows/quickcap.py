@@ -97,81 +97,129 @@ def _select_primary_address(record: Mapping[str, Any]) -> Dict[str, Any]:
     return prioritized or addresses[0]
 
 
-def _normalize_record(raw_record: Mapping[str, Any]) -> Dict[str, Any]:
-    npi_number = str(raw_record.get("npi_number") or raw_record.get("npi") or "").strip()
-    if not npi_number:
-        raise QuickcapValidationError("missing_npi")
+# def _normalize_record(raw_record: Mapping[str, Any]) -> Dict[str, Any]:
+#     npi_number = str(raw_record.get("npi_number") or raw_record.get("npi") or "").strip()
+#     if not npi_number:
+#         raise QuickcapValidationError("missing_npi")
+#
+#     network = str(raw_record.get("network") or "").strip()
+#     health_plan = str(raw_record.get("health_plan") or "").strip()
+#     company_override = str(raw_record.get("company") or "").strip()
+#     company_name = company_override or _map_company(network, health_plan)
+#     if not company_name:
+#         raise QuickcapValidationError("company_mapping_missing")
+#
+#     address = _select_primary_address(raw_record)
+#     address_line1 = (
+#         address.get("address_line_1")
+#         or raw_record.get("address_line1")
+#         or raw_record.get("address_line_1")
+#     )
+#     if not address_line1:
+#         raise QuickcapValidationError("missing_address_line1")
+#
+#     address_line2 = address.get("address_line_2") or raw_record.get("address_line2") or ""
+#     city = address.get("city") or raw_record.get("city") or ""
+#     state = address.get("state") or raw_record.get("state") or ""
+#     zip_code = (
+#         address.get("zipcode")
+#         or address.get("zip_code")
+#         or raw_record.get("zip_code")
+#         or raw_record.get("postal_code")
+#         or ""
+#     )
+#     state_value = _map_state(state)
+#
+#     effective_date = str(raw_record.get("effective_date") or "").strip()
+#     contract_date = _format_effective_date(effective_date)
+#
+#     group_npi = str(raw_record.get("group_npi") or "").strip()
+#     if not group_npi:
+#         raise QuickcapValidationError("missing_group_npi")
+#
+#     category = str(raw_record.get("category") or "").strip()
+#     speciality = str(raw_record.get("speciality") or "").strip()
+#     gender = str(raw_record.get("gender") or "").strip()
+#     taxonomy_code = str(raw_record.get("taxonomy_code") or "").strip()
+#     practice_name = (
+#         str(raw_record.get("name") or "")
+#         or str(raw_record.get("practice_name") or "")
+#         or str(raw_record.get("group_name") or "")
+#         or "Unknown Practice"
+#     )
+#
+#     return {
+#         "npi_number": npi_number,
+#         "network": network,
+#         "health_plan": health_plan,
+#         "company_name": company_name,
+#         "last_name": str(raw_record.get("last_name") or "").strip(),
+#         "first_name": str(raw_record.get("first_name") or "").strip(),
+#         "gender": _map_gender(gender),
+#         "raw_gender": gender,
+#         "category": category,
+#         "category_option": _map_category(category),
+#         "speciality": speciality,
+#         "effective_date": effective_date,
+#         "contract_date": contract_date,
+#         "group_npi": group_npi,
+#         "taxonomy_code": taxonomy_code,
+#         "practice_name": practice_name,
+#         "address_line1": address_line1,
+#         "address_line2": address_line2,
+#         "city": city,
+#         "state": state,
+#         "state_value": state_value,
+#         "zip_code": zip_code,
+#         "zip_code_clean": (address.get("zip_code_clean") or zip_code.replace("-", "")),
+#     }
 
-    network = str(raw_record.get("network") or "").strip()
-    health_plan = str(raw_record.get("health_plan") or "").strip()
-    company_override = str(raw_record.get("company") or "").strip()
-    company_name = company_override or _map_company(network, health_plan)
+def safe_str(value: Any) -> str:
+    """Safely convert value to string, handling None."""
+    return str(value) if value is not None else ""
+
+def _normalize_record(raw_record: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize record from database query result."""
+    npi_number = str(raw_record.get("npi_number") or "")
+    network = safe_str(raw_record.get("network"))
+    health_plan = safe_str(raw_record.get("health_plan"))
+
+    company_name = _map_company(network, health_plan)
     if not company_name:
         raise QuickcapValidationError("company_mapping_missing")
 
-    address = _select_primary_address(raw_record)
-    address_line1 = (
-        address.get("address_line_1")
-        or raw_record.get("address_line1")
-        or raw_record.get("address_line_1")
-    )
-    if not address_line1:
-        raise QuickcapValidationError("missing_address_line1")
+    effective_date = raw_record.get("effective_date")
+    if isinstance(effective_date, datetime):
+        effective_date = effective_date.strftime("%b %d %Y")
+    elif effective_date:
+        effective_date = safe_str(effective_date)
 
-    address_line2 = address.get("address_line_2") or raw_record.get("address_line2") or ""
-    city = address.get("city") or raw_record.get("city") or ""
-    state = address.get("state") or raw_record.get("state") or ""
-    zip_code = (
-        address.get("zipcode")
-        or address.get("zip_code")
-        or raw_record.get("zip_code")
-        or raw_record.get("postal_code")
-        or ""
-    )
-    state_value = _map_state(state)
-
-    effective_date = str(raw_record.get("effective_date") or "").strip()
-    contract_date = _format_effective_date(effective_date)
-
-    group_npi = str(raw_record.get("group_npi") or "").strip()
-    if not group_npi:
-        raise QuickcapValidationError("missing_group_npi")
-
-    category = str(raw_record.get("category") or "").strip()
-    speciality = str(raw_record.get("speciality") or "").strip()
-    gender = str(raw_record.get("gender") or "").strip()
-    taxonomy_code = str(raw_record.get("taxonomy_code") or "").strip()
-    practice_name = (
-        str(raw_record.get("name") or "")
-        or str(raw_record.get("practice_name") or "")
-        or str(raw_record.get("group_name") or "")
-        or "Unknown Practice"
-    )
+    contract_date = _format_effective_date(effective_date) if effective_date else ""
 
     return {
         "npi_number": npi_number,
         "network": network,
         "health_plan": health_plan,
         "company_name": company_name,
-        "last_name": str(raw_record.get("last_name") or "").strip(),
-        "first_name": str(raw_record.get("first_name") or "").strip(),
-        "gender": _map_gender(gender),
-        "raw_gender": gender,
-        "category": category,
-        "category_option": _map_category(category),
-        "speciality": speciality,
+        "last_name": safe_str(raw_record.get("last_name")),
+        "first_name": safe_str(raw_record.get("first_name")),
+        "gender": _map_gender(safe_str(raw_record.get("gender"))),
+        "category": safe_str(raw_record.get("category")),
+        "category_option": _map_category(safe_str(raw_record.get("category"))),
+        "speciality": safe_str(raw_record.get("speciality")),
         "effective_date": effective_date,
         "contract_date": contract_date,
-        "group_npi": group_npi,
-        "taxonomy_code": taxonomy_code,
-        "practice_name": practice_name,
-        "address_line1": address_line1,
-        "address_line2": address_line2,
-        "city": city,
-        "state": state,
-        "state_value": state_value,
-        "zip_code": zip_code,
-        "zip_code_clean": (address.get("zip_code_clean") or zip_code.replace("-", "")),
+        "group_npi": str(raw_record.get("group_npi") or ""),
+        "taxonomy_code": safe_str(raw_record.get("taxonomy_code")),
+        "practice_name": safe_str(raw_record.get("name")),
+        "address_line1": safe_str(raw_record.get("address_line1")),
+        "address_line2": safe_str(raw_record.get("address_line2")),
+        "city": safe_str(raw_record.get("city")),
+        "state": safe_str(raw_record.get("state")),
+        "state_value": _map_state(safe_str(raw_record.get("state"))),
+        "zip_code": str(raw_record.get("zip_code") or ""),
+        "status": safe_str(raw_record.get("status")),
+        "update": safe_str(raw_record.get("update")),
     }
 
 
@@ -248,13 +296,31 @@ class QuickcapProcessor:
 
     # ------------------------------------------------------------------ helpers
 
+    # def _ensure_company(self, company_name: str) -> None:
+    #     if self.current_company and self.current_company.lower() == company_name.lower():
+    #         return
+    #     if not self.page.choose_company(company_name):
+    #         raise QuickcapValidationError(f"company_switch_failed:{company_name}")
+    #     self.current_company = company_name
+    #     self.page.set_main_window_before_switching()
+
     def _ensure_company(self, company_name: str) -> None:
+        """Switch company if needed."""
         if self.current_company and self.current_company.lower() == company_name.lower():
             return
-        if not self.page.choose_company(company_name):
-            raise QuickcapValidationError(f"company_switch_failed:{company_name}")
+
+
+        self.page.store_main_window()
+        self.page.click_change_company()
+        self.page.switch_to_new_window1()
+        self.page.choose_company(company_name)
+        self.page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
+        self.page.enter_password_in_company_prompt("Pns@072025")
+        self.page.click_login_button_in_company_prompt()
+        self.page.switch_to_main()
         self.current_company = company_name
-        self.page.set_main_window_before_switching()
+
+
 
     def _ensure_practitioner_context(self) -> None:
         if not self.page.check_npi_search_field():
@@ -262,11 +328,85 @@ class QuickcapProcessor:
             self.page.choose_credentialing_tab()
         self.page.choose_practitioner_data()
 
+    # def _search_npi(self, npi: str) -> None:
+    #     if not npi:
+    #         raise QuickcapValidationError("missing_npi")
+    #     self.page.enter_npi(npi)
+    #     self.page.click_search_button()
+
     def _search_npi(self, npi: str) -> None:
-        if not npi:
-            raise QuickcapValidationError("missing_npi")
-        self.page.enter_npi(npi)
-        self.page.click_search_button()
+        """Search for NPI in QuickCap."""
+
+        if self.page.is_access_denied():
+            self.page.driver.back()
+
+        if self.page.check_npi_search_field():
+            self.page.enter_npi(npi)
+            self.page.click_search_button()
+        else:
+            self.page.ensure_credentialing_tab()
+            self.page.choose_credentialing_tab()
+            self.page.choose_practitioner_data()
+            self.page.enter_npi(npi)
+            self.page.click_search_button()
+
+    def _run_edit_flow(self, data: Dict[str, Any]) -> None:
+        """Execute Edit flow for existing providers."""
+
+        self.page.click_edit_button()
+        self.page.switch_to_new_window1()
+        self.page.click_provider_button()
+
+        provider_id = self.page.provider_table_rows()
+        self.page.click_add_provider()
+        self.page.switch_to_new_window1()
+
+        self._populate_provider_form(data, provider_id)
+        self._link_organization(data)
+        self._enter_provider_location(data)
+        self._update_healthplan_and_taxonomy(data)
+        self._update_database
+
+    def _populate_provider_form(self, data: Dict[str, Any], provider_id: str) -> None:
+        """Populate provider form in Edit flow."""
+
+        self.page.enter_provider_letter(provider_id)
+        self.page.enter_last_name(data.get("last_name", ""))
+        self.page.enter_first_name(data.get("first_name", ""))
+        self.page.enter_effective_date(data["contract_date"])
+        self.page.select_contract_type1("CONTRACT FEE FOR SERVICE")
+        self.page.select_speciality1(data.get("network", ""))
+        self.page.select_payment_type("FEE FOR SERVICE")
+        self.page.enter_contract_from_date(data["contract_date"])
+        self.page.select_provider_type_dropdown1(
+            data.get("category", ""),
+            data.get("network", ""),
+            data.get("speciality", "")
+        )
+        self.page.select_account1("0000-000 DEFAULT")
+        self.page.select_template1(data["company_name"])
+
+    def _enter_provider_location(self, data: Dict[str, Any]) -> None:
+        """Enter provider location in Edit flow."""
+
+        self.page.switch_to_new_window1()
+        self.page.click_add_new_location()
+        self.page.enter_name1(data.get("practice_name", ""))
+        self.page.enter_address2(data["address_line1"])
+        self.page.enter_address_line2(data.get("address_line2", ""))
+
+        if data.get("state_value"):
+            self.page.select_state1(data["state_value"])
+
+        self.page.enter_zip1(data.get("zip_code", ""))
+        self.page.enter_city1(data.get("city", ""))
+        self.page.click_primary()
+        self.page.click_save1()
+
+        # Close popup if exists
+        if self.page.driver.current_window_handle != self.main_window:
+            self.page.driver.close()
+            self.page.driver.switch_to.window(self.main_window)
 
     def _run_quick_add_sequence(self, data: Mapping[str, Any]) -> None:
         try:
@@ -299,13 +439,28 @@ class QuickcapProcessor:
         self.page.select_payment_type("FEE FOR SERVICE")
         self.page.select_account("0000-000 DEFAULT")
 
-    def _link_organization(self, data: Mapping[str, Any]) -> None:
+    # def _link_organization(self, data: Mapping[str, Any]) -> None:
+    #     self.page.click_organization()
+    #     self.page.switch_to_new_window1()
+    #     self.page.enter_npi_org(data["group_npi"])
+    #     self.page.click_search_npi()
+    #     if not self.page.click_org_id(data["npi_number"], data["address_line1"]):
+    #         raise QuickcapValidationError("org_id_not_found")
+    #     self.page.switch_to_previous_window()
+
+    def _link_organization(self, data: Dict[str, Any]) -> None:
+        """Link NPI to organization."""
+
         self.page.click_organization()
         self.page.switch_to_new_window1()
         self.page.enter_npi_org(data["group_npi"])
         self.page.click_search_npi()
-        if not self.page.click_org_id(data["npi_number"], data["address_line1"]):
+
+        success = self.page.click_org_id(data["npi_number"], data["address_line1"])
+        if not success:
+            self._update_database_status(data, success=False, error="org_id_not_found")
             raise QuickcapValidationError("org_id_not_found")
+
         self.page.switch_to_previous_window()
 
     def _enter_practice_location(self, data: Mapping[str, Any]) -> None:
@@ -463,7 +618,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     driver.get(base_url)
     quickcap_page = QuickcapPage(driver)
-
+    main_window = driver.current_window_handle
     try:
         quickcap_page.click_company()
     except Exception:
@@ -471,7 +626,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     try:
         quickcap_page.login(cred.username, cred.password)
-        quickcap_page.set_main_window_before_switching()
         stage_result.artifacts.append(
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "after_login")
         )
@@ -488,7 +642,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         )
         stage_result.mark_finished(success=False, error=str(exc))
         return stage_result
-
+    current_company = None
     processed: List[Dict] = []
     failures: List[Dict] = []
     processor = QuickcapProcessor(quickcap_page)
@@ -503,10 +657,96 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 task_id=metadata.task_id,
                 npi=npi or "unknown",
             )
-            result = processor.process(record)
-            processed.append(result)
+
+            npi_number = str(record.get("npi_number") or "")
+            network = safe_str(record.get("network"))
+            health_plan = safe_str(record.get("health_plan"))
+            last_name = safe_str(record.get("last_name"))
+            effective_date = safe_str(record.get("effective_date"))
+            first_name = safe_str(record.get("first_name"))
+            gender = safe_str(record.get("gender"))
+            category = safe_str(record.get("category"))
+            speciality = safe_str(record.get("speciality"))
+            state = safe_str(record.get("state"))
+            group_npi = str(record.get("group_npi") or "")
+            name = safe_str(record.get("name"))
+            address_line1 = safe_str(record.get("address_line1"))
+            address_line2 = safe_str(record.get("address_line2"))
+            zip_code = str(record.get("zip_code") or "")
+            city = safe_str(record.get("city"))
+            status = safe_str(record.get("status"))
+            update = safe_str(record.get("update"))
+            taxonomy_code = safe_str(record.get("taxonomy_code"))
+
+            network = (network or "").strip().lower()
+            health_plan = (health_plan or "").strip().lower()
+
+            company_name = constants.COMPANY_MAP.get(network, {}).get(health_plan)
+            if not company_name:
+                print(
+                    f"Could not map company for network '{network}' and health plan '{health_plan}', skipping.")
+                continue
+
+            print(f"Mapped Company: {company_name}")
+
+            if current_company and current_company.lower() == company_name.lower():
+                print(f"✅ Company '{company_name}' already logged in — skipping change.")
+
+                try:
+                    if quickcap_page.check_npi_search_field():
+                        quickcap_page.enter_npi(npi_number)
+                        quickcap_page.click_search_button()
+                    else:
+                        quickcap_page.ensure_credentialing_tab()
+                        quickcap_page.choose_credentialing_tab()
+                        quickcap_page.choose_practitioner_data()
+                        quickcap_page.enter_npi(npi_number)
+                        quickcap_page.click_search_button()
+                except Exception as e:
+                    print(e)
+
+                try:
+                    print(f"Handling Quick Add / Edit for {npi_number}")
+                    if not quickcap_page.is_edit_button_available():
+                        quickcap_page.click_quick_add_button()
+                        quickcap_page.switch_to_new_window1()
+                    else:
+                        # time.sleep(5)
+                        quickcap_page.click_edit_button()
+                        quickcap_page.switch_to_new_window1()
+                        print("Provider Setup")
+                        quickcap_page.click_provider_button()
+                        provider_id = quickcap_page.provider_table_rows()
+                        quickcap_page.click_add_provider()
+                        quickcap_page.switch_to_new_window1()
+                        quickcap_page.enter_provider_letter(provider_id)
+                        quickcap_page.enter_last_name(last_name or "")
+                        quickcap_page.enter_first_name(first_name or "")
+                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                            "%m/%d/%Y")
+                        quickcap_page.enter_effective_date(full_date)
+                        quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
+                        quickcap_page.select_speciality1(network)
+                        quickcap_page.select_payment_type("FEE FOR SERVICE")
+                        quickcap_page.enter_contract_from_date(full_date)
+                        quickcap_page.select_provider_type_dropdown1(category, network, speciality)
+                        quickcap_page.select_account1("0000-000 DEFAULT")
+                        quickcap_page.select_template1(company_name)
+                        print("Organization linking")
+                        quickcap_page.click_organization()
+                        quickcap_page.switch_to_new_window1()
+                        quickcap_page.enter_npi_org(group_npi)
+                        quickcap_page.click_search_npi()
+                        success = quickcap_page.click_org_id(npi_number, address_line1)
+
+                except Exception as e:
+                    print(e)
+
+
+            # result = processor.process(record)
+            # processed.append(result)
             screenshot = artifacts.capture_screenshot(
-                driver, metadata, StageName.QUICKCAP, f"success_{result['npi_number']}"
+                driver, metadata, StageName.QUICKCAP, f"success_{npi_number}"
             )
             stage_result.artifacts.append(screenshot)
             structured_log(
@@ -514,7 +754,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "record_complete",
                 stage=StageName.QUICKCAP.value,
                 task_id=metadata.task_id,
-                npi=result["npi_number"],
+                npi={npi_number},
             )
         except QuickcapValidationError as exc:
             failure_entry = {"npi_number": npi or record.get("npi"), "error": exc.reason or str(exc)}
