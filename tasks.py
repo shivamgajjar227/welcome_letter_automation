@@ -151,7 +151,7 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
                 cfg.extra["payload_from"] = StageName.PR_SITE.value
                 cfg.extra["payload_key"] = "records"
             elif stage == StageName.MONDAY_STATUS:
-                cfg.extra["payload_from"] = StageName.QUICKCAP.value
+                cfg.extra["payload_from"] = StageName.MONDAY_STATUS.value
                 cfg.extra["payload_key"] = "processed"
 
             stage_config[stage] = cfg

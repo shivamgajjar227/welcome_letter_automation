@@ -672,7 +672,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             name = safe_str(record.get("name"))
             address_line1 = safe_str(record.get("address_line1"))
             address_line2 = safe_str(record.get("address_line2"))
-            zip_code = str(record.get("zip_code") or "")
+            zip_code = str(record.get("zip_code_clean") or "")
             city = safe_str(record.get("city"))
             status = safe_str(record.get("status"))
             update = safe_str(record.get("update"))
@@ -738,9 +738,463 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.enter_npi_org(group_npi)
                         quickcap_page.click_search_npi()
                         success = quickcap_page.click_org_id(npi_number, address_line1)
+                        if not success:
+                            enriched: List[Dict] = [
+                                {
+                                    "address_line1": address_line1,
+                                    "npi": npi_number,
+                                    "update": 0,
+                                    "effective_date": effective_date,
+                                    "health_plan": health_plan,
+                                    "update_status": 5
 
-                except Exception as e:
-                    print(e)
+                                }
+                            ]
+                            data1 = {
+                                "task_id": metadata.task_id,
+                                "stage": StageName.QUICKCAP.value,
+                                "failed": failures,
+                                "records": enriched
+                            }
+                            post_webhook(metadata, StageName.QUICKCAP, data1)
+                            print(f"NPI {npi_number} failed due to missing Org ID.\n")
+                            continue
+                        quickcap_page.switch_to_new_window1()
+                        quickcap_page.click_add_new_location()
+                        quickcap_page.enter_name1(name)
+                        quickcap_page.enter_address2(address_line1 or "")
+                        quickcap_page.enter_address_line2(address_line2 or "")
+                        quickcap_page.select_state1("FL - FLORIDA")
+                        quickcap_page.enter_zip1(zip_code or "")
+                        quickcap_page.enter_city1(city or "")
+                        quickcap_page.click_primary()
+                        quickcap_page.click_save1()
+                        if quickcap_page.driver.current_window_handle != main_window:
+                            quickcap_page.driver.close()
+                            quickcap_page.driver.switch_to.window(main_window)
+                        print("Healthplan entry")
+                        quickcap_page.enter_npi(npi_number)
+                        quickcap_page.click_search_button()
+                        quickcap_page.click_edit_button()
+                        # time.sleep(3)
+                        quickcap_page.switch_to_new_window()
+                        quickcap_page.click_provider_button()
+                        quickcap_page.click_edit_for_healthplan(provider_id)
+                        quickcap_page.click_healthplan_panel()
+
+                        quickcap_page.switch_to_new_window1()
+                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                            "%m/%d/%Y")
+                        quickcap_page.enter_membership_date(full_date or "")
+                        quickcap_page.click_plus_button()
+                        quickcap_page.click_save_healthplan()
+                        quickcap_page.driver.close()
+
+                        print("Taxonomy entry")
+                        quickcap_page.switch_to_new_window()
+                        quickcap_page.click_other_ids()
+                        quickcap_page.click_add_plus()
+                        quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
+                        quickcap_page.click_provider_id(provider_id)
+                        quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                        quickcap_page.click_save_taxonomy()
+
+                        if quickcap_test.driver.current_window_handle != main_window:
+                            quickcap_test.driver.close()
+                            quickcap_test.driver.switch_to.window(main_window)
+
+                        enriched: List[Dict] = [
+                            {
+                                "address_line1": address_line1,
+                                "npi": npi_number,
+                                "update": 0,
+                                "effective_date": effective_date,
+                                "health_plan": health_plan,
+                                "update_status": 2
+
+                            }
+                        ]
+                        data1 = {
+                            "task_id": metadata.task_id,
+                            "stage": StageName.QUICKCAP.value,
+                            "failed": failures,
+                            "records": enriched
+                        }
+                        post_webhook(metadata, StageName.QUICKCAP, data1)
+                        print(f" NPI {npi_number} processed successfully.\n")
+                        continue
+                except TimeoutException:
+                    print("Timed out waiting for search results.")
+
+                selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
+                quickcap_page.select_category_dropdown(selected_category)
+                quickcap_page.select_provider_type_dropdown(category, network, speciality)
+                quickcap_page.select_speciality(network)
+                quickcap_page.click_quick_add_window_npi_button(npi_number)
+                quickcap_page.enter_provider_id(f"{npi_number}(A)")
+                quickcap_page.enter_last_first_name(last_name or "", first_name or "")
+                gender_map = {
+                    "Male": "M - Male", "M": "M - Male",
+                    "Female": "F - Female", "F": "F - Female"
+                }
+                selected_gender = gender_map.get(gender.strip(), "") if gender else ""
+                quickcap_page.select_gender(selected_gender)
+                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+                quickcap_page.enter_contract_from_date(full_date)
+                quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
+                quickcap_page.select_payment_type("FEE FOR SERVICE")
+                quickcap_page.select_account("0000-000 DEFAULT")
+                quickcap_page.click_organization()
+                quickcap_page.switch_to_new_window1()
+                quickcap_page.enter_npi_org(group_npi)
+                quickcap_page.click_search_npi()
+                # time.sleep(3)
+                success = quickcap_page.click_org_id(npi_number,
+                                                     address_line1)  # Need to add WebDriver Wait here inside the pages
+                if not success:
+                    enriched: List[Dict] = [
+                        {
+                            "address_line1": address_line1,
+                            "npi": npi_number,
+                            "update": 0,
+                            "effective_date": effective_date,
+                            "health_plan": health_plan,
+                            "update_status": 5
+
+                        }
+                    ]
+                    data1 = {
+                        "task_id": metadata.task_id,
+                        "stage": StageName.QUICKCAP.value,
+                        "failed": failures,
+                        "records": enriched
+                    }
+                    post_webhook(metadata, StageName.QUICKCAP, data1)
+                    continue
+                quickcap_page.switch_to_previous_window()
+                quickcap_page.select_practice_type("GRP - GROUP")
+                quickcap_page.enter_name(name)
+                quickcap_page.enter_address1(address_line1 or "")
+                quickcap_page.enter_address_line_2(address_line2 or "")
+                state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+                quickcap_page.select_state(state_value)
+                quickcap_page.enter_city(city or "")
+                quickcap_page.enter_zip1(zip_code or "")
+                quickcap_page.select_contract_template(company_name)
+                # time.sleep(3)
+                quickcap_page.click_save()
+                if quickcap_page.driver.current_window_handle != main_window:
+                    quickcap_page.driver.close()
+                    quickcap_page.driver.switch_to.window(main_window)
+                quickcap_page.enter_npi(npi_number)
+                quickcap_page.click_search_button()
+                quickcap_page.click_edit_button()
+                # time.sleep(3)
+                quickcap_page.switch_to_new_window()
+                quickcap_page.click_provider_button()
+                quickcap_page.click_edit_for_healthplan_for_A()
+                quickcap_page.click_healthplan_panel()
+                quickcap_page.switch_to_new_window1()
+                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                    "%m/%d/%Y")
+                quickcap_page.enter_membership_date(full_date or "")
+                quickcap_page.click_plus_button()
+                quickcap_page.click_save_healthplan()
+                quickcap_page.driver.close()
+                quickcap_page.switch_to_new_window()
+                quickcap_page.click_other_ids()
+                quickcap_page.click_add_plus()
+                quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
+                quickcap_page.click_provider_id_for_A()
+                quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                quickcap_page.click_save_taxonomy()
+                if quickcap_page.driver.current_window_handle != main_window:
+                    quickcap_page.driver.close()
+                    quickcap_page.driver.switch_to.window(main_window)
+                enriched: List[Dict] = [
+                    {
+                        "address_line1": address_line1,
+                        "npi": npi_number,
+                        "update": 0,
+                        "effective_date": effective_date,
+                        "health_plan": health_plan,
+                        "update_status": 2
+
+                    }
+                ]
+                data1 = {
+                    "task_id": metadata.task_id,
+                    "stage": StageName.QUICKCAP.value,
+                    "failed": failures,
+                    "records": enriched
+                }
+                post_webhook(metadata, StageName.QUICKCAP, data1)
+                continue
+            quickcap_page.store_main_window()
+            quickcap_page.click_change_company()
+            quickcap_page.switch_to_new_window1()
+            quickcap_page.choose_company(company_name)
+            # quickcap_page.get_company_xpath("DNSHUMANA")
+            # time.sleep(3)
+            quickcap_page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
+            quickcap_page.enter_password_in_company_prompt("Pns@072025")
+            quickcap_page.click_login_button_in_company_prompt()
+            # time.sleep(3)
+            quickcap_page.switch_to_main()
+            current_company = company_name
+
+            try:
+                # quickcap_page.expand_menu_if_cigna(company_name="Cigna")
+                if quickcap_page.is_access_denied():
+                    quickcap_page.driver.back()
+                    # time.sleep(2)
+                    # try again expanding menu
+                    # quickcap_page.expand_menu_if_cigna(company_name="Cigna")
+                if quickcap_page.check_npi_search_field():
+                    quickcap_page.enter_npi(npi_number)
+                    quickcap_page.click_search_button()
+                    # time.sleep(5)
+                else:
+                    quickcap_page.ensure_credentialing_tab()
+                    quickcap_page.choose_credentialing_tab()
+                    quickcap_page.choose_practitioner_data()
+                    # time.sleep(5)
+                    quickcap_page.enter_npi(npi_number)
+                    quickcap_page.click_search_button()
+                    # time.sleep(5)
+            except Exception as e:
+                continue
+                raise
+
+            try:
+                if not quickcap_page.is_edit_button_available():
+                    # time.sleep(3)
+                    quickcap_page.click_quick_add_button()
+                    quickcap_page.switch_to_new_window1()
+                else:
+                    quickcap_page.click_edit_button()
+                    # time.sleep(3)
+                    quickcap_page.switch_to_new_window1()
+                    quickcap_page.click_provider_button()
+                    provider_id = quickcap_page.provider_table_rows()
+                    quickcap_page.click_add_provider()
+                    quickcap_page.switch_to_new_window()
+                    quickcap_page.enter_provider_letter(provider_id)
+                    quickcap_page.enter_last_name(last_name or "")
+                    quickcap_page.enter_first_name(first_name or "")
+                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                        "%m/%d/%Y")
+                    quickcap_page.enter_effective_date(full_date)
+                    quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
+                    quickcap_page.select_speciality1(network)
+                    quickcap_page.select_payment_type("FEE FOR SERVICE")
+                    quickcap_page.enter_contract_from_date(full_date)
+                    quickcap_page.select_provider_type_dropdown1(category, network, speciality)
+                    quickcap_page.select_account1("0000-000 DEFAULT")
+                    quickcap_page.select_template1(company_name)
+                    quickcap_page.click_organization()
+                    quickcap_page.switch_to_new_window1()
+                    quickcap_page.enter_npi_org(group_npi)
+                    quickcap_page.click_search_npi()
+                    success = quickcap_page.click_org_id(npi_number, address_line1)
+                    if not success:
+                        enriched: List[Dict] = [
+                            {
+                                "address_line1": address_line1,
+                                "npi": npi_number,
+                                "update": 0,
+                                "effective_date": effective_date,
+                                "health_plan": health_plan,
+                                "update_status": 5
+
+                            }
+                        ]
+                        data1 = {
+                            "task_id": metadata.task_id,
+                            "stage": StageName.QUICKCAP.value,
+                            "failed": failures,
+                            "records": enriched
+                        }
+                        post_webhook(metadata, StageName.QUICKCAP, data1)
+                        print(f"NPI {npi_number} failed due to missing Org ID.\n")
+                        continue
+                    quickcap_page.switch_to_previous_window()
+                    quickcap_page.click_add_new_location()
+                    quickcap_page.enter_name1(name)
+                    quickcap_page.enter_address2(address_line1 or "")
+                    quickcap_page.enter_address_line2(address_line2 or "")
+                    state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+                    quickcap_page.select_state1(state_value)
+                    quickcap_page.enter_zip1(zip_code or "")
+                    quickcap_page.enter_city1(city or "")
+                    quickcap_page.click_primary()
+                    quickcap_page.click_save1()
+                    if quickcap_page.driver.current_window_handle != main_window:
+                        quickcap_page.driver.close()
+                        quickcap_page.driver.switch_to.window(main_window)
+                    quickcap_page.enter_npi(npi_number)
+                    quickcap_page.click_search_button()
+                    quickcap_page.click_edit_button()
+                    # time.sleep(3)
+                    quickcap_page.switch_to_new_window()
+                    quickcap_page.click_provider_button()
+                    quickcap_page.click_edit_for_healthplan(provider_id)
+                    quickcap_page.click_healthplan_panel()
+
+                    quickcap_page.switch_to_new_window1()
+                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                        "%m/%d/%Y")
+                    quickcap_page.enter_membership_date(full_date or "")
+                    quickcap_page.click_plus_button()
+                    quickcap_page.click_save_healthplan()
+                    quickcap_page.driver.close()
+                    quickcap_page.switch_to_new_window()
+                    quickcap_page.click_other_ids()
+                    quickcap_page.click_add_plus()
+                    quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
+                    quickcap_page.click_provider_id(provider_id)
+                    quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                    quickcap_page.click_save_taxonomy()
+                    if quickcap_page.driver.current_window_handle != main_window:
+                        quickcap_page.driver.close()
+                        quickcap_page.driver.switch_to.window(main_window)
+                    enriched: List[Dict] = [
+                        {
+                            "address_line1": address_line1,
+                            "npi": npi_number,
+                            "update": 0,
+                            "effective_date": effective_date,
+                            "health_plan": health_plan,
+                            "update_status": 2
+
+                        }
+                    ]
+                    data1 = {
+                        "task_id": metadata.task_id,
+                        "stage": StageName.QUICKCAP.value,
+                        "failed": failures,
+                        "records": enriched
+                    }
+                    post_webhook(metadata, StageName.QUICKCAP, data1)
+                    # db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
+                    #     {"status": 2}, synchronize_session=False
+                    # )
+                    # db.query(NPIAddress).filter(
+                    #     NPIAddress.address_line1 == address_line1,
+                    #     NPIAddress.npi == npi_number,
+                    #     NPIAddress.update == 0
+                    # ).update({"update": 1}, synchronize_session=False)
+                    # db.commit()
+                    continue
+
+            except Exception as e:
+                break
+
+            selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
+            quickcap_page.select_category_dropdown(selected_category)
+            quickcap_page.select_provider_type_dropdown(category, network, speciality)
+            quickcap_page.select_speciality(network)
+            quickcap_page.click_quick_add_window_npi_button(npi_number)
+            quickcap_page.enter_provider_id(f"{npi_number}(A)")
+            quickcap_page.enter_last_first_name(last_name or "", first_name or "")
+            gender_map = {
+                "Male": "M - Male", "M": "M - Male",
+                "Female": "F - Female", "F": "F - Female"
+            }
+            selected_gender = gender_map.get(gender.strip(), "") if gender else ""
+            quickcap_page.select_gender(selected_gender)
+            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+            quickcap_page.enter_contract_from_date(full_date)
+            quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
+            quickcap_page.select_payment_type("FEE FOR SERVICE")
+            quickcap_page.select_account("0000-000 DEFAULT")
+            quickcap_page.click_organization()
+            quickcap_page.switch_to_new_window1()
+            quickcap_page.enter_npi_org(group_npi)
+            quickcap_page.click_search_npi()
+            success = quickcap_page.click_org_id(npi_number, address_line1)
+            if not success:
+                enriched: List[Dict] = [
+                    {
+                        "address_line1": address_line1,
+                        "npi": npi_number,
+                        "update": 0,
+                        "effective_date": effective_date,
+                        "health_plan": health_plan,
+                        "update_status": 5
+
+                    }
+                ]
+                data1 = {
+                    "task_id": metadata.task_id,
+                    "stage": StageName.QUICKCAP.value,
+                    "failed": failures,
+                    "records": enriched
+                }
+                post_webhook(metadata, StageName.QUICKCAP, data1)
+                continue
+            quickcap_page.switch_to_previous_window()
+            quickcap_page.select_practice_type("GRP - GROUP")
+            quickcap_page.enter_name(name)
+            quickcap_page.enter_address1(address_line1 or "")
+            quickcap_page.enter_address_line_2(address_line2 or "")
+            state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
+            quickcap_page.select_state(state_value)
+            quickcap_page.enter_city(city or "")
+            quickcap_page.enter_zip(zip_code or "")
+            quickcap_page.select_contract_template(company_name)
+            quickcap_page.click_save()
+            quickcap_page.accept_alert()
+            quickcap_page.dismiss_alert()
+            quickcap_page.driver.close()
+            quickcap_page.switch_to_new_window1()
+            quickcap_page.switch_back_to_main()
+            quickcap_page.enter_npi(npi_number)
+            quickcap_page.click_search_button()
+            quickcap_page.click_edit_button()
+            # time.sleep(3)
+            quickcap_page.switch_to_new_window()
+            quickcap_page.click_provider_button()
+            quickcap_page.click_edit_for_healthplan_for_A()
+            quickcap_page.click_healthplan_panel()
+            quickcap_page.switch_to_new_window1()
+            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                "%m/%d/%Y")
+            quickcap_page.enter_membership_date(full_date or "")
+            quickcap_page.click_plus_button()
+            quickcap_page.click_save_healthplan()
+            quickcap_page.driver.close()
+            quickcap_page.switch_to_new_window()
+            quickcap_page.click_other_ids()
+            quickcap_page.click_add_plus()
+            quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
+            quickcap_page.click_provider_id_for_A()
+            quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+            quickcap_page.click_save_taxonomy()
+            if quickcap_page.driver.current_window_handle != main_window:
+                quickcap_page.driver.close()
+                quickcap_page.driver.switch_to.window(main_window)
+            enriched: List[Dict] = [
+                {
+                    "address_line1": address_line1,
+                    "npi": npi_number,
+                    "update": 0,
+                    "effective_date": effective_date,
+                    "health_plan": health_plan,
+                    "update_status": 2,
+
+                }
+            ]
+            data1 = {
+                "task_id": metadata.task_id,
+                "stage": StageName.QUICKCAP.value,
+                "failed": failures,
+                "records": enriched
+            }
+            post_webhook(metadata, StageName.QUICKCAP, data1)
+            continue
+
+            quickcap_page.driver_close()
 
 
             # result = processor.process(record)
