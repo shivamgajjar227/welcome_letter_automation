@@ -151,22 +151,5 @@ All timestamps are ISO 8601 (UTC). Numerical durations use milliseconds.
 | `automation_tasks` (existing) | + `celery_task_id`, `pipeline`, `started_at`, `finished_at`, `duration_ms`, `stage_summary_json` | Backfill existing records with `NULL` |
 | `pr_site_data` / `npi_address` | + `last_task_id`, `last_stage`, `last_stage_updated_at` | Use for quick filters in dashboard |
 
----
-
-## 4. Testing Strategy
-
-- **Unit tests**
-  - Runner event helper (mock HTTP).  
-  - DAO serialization/deserialization.
-- **Integration tests**
-  - Webhook ingestion → DB assertions.  
-  - Dashboard endpoints with seeded data (use fixtures).  
-  - Runner smoke test (run pipeline with stubbed HTTP server verifying emitted payloads).
-- **E2E (optional)**
-  - Spin up Celery worker, stub external sites, ensure UI shows run within 2 minutes.
-- **Performance**
-  - Test dashboard list with 10k runs and 100k NPI events (SQL explain plans).
-
----
 
 
