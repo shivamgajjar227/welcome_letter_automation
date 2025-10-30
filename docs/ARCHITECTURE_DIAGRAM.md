@@ -23,8 +23,8 @@ graph TD
     subgraph Execution Layer
         CW[Celery Worker Pool]
         subgraph Runners
-            R1[[Runner Container 1\nHeadless Chrome (selenium/standalone-chrome)]]
-            Rn[[Runner Container N\nHeadless Chrome (selenium/standalone-chrome)]]
+            R1[[Runner Container -Headless Chrome ]]
+            Rn[[Runner Container -nHeadless Chrome ]]
         end
     end
 
