@@ -38,7 +38,7 @@ flowchart LR
     subgraph Dashboard["Automation Dashboard UI"]
         J[Run list] -->|GET runs| K[Dashboard API]
         L[NPI detail] -->|GET npi events| K
-        M[Trigger pipeline]* -->|POST retry| K
+        M[Trigger pipeline] -->|POST retry| K
     end
 
     K --> F
