@@ -48,7 +48,7 @@ class MondayStatusPage(BasePage):
             ).click()
             logger.info("Out from click welcome letter qc")
         except Exception as e:
-            print(f" Unexpected error while checking Edit button: {type(e).__name__}")
+            logger.exception("Unexpected error while selecting welcome letter QC option")
 
     def get_pr_site_npis(self):
         time.sleep(2)
@@ -85,8 +85,8 @@ class MondayStatusPage(BasePage):
                         }
                         if entry not in npis:
                             npis.append(entry)
-                except Exception as e:
-                    print(f"Error in Monday.com while fetching data: {e}")
+                except Exception:
+                    logger.exception("Error while fetching Monday.com row data")
 
             self.driver.execute_script("arguments[0].scrollBy(0, 500);", group_container)
             time.sleep(1.5)
@@ -100,7 +100,8 @@ class MondayStatusPage(BasePage):
 
             if same_height_count > 2:
                 break
-            logger.info("Out from get PR Site Npis")
+
+        logger.info("Out from get PR Site Npis")
 
         return npis
 
@@ -129,8 +130,8 @@ class MondayStatusPage(BasePage):
                     # This assumes NPI is at column position 6 or 7 in the grid — adjust if needed
                     npi = row.find_elements(By.XPATH, ".//div[@data-testid='cell']")[6].text.strip()
                     npis.append(npi)
-            except Exception as e:
-                print(f"Skipped a row due to: {e}")
+            except Exception:
+                logger.warning("Skipped a row while parsing Monday status row", exc_info=True)
                 continue
 
         return npis
@@ -151,8 +152,8 @@ class MondayStatusPage(BasePage):
             search_input.send_keys(str(value))
             logger.info(f"Out from Enter NPI Button:{value}")
 
-        except Exception as e:
-            print(f"Error while entering npi button: {e}")
+        except Exception:
+            logger.exception("Error while entering NPI in search field")
 
     def click_not_started(self):
         logger.info(f"Inside Click Not Started")
@@ -162,7 +163,7 @@ class MondayStatusPage(BasePage):
             ).click()
             logger.info(f"Out from Click Not Started")
         except Exception as e:
-            print(f"Error while click not started: {e}")
+            logger.exception("Error while clicking Not Started filter")
 
     def click_review_button(self):
         logger.info(f"Inside Click Done Button")
@@ -173,7 +174,7 @@ class MondayStatusPage(BasePage):
             time.sleep(3)
             logger.info(f"Out from Click Done Button")
         except Exception as e:
-            print(f"Error while click done button: {e}")
+            logger.exception("Error while clicking Review button")
 
     def click_cross_button(self):
         logger.info(f"Inside Click Cross Button")
@@ -184,7 +185,7 @@ class MondayStatusPage(BasePage):
             time.sleep(3)
             logger.info(f"Out from Click Cross Button")
         except Exception as e:
-            print(f"Error while click cross button: {e}")
+            logger.exception("Error while clearing board search filter")
 
     def is_login_page(self):
         try:
@@ -201,7 +202,7 @@ class MondayStatusPage(BasePage):
             time.sleep(3)
             logger.info(f"Out from Click Roadblock Button")
         except Exception as e:
-            print(f"Error while click Roadblock button: {e}")
+            logger.exception("Error while clicking Roadblock button")
 
     # def enter_remarks(self, remarks_text: str):
     #     logger.info("Inside Enter Remarks")
@@ -246,11 +247,11 @@ class MondayStatusPage(BasePage):
             input_field.clear()
             input_field.send_keys(value)
 
-            print(f"Remarks '{value}' entered successfully.")
+            logger.info("Remarks entered successfully", extra={"remarks": value})
             logger.info(f"Out from Enter Remarks: {value}")
 
-        except Exception as e:
-            print(f"Error in entering Remarks: {e}")
+        except Exception:
+            logger.exception("Error while entering remarks")
 
     def get_all_health_plans_from_ui(self):
         """
@@ -272,13 +273,13 @@ class MondayStatusPage(BasePage):
                 text = chip.text.strip()
                 if text and text not in non_healthplans:
                     health_plans.append(text)  # Allow duplicates
-                    print(f"✅ Health plan: {text}")
+                    logger.debug("Collected health plan", extra={"health_plan": text})
 
-            print(f"🎯 All health plans (with duplicates): {health_plans}")
+            logger.info("Collected health plans from UI", extra={"count": len(health_plans)})
             return health_plans
 
-        except Exception as e:
-            print(f"❌ Error: {e}")
+        except Exception:
+            logger.exception("Error while collecting health plans from UI")
             return None
 
     def process_rows_and_enter_remarks(self, db_health_plan, db_effective_date, remarks_text):
@@ -292,12 +293,12 @@ class MondayStatusPage(BasePage):
             rows = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'pulse-component-wrapper')]"))
             )
-            print(f"📊 Found {len(rows)} rows to check")
+            logger.info("Found rows to evaluate for remarks", extra={"row_count": len(rows)})
 
             matching_rows_count = 0
 
             for row_index, row in enumerate(rows):
-                print(f"🔍 Checking row {row_index + 1}...")
+                logger.debug("Checking row", extra={"row_index": row_index + 1})
 
                 # Get health plan from this row
                 row_health_plan = None
@@ -309,8 +310,8 @@ class MondayStatusPage(BasePage):
                         if text and text not in ['Medicare', 'Medicaid', 'Commercial']:
                             row_health_plan = text
                             break
-                except Exception as e:
-                    print(f"Error getting health plan from row: {e}")
+                except Exception:
+                    logger.exception("Error retrieving health plan from row")
 
                 # Get effective date from this row
                 row_effective_date = None
@@ -334,8 +335,8 @@ class MondayStatusPage(BasePage):
                                 break
                         except:
                             continue
-                except Exception as e:
-                    print(f"Error getting effective date from row: {e}")
+                except Exception:
+                    logger.exception("Error retrieving effective date from row")
 
                 # Compare health plans
                 health_plan_match = False
@@ -361,8 +362,14 @@ class MondayStatusPage(BasePage):
 
                 # Check if BOTH health plan AND effective date match
                 if health_plan_match and effective_date_match:
-                    print(
-                        f"✅ FULL MATCH found in row {row_index + 1}: Health Plan: {row_health_plan}, Date: {row_effective_date}")
+                    logger.info(
+                        "Full match located",
+                        extra={
+                            "row_index": row_index + 1,
+                            "row_health_plan": row_health_plan,
+                            "row_effective_date": row_effective_date,
+                        },
+                    )
 
                     # Add remarks to this specific row
                     try:
@@ -379,21 +386,29 @@ class MondayStatusPage(BasePage):
 
                         time.sleep(1)
                         matching_rows_count += 1
-                        print(f"✅ Remarks added to row {row_index + 1}")
+                        logger.info("Remarks added to row", extra={"row_index": row_index + 1})
 
                     except Exception as e:
-                        print(f" Failed to add remarks to row {row_index + 1}: {e}")
+                        logger.exception("Failed to add remarks to row", extra={"row_index": row_index + 1})
                 else:
-                    print(f" No match in row {row_index + 1}")
-                    print(f"   Row HP: {row_health_plan}, Row Date: {row_effective_date}")
-                    print(f"   DB HP: {db_health_plan}, DB Date: {db_effective_date}")
-                    print(f"   HP Match: {health_plan_match}, Date Match: {effective_date_match}")
+                    logger.debug(
+                        "Row did not match filters",
+                        extra={
+                            "row_index": row_index + 1,
+                            "row_health_plan": row_health_plan,
+                            "row_effective_date": row_effective_date,
+                            "db_health_plan": db_health_plan,
+                            "db_effective_date": db_effective_date,
+                            "health_plan_match": health_plan_match,
+                            "effective_date_match": effective_date_match,
+                        },
+                    )
 
-            print(f"🎯 Total {matching_rows_count} rows updated with remarks")
+            logger.info("Rows updated with remarks", extra={"matching_rows_count": matching_rows_count})
             return matching_rows_count > 0
 
-        except Exception as e:
-            print(f"❌ Error in process_rows_and_enter_remarks: {e}")
+        except Exception:
+            logger.exception("Error while processing rows for remarks")
             return False
 
     def click_not_started_for_matching_health_plans(self, db_health_plan):
@@ -407,12 +422,12 @@ class MondayStatusPage(BasePage):
             rows = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'pulse-component-wrapper')]"))
             )
-            print(f"📊 Found {len(rows)} rows to check")
+            logger.info("Found rows to evaluate for status updates", extra={"row_count": len(rows)})
 
             matching_rows_count = 0
 
             for row_index, row in enumerate(rows):
-                print(f"🔍 Checking row {row_index + 1}...")
+                logger.debug("Evaluating row for status update", extra={"row_index": row_index + 1})
 
                 # Get health plan from this row
                 row_health_plan = None
@@ -424,8 +439,8 @@ class MondayStatusPage(BasePage):
                         if text and text not in ['Medicare', 'Medicaid', 'Commercial']:
                             row_health_plan = text
                             break
-                except Exception as e:
-                    print(f"Error getting health plan from row: {e}")
+                except Exception:
+                    logger.exception("Error retrieving health plan from row")
 
                 # Compare health plans
                 health_plan_match = False
@@ -436,7 +451,10 @@ class MondayStatusPage(BasePage):
 
                 # Check if health plan matches
                 if health_plan_match:
-                    print(f"✅ Health plan match found in row {row_index + 1}: {row_health_plan}")
+                    logger.info(
+                        "Health plan match found",
+                        extra={"row_index": row_index + 1, "row_health_plan": row_health_plan},
+                    )
 
                     try:
                         # Click Not Started for this row
@@ -444,19 +462,34 @@ class MondayStatusPage(BasePage):
                                                            ".//div[contains(@class, 'status-cell-component')]")
                         not_started_btn.click()
                         time.sleep(1)
-                        print(f"✅ Not Started clicked on row {row_index + 1}")
+                        logger.info(
+                            "Not Started clicked for row",
+                            extra={"row_index": row_index + 1},
+                        )
 
                         matching_rows_count += 1
 
                     except Exception as e:
-                        print(f"❌ Failed to click Not Started on row {row_index + 1}: {e}")
+                        logger.exception(
+                            "Failed to click Not Started on row",
+                            extra={"row_index": row_index + 1},
+                        )
                 else:
-                    print(f"❌ No health plan match in row {row_index + 1}")
-                    print(f"   Row HP: {row_health_plan}, DB HP: {db_health_plan}")
+                    logger.debug(
+                        "Health plan mismatch during status update",
+                        extra={
+                            "row_index": row_index + 1,
+                            "row_health_plan": row_health_plan,
+                            "db_health_plan": db_health_plan,
+                        },
+                    )
 
-            print(f"🎯 Total {matching_rows_count} rows with Not Started clicked")
+            logger.info(
+                "Rows updated via Not Started",
+                extra={"matching_rows_count": matching_rows_count},
+            )
             return matching_rows_count > 0
 
-        except Exception as e:
-            print(f"❌ Error in click_not_started_for_matching_health_plans: {e}")
+        except Exception:
+            logger.exception("Error while clicking Not Started for matching health plans")
             return False

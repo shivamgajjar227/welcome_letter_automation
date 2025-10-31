@@ -5,7 +5,9 @@ Headless runner implementation for the Monday.com ingestion stage.
 from __future__ import annotations
 
 import logging
+import datetime as _dt
 from typing import Optional
+from uuid import uuid4
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from pages.monday_page import MondayPage
@@ -14,6 +16,7 @@ from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook
+from ...monitoring import events
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +65,22 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     Steps:
         1. Navigate to Monday board and authenticate.
-        2. Collect NPIs in \"Not Started\" state.
+        2. Collect NPIs in "Not Started" state.
         3. Insert fresh rows into `pr_site_data` with status=0.
         4. Capture artifacts (screenshot + JSON dump).
     """
     stage_result = StageResult(stage=StageName.MONDAY)
+    stage_run_id = uuid4().hex
+    stage_started_at = _dt.datetime.now(_dt.timezone.utc)
+    events.emit_stage_event(
+        task_id=metadata.task_id,
+        stage=StageName.MONDAY,
+        event="stage_started",
+        status="in_progress",
+        stage_run_id=stage_run_id,
+        started_at=stage_started_at.isoformat(),
+    )
+
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
 
@@ -146,6 +160,24 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             structured_log(logger, "no_records_found", stage=StageName.MONDAY.value, task_id=metadata.task_id)
             stage_result.data["npi_records"] = []
             stage_result.mark_finished(success=True)
+            finished_at = _dt.datetime.now(_dt.timezone.utc)
+            artifact_refs = events.upload_artifacts(
+                task_id=metadata.task_id,
+                stage=StageName.MONDAY,
+                artifacts=stage_result.artifacts,
+            )
+            events.emit_stage_event(
+                task_id=metadata.task_id,
+                stage=StageName.MONDAY,
+                event="stage_completed",
+                status="completed",
+                stage_run_id=stage_run_id,
+                started_at=stage_started_at.isoformat(),
+                finished_at=finished_at.isoformat(),
+                duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+                summary={"records_total": 0, "records_success": 0, "records_failed": 0},
+                artifacts=artifact_refs,
+            )
             return stage_result
 
         # 4. Send NPIs to external API for persistence
@@ -174,6 +206,65 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         failure_dom = artifacts.capture_dom(driver, metadata, StageName.MONDAY, "failure")
         stage_result.artifacts.extend([failure_screenshot, failure_dom])
         stage_result.mark_finished(success=False, error=str(exc))
+        finished_at = _dt.datetime.now(_dt.timezone.utc)
+        artifact_refs = events.upload_artifacts(
+            task_id=metadata.task_id,
+            stage=StageName.MONDAY,
+            artifacts=stage_result.artifacts,
+        )
+        events.emit_stage_event(
+            task_id=metadata.task_id,
+            stage=StageName.MONDAY,
+            event="stage_failed",
+            status="failed",
+            stage_run_id=stage_run_id,
+            started_at=stage_started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+            message=str(exc),
+            artifacts=artifact_refs,
+        )
         return stage_result
+
+    finished_at = _dt.datetime.now(_dt.timezone.utc)
+    artifact_refs = events.upload_artifacts(
+        task_id=metadata.task_id,
+        stage=StageName.MONDAY,
+        artifacts=stage_result.artifacts,
+    )
+    records = stage_result.data.get("npi_records", [])
+    summary = {
+        "records_total": len(records),
+        "records_success": len(records),
+        "records_failed": 0,
+    }
+    events.emit_stage_event(
+        task_id=metadata.task_id,
+        stage=StageName.MONDAY,
+        event="stage_completed",
+        status="completed",
+        stage_run_id=stage_run_id,
+        started_at=stage_started_at.isoformat(),
+        finished_at=finished_at.isoformat(),
+        duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+        summary=summary,
+        artifacts=artifact_refs,
+    )
+
+    for index, record in enumerate(records, start=1):
+        npi_value = str(record.get("npi_number") or record.get("npi") or record.get("id") or "")
+        if not npi_value:
+            continue
+        events.emit_npi_event(
+            task_id=metadata.task_id,
+            stage=StageName.MONDAY,
+            npi=npi_value,
+            status="completed",
+            attempt=int(record.get("attempt", 1) or 1),
+            stage_run_id=stage_run_id,
+            input_snapshot=record,
+            output_snapshot={"queued": True, "position": index},
+            artifacts=artifact_refs,
+        )
 
     return stage_result

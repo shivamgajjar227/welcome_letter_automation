@@ -85,10 +85,18 @@ Repeat for:
 
 ## 6. Expose webhook URLs via settings
 
-1. In `config.py`, add:
+1. In `config.py`, ensure the following settings exist (defaults shown for local dev):
    ```python
-   stage_events_webhook_url: Optional[str] = Field(None, env="STAGE_EVENTS_WEBHOOK_URL")
-   npi_events_webhook_url: Optional[str] = Field(None, env="NPI_EVENTS_WEBHOOK_URL")
+   stage_events_webhook_url: Optional[str] = Field(
+       "http://0.0.0.0:10022/api/automation/webhooks/stage-events", env="STAGE_EVENTS_WEBHOOK_URL"
+   )
+   npi_events_webhook_url: Optional[str] = Field(
+       "http://0.0.0.0:10022/api/automation/webhooks/npi-events", env="NPI_EVENTS_WEBHOOK_URL"
+   )
+   artifact_events_webhook_url: Optional[str] = Field(
+       "http://0.0.0.0:10022/api/automation/webhooks/artifacts", env="ARTIFACT_EVENTS_WEBHOOK_URL"
+   )
+   artifact_base_url: Optional[str] = Field(None, env="ARTIFACT_BASE_URL")
    ```
 2. Update `.env.example` with placeholders (point to backend dev server, e.g., `http://localhost:8000/api/automation/webhooks/stage-events`).
 3. Make sure `get_settings()` caches the new fields and they’re used by `monitoring/events.py`.
@@ -101,4 +109,3 @@ Repeat for:
 2. When sending events, always include `artifact.public_url` (skip if missing).
 
 ---
-

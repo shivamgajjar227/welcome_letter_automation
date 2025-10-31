@@ -4,6 +4,7 @@ Logging configuration tailored for runner executions.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import logging
 import logging.config
@@ -77,6 +78,7 @@ def structured_log(logger: logging.Logger, event: str, **fields: object) -> None
     """
     Emit a JSON-formatted log line via *logger* with mandatory `event` field.
     """
-    payload = {"event": event, **fields}
+    timestamp = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    payload = {"event": event, "timestamp": timestamp, **fields}
     logger.info(json.dumps(payload, default=str))
 

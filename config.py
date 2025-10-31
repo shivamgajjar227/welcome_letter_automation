@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     pr_site_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/data/pr-site", env="PR_SITE_FETCH_API_URL")
     quickcap_ingest_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/quickcap", env="QUICKCAP_INGEST_API_URL")
     quickcap_fetch_api_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/data/quickcap", env="QUICKCAP_FETCH_API_URL")
+    stage_events_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/stage-events", env="STAGE_EVENTS_WEBHOOK_URL")
+    npi_events_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/npi-events", env="NPI_EVENTS_WEBHOOK_URL")
+    artifact_events_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/artifacts", env="ARTIFACT_EVENTS_WEBHOOK_URL")
+    pipeline_events_webhook_url: Optional[str] = Field("http://0.0.0.0:10022/api/automation/webhooks/pipeline-events", env="PIPELINE_EVENTS_WEBHOOK_URL")
+    artifact_base_url: Optional[str] = Field(None, env="ARTIFACT_BASE_URL")
 
     db_user: str = Field("dbroot", env="DB_USER")
     db_password: str = Field("dbroot", env="DB_PASSWORD")
@@ -91,6 +96,14 @@ class Settings(BaseSettings):
 
         if not self.task_status_webhook_url:
             object.__setattr__(self, "task_status_webhook_url", f"{base_url}/webhooks/task-status")
+        if not self.stage_events_webhook_url:
+            object.__setattr__(self, "stage_events_webhook_url", f"{base_url}/webhooks/stage-events")
+        if not self.npi_events_webhook_url:
+            object.__setattr__(self, "npi_events_webhook_url", f"{base_url}/webhooks/npi-events")
+        if not self.artifact_events_webhook_url:
+            object.__setattr__(self, "artifact_events_webhook_url", f"{base_url}/webhooks/artifacts")
+        if not self.pipeline_events_webhook_url:
+            object.__setattr__(self, "pipeline_events_webhook_url", f"{base_url}/webhooks/pipeline-events")
 
         if (
             not self.pr_site_login_url

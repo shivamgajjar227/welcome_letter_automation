@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
+from uuid import uuid4
 
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -15,6 +17,7 @@ from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook, fetch_stage_payload
+from ...monitoring import events
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +368,7 @@ class QuickcapProcessor:
         self._link_organization(data)
         self._enter_provider_location(data)
         self._update_healthplan_and_taxonomy(data)
-        self._update_database
+        # self._update_database
 
     def _populate_provider_form(self, data: Dict[str, Any], provider_id: str) -> None:
         """Populate provider form in Edit flow."""
@@ -458,7 +461,7 @@ class QuickcapProcessor:
 
         success = self.page.click_org_id(data["npi_number"], data["address_line1"])
         if not success:
-            self._update_database_status(data, success=False, error="org_id_not_found")
+            # self._update_database_status(data, success=False, error="org_id_not_found")
             raise QuickcapValidationError("org_id_not_found")
 
         self.page.switch_to_previous_window()
@@ -587,6 +590,26 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
+    stage_run_id = uuid4().hex
+    stage_started_at = _dt.datetime.now(_dt.timezone.utc)
+    stage_artifact_refs: List[Dict[str, Any]] = []
+
+    structured_log(
+        logger,
+        "stage_started",
+        stage=StageName.QUICKCAP.value,
+        task_id=metadata.task_id,
+        stage_run_id=stage_run_id,
+    )
+    events.emit_stage_event(
+        task_id=metadata.task_id,
+        stage=StageName.QUICKCAP,
+        event="stage_started",
+        status="in_progress",
+        stage_run_id=stage_run_id,
+        started_at=stage_started_at.isoformat(),
+    )
+
     payload = fetch_stage_payload(metadata, StageName.QUICKCAP)
     if not payload:
         structured_log(
@@ -596,6 +619,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             task_id=metadata.task_id,
         )
         stage_result.mark_finished(success=False, error="quickcap_input_unavailable")
+        finished_at = _dt.datetime.now(_dt.timezone.utc)
+        events.emit_stage_event(
+            task_id=metadata.task_id,
+            stage=StageName.QUICKCAP,
+            event="stage_failed",
+            status="failed",
+            stage_run_id=stage_run_id,
+            started_at=stage_started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+            message="quickcap_input_unavailable",
+            artifacts=[],
+        )
         return stage_result
 
     records: List[Dict[str, Any]] = list(payload.get("records", [])) or list(payload.get("processed", []))
@@ -611,6 +647,20 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     if not records:
         stage_result.mark_finished(success=True)
         stage_result.data["processed"] = []
+        stage_result.data["failed"] = []
+        finished_at = _dt.datetime.now(_dt.timezone.utc)
+        events.emit_stage_event(
+            task_id=metadata.task_id,
+            stage=StageName.QUICKCAP,
+            event="stage_completed",
+            status="completed",
+            stage_run_id=stage_run_id,
+            started_at=stage_started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+            summary={"records_total": 0, "records_success": 0, "records_failed": 0},
+            artifacts=stage_artifact_refs,
+        )
         return stage_result
 
     cred = _get_credential(metadata)
@@ -641,6 +691,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "login_failure")
         )
         stage_result.mark_finished(success=False, error=str(exc))
+        finished_at = _dt.datetime.now(_dt.timezone.utc)
+        events.emit_stage_event(
+            task_id=metadata.task_id,
+            stage=StageName.QUICKCAP,
+            event="stage_failed",
+            status="failed",
+            stage_run_id=stage_run_id,
+            started_at=stage_started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+            message=str(exc),
+            artifacts=[],
+        )
         return stage_result
     current_company = None
     processed: List[Dict] = []
@@ -649,6 +712,23 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     for record in records:
         npi = str(record.get("npi_number") or record.get("npi") or "").strip()
+        attempt = int(record.get("attempt", 1) or 1)
+        events.emit_npi_event(
+            task_id=metadata.task_id,
+            stage=StageName.QUICKCAP,
+            npi=npi or "unknown",
+            status="in_progress",
+            attempt=attempt,
+            stage_run_id=stage_run_id,
+            input_snapshot=record,
+        )
+        status = "completed"
+        message: Optional[str] = None
+        output_snapshot: Dict[str, Any] = {
+            "npi_number": npi or record.get("npi"),
+            "status": "submitted",
+        }
+        artifact_start_idx = len(stage_result.artifacts)
         try:
             structured_log(
                 logger,
@@ -685,6 +765,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             if not company_name:
                 print(
                     f"Could not map company for network '{network}' and health plan '{health_plan}', skipping.")
+                status = "failed"
+                message = "company_mapping_missing"
+                output_snapshot = {"npi_number": npi or npi_number or record.get("npi"), "error": message}
+                structured_log(
+                    logger,
+                    "company_mapping_missing",
+                    stage=StageName.QUICKCAP.value,
+                    task_id=metadata.task_id,
+                    npi=npi or "unknown",
+                )
                 continue
 
             print(f"Mapped Company: {company_name}")
@@ -758,6 +848,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             }
                             post_webhook(metadata, StageName.QUICKCAP, data1)
                             print(f"NPI {npi_number} failed due to missing Org ID.\n")
+                            status = "failed"
+                            message = "org_id_not_found"
+                            output_snapshot = {"npi_number": npi_number or npi, "error": message}
                             continue
                         quickcap_page.switch_to_new_window1()
                         quickcap_page.click_add_new_location()
@@ -822,9 +915,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
                         print(f" NPI {npi_number} processed successfully.\n")
+                        output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
                         continue
                 except TimeoutException:
                     print("Timed out waiting for search results.")
+                    status = "failed"
+                    message = "timeout"
+                    output_snapshot = {"npi_number": npi or npi_number, "error": message}
 
                 selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
                 quickcap_page.select_category_dropdown(selected_category)
@@ -929,6 +1026,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "records": enriched
                 }
                 post_webhook(metadata, StageName.QUICKCAP, data1)
+                output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
                 continue
             quickcap_page.store_main_window()
             quickcap_page.click_change_company()
@@ -1016,6 +1114,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
                         print(f"NPI {npi_number} failed due to missing Org ID.\n")
+                        status = "failed"
+                        message = "org_id_not_found"
+                        output_snapshot = {"npi_number": npi_number or npi, "error": message}
                         continue
                     quickcap_page.switch_to_previous_window()
                     quickcap_page.click_add_new_location()
@@ -1084,9 +1185,21 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     #     NPIAddress.update == 0
                     # ).update({"update": 1}, synchronize_session=False)
                     # db.commit()
+                    output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
                     continue
 
             except Exception as e:
+                status = "failed"
+                message = str(e)
+                output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                structured_log(
+                    logger,
+                    "quickcap_internal_exception",
+                    stage=StageName.QUICKCAP.value,
+                    task_id=metadata.task_id,
+                    npi=npi or "unknown",
+                    error=str(e),
+                )
                 break
 
             selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
@@ -1131,6 +1244,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "records": enriched
                 }
                 post_webhook(metadata, StageName.QUICKCAP, data1)
+                status = "failed"
+                message = "org_id_not_found"
+                output_snapshot = {"npi_number": npi_number or npi, "error": message}
                 continue
             quickcap_page.switch_to_previous_window()
             quickcap_page.select_practice_type("GRP - GROUP")
@@ -1190,6 +1306,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "records": enriched
             }
             post_webhook(metadata, StageName.QUICKCAP, data1)
+            output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
             continue
 
             quickcap_page.driver_close()
@@ -1208,6 +1325,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 task_id=metadata.task_id,
                 npi={npi_number},
             )
+            output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
         except QuickcapValidationError as exc:
             failure_entry = {"npi_number": npi or record.get("npi"), "error": exc.reason or str(exc)}
             failures.append(failure_entry)
@@ -1222,6 +1340,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 npi=npi or "unknown",
                 error=exc.reason,
             )
+            status = "failed"
+            message = exc.reason or str(exc)
+            output_snapshot = failure_entry
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi or record.get("npi"), "error": str(exc)})
             stage_result.artifacts.append(
@@ -1235,6 +1356,30 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 npi=npi or "unknown",
                 error=str(exc),
             )
+            status = "failed"
+            message = str(exc)
+            output_snapshot = {"npi_number": npi or record.get("npi"), "error": message}
+        finally:
+            structured_log(
+                logger,
+                "record_finished",
+                stage=StageName.QUICKCAP.value,
+                task_id=metadata.task_id,
+                npi=npi or "unknown",
+                status=status,
+            )
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi or "unknown",
+                status="completed" if status == "completed" else "failed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=output_snapshot,
+                artifacts=[],
+                message=message,
+            )
 
     payload = {
         "task_id": metadata.task_id,
@@ -1246,5 +1391,33 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     stage_result.data["processed"] = processed
     stage_result.data["failed"] = failures
-    stage_result.mark_finished(success=not failures)
+    success = not failures
+    stage_result.mark_finished(success=success)
+    finished_at = _dt.datetime.now(_dt.timezone.utc)
+    events.emit_stage_event(
+        task_id=metadata.task_id,
+        stage=StageName.QUICKCAP,
+        event="stage_completed" if success else "stage_failed",
+        status="completed" if success else "failed",
+        stage_run_id=stage_run_id,
+        started_at=stage_started_at.isoformat(),
+        finished_at=finished_at.isoformat(),
+        duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+        summary={
+            "records_total": len(records),
+            "records_success": len(processed),
+            "records_failed": len(failures),
+        },
+        message=None if success else "one_or_more_records_failed",
+        artifacts=stage_artifact_refs,
+    )
+    structured_log(
+        logger,
+        "stage_finished",
+        stage=StageName.QUICKCAP.value,
+        task_id=metadata.task_id,
+        stage_run_id=stage_run_id,
+        success=success,
+        failures=len(failures),
+    )
     return stage_result

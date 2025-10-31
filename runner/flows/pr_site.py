@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Dict, List
+from uuid import uuid4
 from urllib.parse import urlparse, urlunparse
 
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -15,6 +16,7 @@ from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook, fetch_stage_payload
+from ...monitoring import events
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +85,38 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     )
 
     pr_site_page = PRSitePage(driver)
-
+    stage_run_id = uuid4().hex
     enriched: List[Dict] = []
     failures: List[Dict] = []
 
     for record in records:
-        npi = str(record.get("npi_number") or record.get("npi"))
+        raw_npi = record.get("npi_number") or record.get("npi")
+        npi = str(raw_npi or "").strip()
+        attempt = int(record.get("attempt", 1) or 1)
         if not npi:
             failures.append({"reason": "missing_npi", "record": record})
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                npi="unknown",
+                status="failed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                message="missing_npi",
+            )
             continue
+
+        events.emit_npi_event(
+            task_id=metadata.task_id,
+            stage=StageName.PR_SITE,
+            npi=npi,
+            status="in_progress",
+            attempt=attempt,
+            stage_run_id=stage_run_id,
+            input_snapshot=record,
+        )
+        artifact_start = len(stage_result.artifacts)
 
         try:
             structured_log(
@@ -165,6 +190,23 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 task_id=metadata.task_id,
                 npi=npi,
             )
+            npi_artifacts = stage_result.artifacts[artifact_start:]
+            artifact_refs = events.upload_artifacts(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                artifacts=npi_artifacts,
+            )
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                npi=npi,
+                status="completed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=data,
+                artifacts=artifact_refs,
+            )
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi, "error": str(exc)})
             stage_result.artifacts.append(
@@ -180,6 +222,24 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 task_id=metadata.task_id,
                 npi=npi,
                 error=str(exc),
+            )
+            npi_artifacts = stage_result.artifacts[artifact_start:]
+            artifact_refs = events.upload_artifacts(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                artifacts=npi_artifacts,
+            )
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                npi=npi,
+                status="failed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot={"error": str(exc)},
+                artifacts=artifact_refs,
+                message=str(exc),
             )
 
     payload = {
