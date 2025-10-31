@@ -799,9 +799,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                         quickcap_page.click_save_taxonomy()
 
-                        if quickcap_test.driver.current_window_handle != main_window:
-                            quickcap_test.driver.close()
-                            quickcap_test.driver.switch_to.window(main_window)
+                        if quickcap_page.driver.current_window_handle != main_window:
+                            quickcap_page.driver.close()
+                            quickcap_page.driver.switch_to.window(main_window)
 
                         enriched: List[Dict] = [
                             {
@@ -879,7 +879,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
                 quickcap_page.select_state(state_value)
                 quickcap_page.enter_city(city or "")
-                quickcap_page.enter_zip1(zip_code or "")
+                quickcap_page.enter_zip(zip_code or "")
                 quickcap_page.select_contract_template(company_name)
                 # time.sleep(3)
                 quickcap_page.click_save()
@@ -963,7 +963,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_search_button()
                     # time.sleep(5)
             except Exception as e:
-                continue
                 raise
 
             try:
@@ -1182,7 +1181,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "effective_date": effective_date,
                     "health_plan": health_plan,
                     "update_status": 2,
-
                 }
             ]
             data1 = {

@@ -136,6 +136,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
                 if addresses:
                     data["practice_addresses"] = addresses
+                # else:
+                #     payload = {
+                #         "task_id": metadata.task_id,
+                #         "stage": StageName.PR_SITE.value,
+                #         "records": enriched,
+                #         "failed": failures,
+                #     }
+                #     post_webhook(metadata, StageName.PR_SITE, payload)
             except Exception as inner_exc:  # pragma: no cover
                 structured_log(
                     logger,

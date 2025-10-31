@@ -123,6 +123,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         pre_collect_artifact = artifacts.capture_screenshot(driver, metadata, StageName.MONDAY, "before_collect_npis")
         stage_result.artifacts.append(pre_collect_artifact)
         npis = monday_page.get_pr_site_npis()
+        for record in npis:
+            health_plan = str(record.get("health_plan", "")).strip().lower()
+            if health_plan in ["Doctors", "Doctor health"]:
+                record["health_plan"] = "Doctors Healthcare"
+                record["lines_of_business"] = "Doctors Healthcare"
         structured_log(
             logger,
             "npis_collected",

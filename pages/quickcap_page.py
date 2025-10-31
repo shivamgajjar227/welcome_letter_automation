@@ -285,9 +285,17 @@ class QuickcapPage(BasePage):
                 EC.presence_of_element_located((By.XPATH, "//select[@id='Rslt_prac_category']"))
             )
             dropdown = Select(element)
-            dropdown.select_by_visible_text(value)
-            print(f"Category '{value}' selected successfully.")
-            logger.info(f"Out from Select Category Dropdown:{value}")
+            fallback_values = [value, "PA - PHYSICIAN ASSISTANT", "PA - PA"]
+            for option_text in fallback_values:
+                try:
+                    dropdown.select_by_visible_text(option_text)
+                    print(f"Category '{option_text}' selected successfully.")
+                    logger.info(f"Out from Select Category Dropdown: {option_text}")
+                    return
+                except Exception:
+                    logger.warning(f"Option '{option_text}' not found, trying next...")
+                    continue
+            raise Exception(f"None of the options {fallback_values} found in dropdown.")
         except Exception as e:
             print(f"Error selecting category '{value}': {e}")
         # self.click(self.categories_drowpdown)
@@ -646,7 +654,7 @@ class QuickcapPage(BasePage):
                     "//li[contains(normalize-space(), 'OS - Other Specialty')]"
                 ],
                 "pain management": [
-                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                    "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]"
                 ],
                 "cardiology": [
                     "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
@@ -664,7 +672,7 @@ class QuickcapPage(BasePage):
             # Step 4: Try each XPath until one is clickable
             for xpath in xpaths:
                 try:
-                    option = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                    option =  wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
                     option.click()
                     print(f"✅ Selected speciality for {network} using XPath: {xpath}")
                     logger.info(f"Selected speciality: {network} ({xpath})")
@@ -867,7 +875,7 @@ class QuickcapPage(BasePage):
                 EC.element_to_be_clickable((By.XPATH, "//div[@id='menu']//span[@class='arrow']"))
             )
             arrow_button.click()
-            time.sleep(2)
+            # time.sleep(2)
 
             # Check again after expanding
             tabs = WebDriverWait(self.driver, 10).until(
