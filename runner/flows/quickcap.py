@@ -757,6 +757,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             status = safe_str(record.get("status"))
             update = safe_str(record.get("update"))
             taxonomy_code = safe_str(record.get("taxonomy_code"))
+            remarks = safe_str(record.get("remarks"))
 
             network = (network or "").strip().lower()
             health_plan = (health_plan or "").strip().lower()
@@ -829,6 +830,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.click_search_npi()
                         success = quickcap_page.click_org_id(npi_number, address_line1)
                         if not success:
+                            remarks_txt = "Org ID not found"
                             enriched: List[Dict] = [
                                 {
                                     "address_line1": address_line1,
@@ -836,8 +838,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                     "update": 0,
                                     "effective_date": effective_date,
                                     "health_plan": health_plan,
-                                    "update_status": 5
-
+                                    "update_status": 5,
+                                    "remarks": remarks_txt
                                 }
                             ]
                             data1 = {
@@ -903,9 +905,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "update": 0,
                                 "effective_date": effective_date,
                                 "health_plan": health_plan,
-                                "update_status": 2
-
-                            }
+                                "update_status": 2,
+                                "remarks": remarks                            }
                         ]
                         data1 = {
                             "task_id": metadata.task_id,
@@ -956,8 +957,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "update": 0,
                             "effective_date": effective_date,
                             "health_plan": health_plan,
-                            "update_status": 5
-
+                            "update_status": 5,
+                            "remarks": remarks
                         }
                     ]
                     data1 = {

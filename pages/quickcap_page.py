@@ -1398,7 +1398,7 @@ class QuickcapPage(BasePage):
                     "//li[contains(normalize-space(), 'OS - Other Specialty')]"
                 ],
                 "pain management": [
-                    "//li[contains(normalize-space(), 'APM - AnesthesiaLogy/Pain Management')]"
+                    "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]"
                 ],
                 "cardiology": [
                     "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
