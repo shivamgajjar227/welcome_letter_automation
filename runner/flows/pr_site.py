@@ -16,7 +16,7 @@ from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook, fetch_stage_payload
-from ...monitoring import events
+from monitoring import events
 
 logger = logging.getLogger(__name__)
 

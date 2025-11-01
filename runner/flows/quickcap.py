@@ -17,7 +17,7 @@ from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook, fetch_stage_payload
-from ...monitoring import events
+from monitoring import events
 
 logger = logging.getLogger(__name__)
 
@@ -874,7 +874,31 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         # time.sleep(3)
                         quickcap_page.switch_to_new_window()
                         quickcap_page.click_provider_button()
-                        quickcap_page.click_edit_for_healthplan(provider_id)
+                        success = quickcap_page.click_edit_for_healthplan(provider_id)
+                        if not success:
+                            remarks_txt = "Address already added"
+                            enriched: List[Dict] = [
+                                {
+                                    "address_line1": address_line1,
+                                    "npi": npi_number,
+                                    "update": 0,
+                                    "effective_date": effective_date,
+                                    "health_plan": health_plan,
+                                    "update_status": 2,
+                                    "remarks": remarks_txt
+                                }
+                            ]
+                            data1 = {
+                                "task_id": metadata.task_id,
+                                "stage": StageName.QUICKCAP.value,
+                                "failed": failures,
+                                "records": enriched
+                            }
+                            post_webhook(metadata, StageName.QUICKCAP, data1)
+                            if quickcap_page.driver.current_window_handle != main_window:
+                                quickcap_page.driver.close()
+                                quickcap_page.driver.switch_to.window(main_window)
+                            continue
                         quickcap_page.click_healthplan_panel()
 
                         quickcap_page.switch_to_new_window1()
@@ -906,7 +930,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "effective_date": effective_date,
                                 "health_plan": health_plan,
                                 "update_status": 2,
-                                "remarks": remarks                            }
+                            }
                         ]
                         data1 = {
                             "task_id": metadata.task_id,
@@ -950,6 +974,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 success = quickcap_page.click_org_id(npi_number,
                                                      address_line1)  # Need to add WebDriver Wait here inside the pages
                 if not success:
+                    remarks_txt = "Org ID not found"
                     enriched: List[Dict] = [
                         {
                             "address_line1": address_line1,
@@ -958,7 +983,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "effective_date": effective_date,
                             "health_plan": health_plan,
                             "update_status": 5,
-                            "remarks": remarks
+                            "remarks": remarks_txt
                         }
                     ]
                     data1 = {
@@ -1096,6 +1121,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_search_npi()
                     success = quickcap_page.click_org_id(npi_number, address_line1)
                     if not success:
+                        remarks_txt = "Org ID not found"
                         enriched: List[Dict] = [
                             {
                                 "address_line1": address_line1,
@@ -1103,7 +1129,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "update": 0,
                                 "effective_date": effective_date,
                                 "health_plan": health_plan,
-                                "update_status": 5
+                                "update_status": 5,
+                                "remarks": remarks_txt,
 
                             }
                         ]
@@ -1139,7 +1166,31 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     # time.sleep(3)
                     quickcap_page.switch_to_new_window()
                     quickcap_page.click_provider_button()
-                    quickcap_page.click_edit_for_healthplan(provider_id)
+                    success = quickcap_page.click_edit_for_healthplan(provider_id)
+                    if not success:
+                        remarks_txt = "Address already added"
+                        enriched: List[Dict] = [
+                            {
+                                "address_line1": address_line1,
+                                "npi": npi_number,
+                                "update": 0,
+                                "effective_date": effective_date,
+                                "health_plan": health_plan,
+                                "update_status": 2,
+                                "remarks": remarks_txt
+                            }
+                        ]
+                        data1 = {
+                            "task_id": metadata.task_id,
+                            "stage": StageName.QUICKCAP.value,
+                            "failed": failures,
+                            "records": enriched
+                        }
+                        post_webhook(metadata, StageName.QUICKCAP, data1)
+                        if quickcap_page.driver.current_window_handle != main_window:
+                            quickcap_page.driver.close()
+                            quickcap_page.driver.switch_to.window(main_window)
+                        continue
                     quickcap_page.click_healthplan_panel()
 
                     quickcap_page.switch_to_new_window1()
@@ -1227,6 +1278,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.click_search_npi()
             success = quickcap_page.click_org_id(npi_number, address_line1)
             if not success:
+                remarks_txt = "Org ID not found"
                 enriched: List[Dict] = [
                     {
                         "address_line1": address_line1,
@@ -1234,7 +1286,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "update": 0,
                         "effective_date": effective_date,
                         "health_plan": health_plan,
-                        "update_status": 5
+                        "update_status": 5,
+                        "remarks": remarks_txt
 
                     }
                 ]
