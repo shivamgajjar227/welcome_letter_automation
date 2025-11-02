@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -68,6 +69,12 @@ class Settings(BaseSettings):
     pr_site_enabled: bool = Field(True, env="PR_SITE_ENABLED")
     quickcap_enabled: bool = Field(True, env="QUICKCAP_ENABLED")
 
+    auth_client_id: Optional[str] = Field(None, env="AUTH_CLIENT_ID")
+    auth_client_secret: Optional[str] = Field(None, env="AUTH_CLIENT_SECRET")
+    auth_token_url: Optional[str] = Field(None, env="AUTH_TOKEN_URL")
+    auth_token_scope: Optional[str] = Field(None, env="AUTH_TOKEN_SCOPE")
+    auth_token_cache_path: Optional[str] = Field(None, env="AUTH_TOKEN_CACHE_PATH")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -93,6 +100,11 @@ class Settings(BaseSettings):
             object.__setattr__(self, "quickcap_ingest_api_url", f"{base_url}/webhooks/quickcap")
         if not self.quickcap_fetch_api_url:
             object.__setattr__(self, "quickcap_fetch_api_url", f"{base_url}/data/quickcap")
+
+        if not self.auth_token_cache_path:
+            cache_dir = Path(self.log_root).resolve()
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            object.__setattr__(self, "auth_token_cache_path", str(cache_dir / "auth_token.json"))
 
         if not self.task_status_webhook_url:
             object.__setattr__(self, "task_status_webhook_url", f"{base_url}/webhooks/task-status")

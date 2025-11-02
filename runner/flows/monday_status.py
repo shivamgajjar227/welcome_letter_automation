@@ -335,6 +335,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             # record.status = 6
                             # db.commit()
                             output_snapshot = {"npi_number": npi, "status": "roadblock"}
+                            processed.append({"npi_number": npi, "status": "roadblock"})
                         else:
                             structured_log(
                                 logger,

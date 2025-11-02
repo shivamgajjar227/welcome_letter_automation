@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Mapping, Optional
 
-import requests
 from requests import RequestException
 
+from .auth import request_with_auth
 from .context import RunnerMetadata, StageName
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def post_webhook(metadata: RunnerMetadata, stage: StageName, payload: Mapping[st
         logger.debug("No webhook configured for stage %s", stage.value)
         return False
     try:
-        response = requests.post(url, json=payload, timeout=30)
+        response = request_with_auth("POST", url, json=payload, timeout=30)
         response.raise_for_status()
         logger.info("Webhook posted", extra={"stage": stage.value, "url": url, "status": response.status_code})
         return True
@@ -49,7 +49,7 @@ def fetch_stage_payload(metadata: RunnerMetadata, stage: StageName) -> Optional[
         logger.debug('No input URL configured for stage %s', stage.value)
         return None
     try:
-        response = requests.get(url, timeout=30)
+        response = request_with_auth("GET", url, timeout=30)
         response.raise_for_status()
         return response.json()
     except RequestException as exc:

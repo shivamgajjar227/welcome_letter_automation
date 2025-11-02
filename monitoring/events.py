@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 from uuid import uuid4
 
-import requests
 from requests import RequestException
 
 from config import get_settings
+from runner.auth import request_with_auth
 from runner.context import ArtifactRecord, StageName
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def _submit(url: Optional[str], payload: Mapping[str, Any]) -> None:
 
     def _post() -> None:
         try:
-            response = requests.post(url, json=payload, timeout=10)
+            response = request_with_auth("POST", url, json=payload, timeout=10)
             response.raise_for_status()
         except RequestException as exc:
             logger.warning("Failed to post telemetry to %s: %s", url, exc, exc_info=False)
