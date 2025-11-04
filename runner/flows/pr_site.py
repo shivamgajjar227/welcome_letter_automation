@@ -148,7 +148,20 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "health_plan": record.get("health_plan"),
                 "lines_of_business": record.get("lines_of_business"),
             }
-
+            input_snapshot1 = {
+                "first_name": data["first_name"],
+                "last_name": data["last_name"],
+            }
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.PR_SITE,
+                npi=npi,
+                status="completed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=input_snapshot1,
+                output_snapshot=data,
+            )
             try:
                 pr_site_page.hover_over_practice_menu()
                 pr_site_page.enter_npi_search(npi)
@@ -161,7 +174,35 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
                 if addresses:
                     data["practice_addresses"] = addresses
-                # else:
+                    input_snapshot2 = [
+                        {
+                            "address_line_1": addr.get("address_line_1", ""),
+                            "address_line_2": addr.get("address_line_2", "")
+                        }
+                    ]
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.PR_SITE,
+                        npi=npi,
+                        status="completed",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot=input_snapshot2,
+                        output_snapshot=data,
+                    )
+
+                else:
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.PR_SITE,
+                        npi=npi,
+                        status="completed",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot={"npi": npi},
+                        output_snapshot=data,
+                        message="No Addresses Found for this NPI",
+                    )
                 #     payload = {
                 #         "task_id": metadata.task_id,
                 #         "stage": StageName.PR_SITE.value,

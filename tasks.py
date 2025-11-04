@@ -22,6 +22,7 @@ from config import get_settings
 from celery_app import celery_app
 from runner.context import CredentialRef, RunnerMetadata, StageConfig, StageName
 from runner.headless_runner import run_headless_flow
+from runner.auth import request_with_auth
 
 # ------------------------------------------------------------------------------
 # Celery application setup
@@ -73,7 +74,8 @@ def send_status_update(
         payload["message"] = message
 
     try:
-        response = requests.post(webhook, json=payload, timeout=30)
+        # response = requests.post(webhook, json=payload, timeout=30)
+        response = request_with_auth("POST", webhook, json=payload, timeout=60)
         response.raise_for_status()
     except RequestException as exc:
         logger.warning("Failed to send task status update: %s", exc)

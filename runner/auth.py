@@ -9,6 +9,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
+# from config import Settings as settings
 
 import requests
 from requests import RequestException, Response
@@ -234,25 +235,29 @@ class AuthTokenManager:
 
 
 def request_with_auth(method: str, url: str, **kwargs) -> Response:
-    manager = AuthTokenManager.instance()
+    # manager = AuthTokenManager.instance()
     headers: Dict[str, str] = kwargs.setdefault("headers", {})
-    if manager.is_configured:
-        manager.attach_auth_header(headers)
-    attempt = 1
-    _log_request(method, url, kwargs, attempt=attempt)
+    settings = get_settings()
+    token = settings.auth_fixed_token
+    if token and token is not "":
+        headers["Authorization"] = f"Bearer {token}"
+    # if manager.is_configured:
+    #     manager.attach_auth_header(headers)
+    # attempt = 1ettings = get_settings()
+    # _log_request(method, url, kwargs, attempt=attempt)
     response = requests.request(method, url, **kwargs)
-    _log_response(response, attempt=attempt)
-    if manager.is_configured and response.status_code in (401, 403):
-        attempt += 1
-        try:
-            manager.invalidate()
-        except Exception:
-            logger.debug("Failed to invalidate auth token", exc_info=True)
-        headers = kwargs.setdefault("headers", {})
-        manager.attach_auth_header(headers, force_refresh=True)
-        _log_request(method, url, kwargs, attempt=attempt)
-        response = requests.request(method, url, **kwargs)
-        _log_response(response, attempt=attempt)
+    # _log_response(response, attempt=attempt)
+    # if manager.is_configured and response.status_code in (401, 403):
+    #     attempt += 1
+    #     try:
+    #         manager.invalidate()
+    #     except Exception:
+    #         logger.debug("Failed to invalidate auth token", exc_info=True)
+    #     headers = kwargs.setdefault("headers", {})
+    #     manager.attach_auth_header(headers, force_refresh=True)
+    #     _log_request(method, url, kwargs, attempt=attempt)
+    #     response = requests.request(method, url, **kwargs)
+    #     _log_response(response, attempt=attempt)
     return response
 
 

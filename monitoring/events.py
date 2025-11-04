@@ -111,6 +111,7 @@ def emit_npi_event(
     }
     if stage_run_id:
         payload["stage_run_id"] = stage_run_id
+    # payload["stage_run_id"] = 1
     if input_snapshot:
         payload["input_snapshot"] = dict(input_snapshot)
     if output_snapshot:

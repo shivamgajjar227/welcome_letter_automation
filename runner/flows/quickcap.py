@@ -823,6 +823,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.select_provider_type_dropdown1(category, network, speciality)
                         quickcap_page.select_account1("0000-000 DEFAULT")
                         quickcap_page.select_template1(company_name)
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi,
+                            status="in_progress",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
+                        )
                         print("Organization linking")
                         quickcap_page.click_organization()
                         quickcap_page.switch_to_new_window1()
@@ -853,6 +862,18 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             status = "failed"
                             message = "org_id_not_found"
                             output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                            events.emit_npi_event(
+                                task_id=metadata.task_id,
+                                stage=StageName.QUICKCAP,
+                                npi=npi or "unknown",
+                                status="completed" if status == "completed" else "failed",
+                                attempt=attempt,
+                                stage_run_id=stage_run_id,
+                                input_snapshot=record,
+                                output_snapshot=output_snapshot,
+                                artifacts=[],
+                                message=message,
+                            )
                             continue
                         quickcap_page.switch_to_new_window1()
                         quickcap_page.click_add_new_location()
@@ -864,6 +885,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.enter_city1(city or "")
                         quickcap_page.click_primary()
                         quickcap_page.click_save1()
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi,
+                            status="in_progress",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot={"address_line1": address_line1,"address_line2": address_line2,"zip_code": zip_code},
+                        )
                         if quickcap_page.driver.current_window_handle != main_window:
                             quickcap_page.driver.close()
                             quickcap_page.driver.switch_to.window(main_window)
@@ -895,12 +925,26 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "records": enriched
                             }
                             post_webhook(metadata, StageName.QUICKCAP, data1)
+                            status = "completed"
+                            message = "Address already added"
+                            output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                            events.emit_npi_event(
+                                task_id=metadata.task_id,
+                                stage=StageName.QUICKCAP,
+                                npi=npi or "unknown",
+                                status="completed" if status == "completed" else "failed",
+                                attempt=attempt,
+                                stage_run_id=stage_run_id,
+                                input_snapshot=record,
+                                output_snapshot=output_snapshot,
+                                artifacts=[],
+                                message=message,
+                            )
                             if quickcap_page.driver.current_window_handle != main_window:
                                 quickcap_page.driver.close()
                                 quickcap_page.driver.switch_to.window(main_window)
                             continue
                         quickcap_page.click_healthplan_panel()
-
                         quickcap_page.switch_to_new_window1()
                         full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
                             "%m/%d/%Y")
@@ -908,7 +952,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.click_plus_button()
                         quickcap_page.click_save_healthplan()
                         quickcap_page.driver.close()
-
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi,
+                            status="in_progress",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
+                            message="Healthplan entry",
+                        )
                         print("Taxonomy entry")
                         quickcap_page.switch_to_new_window()
                         quickcap_page.click_other_ids()
@@ -940,7 +993,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
                         print(f" NPI {npi_number} processed successfully.\n")
+                        message = "Address added successfully"
                         output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi,
+                            status="in_progress",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot=record,
+                            output_snapshot=output_snapshot,
+                            message=message,
+                        )
                         continue
                 except TimeoutException:
                     print("Timed out waiting for search results.")
@@ -966,6 +1031,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
                 quickcap_page.select_payment_type("FEE FOR SERVICE")
                 quickcap_page.select_account("0000-000 DEFAULT")
+                events.emit_npi_event(
+                    task_id=metadata.task_id,
+                    stage=StageName.QUICKCAP,
+                    npi=npi,
+                    status="in_progress",
+                    attempt=attempt,
+                    stage_run_id=stage_run_id,
+                    input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
+                )
                 quickcap_page.click_organization()
                 quickcap_page.switch_to_new_window1()
                 quickcap_page.enter_npi_org(group_npi)
@@ -993,6 +1067,21 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "records": enriched
                     }
                     post_webhook(metadata, StageName.QUICKCAP, data1)
+                    status = "failed"
+                    message = "org_id_not_found"
+                    output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.QUICKCAP,
+                        npi=npi or "unknown",
+                        status="completed" if status == "completed" else "failed",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot=record,
+                        output_snapshot=output_snapshot,
+                        artifacts=[],
+                        message=message,
+                    )
                     continue
                 quickcap_page.switch_to_previous_window()
                 quickcap_page.select_practice_type("GRP - GROUP")
@@ -1006,6 +1095,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.select_contract_template(company_name)
                 # time.sleep(3)
                 quickcap_page.click_save()
+                events.emit_npi_event(
+                    task_id=metadata.task_id,
+                    stage=StageName.QUICKCAP,
+                    npi=npi,
+                    status="in_progress",
+                    attempt=attempt,
+                    stage_run_id=stage_run_id,
+                    input_snapshot={"address_line1": address_line1, "address_line2": address_line2,
+                                    "zip_code": zip_code},
+                )
                 if quickcap_page.driver.current_window_handle != main_window:
                     quickcap_page.driver.close()
                     quickcap_page.driver.switch_to.window(main_window)
@@ -1024,6 +1123,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.click_plus_button()
                 quickcap_page.click_save_healthplan()
                 quickcap_page.driver.close()
+                events.emit_npi_event(
+                    task_id=metadata.task_id,
+                    stage=StageName.QUICKCAP,
+                    npi=npi,
+                    status="in_progress",
+                    attempt=attempt,
+                    stage_run_id=stage_run_id,
+                    input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
+                    message="Healthplan entry",
+                )
                 quickcap_page.switch_to_new_window()
                 quickcap_page.click_other_ids()
                 quickcap_page.click_add_plus()
@@ -1052,7 +1161,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "records": enriched
                 }
                 post_webhook(metadata, StageName.QUICKCAP, data1)
+                message = "Address added successfully"
                 output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                events.emit_npi_event(
+                    task_id=metadata.task_id,
+                    stage=StageName.QUICKCAP,
+                    npi=npi,
+                    status="in_progress",
+                    attempt=attempt,
+                    stage_run_id=stage_run_id,
+                    input_snapshot=record,
+                    output_snapshot=output_snapshot,
+                    message=message,
+                )
                 continue
             quickcap_page.store_main_window()
             quickcap_page.click_change_company()
@@ -1115,6 +1236,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.select_provider_type_dropdown1(category, network, speciality)
                     quickcap_page.select_account1("0000-000 DEFAULT")
                     quickcap_page.select_template1(company_name)
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.QUICKCAP,
+                        npi=npi,
+                        status="in_progress",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
+                    )
                     quickcap_page.click_organization()
                     quickcap_page.switch_to_new_window1()
                     quickcap_page.enter_npi_org(group_npi)
@@ -1145,6 +1275,18 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         status = "failed"
                         message = "org_id_not_found"
                         output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi or "unknown",
+                            status="completed" if status == "completed" else "failed",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot=record,
+                            output_snapshot=output_snapshot,
+                            artifacts=[],
+                            message=message,
+                        )
                         continue
                     quickcap_page.switch_to_previous_window()
                     quickcap_page.click_add_new_location()
@@ -1157,6 +1299,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.enter_city1(city or "")
                     quickcap_page.click_primary()
                     quickcap_page.click_save1()
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.QUICKCAP,
+                        npi=npi,
+                        status="in_progress",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot={"address_line1": address_line1, "address_line2": address_line2,
+                                        "zip_code": zip_code},
+                    )
                     if quickcap_page.driver.current_window_handle != main_window:
                         quickcap_page.driver.close()
                         quickcap_page.driver.switch_to.window(main_window)
@@ -1187,6 +1339,21 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "records": enriched
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
+                        status = "completed"
+                        message = "Address already added"
+                        output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                        events.emit_npi_event(
+                            task_id=metadata.task_id,
+                            stage=StageName.QUICKCAP,
+                            npi=npi or "unknown",
+                            status="completed" if status == "completed" else "failed",
+                            attempt=attempt,
+                            stage_run_id=stage_run_id,
+                            input_snapshot=record,
+                            output_snapshot=output_snapshot,
+                            artifacts=[],
+                            message=message,
+                        )
                         if quickcap_page.driver.current_window_handle != main_window:
                             quickcap_page.driver.close()
                             quickcap_page.driver.switch_to.window(main_window)
@@ -1200,6 +1367,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_plus_button()
                     quickcap_page.click_save_healthplan()
                     quickcap_page.driver.close()
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.QUICKCAP,
+                        npi=npi,
+                        status="in_progress",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
+                        message="Healthplan entry",
+                    )
                     quickcap_page.switch_to_new_window()
                     quickcap_page.click_other_ids()
                     quickcap_page.click_add_plus()
@@ -1237,7 +1414,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     #     NPIAddress.update == 0
                     # ).update({"update": 1}, synchronize_session=False)
                     # db.commit()
+                    message = "Address added successfully"
                     output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                    events.emit_npi_event(
+                        task_id=metadata.task_id,
+                        stage=StageName.QUICKCAP,
+                        npi=npi,
+                        status="in_progress",
+                        attempt=attempt,
+                        stage_run_id=stage_run_id,
+                        input_snapshot=record,
+                        output_snapshot=output_snapshot,
+                        message=message,
+                    )
                     continue
 
             except Exception as e:
@@ -1272,6 +1461,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
             quickcap_page.select_payment_type("FEE FOR SERVICE")
             quickcap_page.select_account("0000-000 DEFAULT")
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="in_progress",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
+            )
             quickcap_page.click_organization()
             quickcap_page.switch_to_new_window1()
             quickcap_page.enter_npi_org(group_npi)
@@ -1301,6 +1499,18 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 status = "failed"
                 message = "org_id_not_found"
                 output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                events.emit_npi_event(
+                    task_id=metadata.task_id,
+                    stage=StageName.QUICKCAP,
+                    npi=npi or "unknown",
+                    status="completed" if status == "completed" else "failed",
+                    attempt=attempt,
+                    stage_run_id=stage_run_id,
+                    input_snapshot=record,
+                    output_snapshot=output_snapshot,
+                    artifacts=[],
+                    message=message,
+                )
                 continue
             quickcap_page.switch_to_previous_window()
             quickcap_page.select_practice_type("GRP - GROUP")
@@ -1313,6 +1523,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.enter_zip(zip_code or "")
             quickcap_page.select_contract_template(company_name)
             quickcap_page.click_save()
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="in_progress",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot={"address_line1": address_line1, "address_line2": address_line2, "zip_code": zip_code},
+            )
             quickcap_page.accept_alert()
             quickcap_page.dismiss_alert()
             quickcap_page.driver.close()
@@ -1332,6 +1551,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.enter_membership_date(full_date or "")
             quickcap_page.click_plus_button()
             quickcap_page.click_save_healthplan()
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="in_progress",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
+                message="Healthplan entry",
+            )
             quickcap_page.driver.close()
             quickcap_page.switch_to_new_window()
             quickcap_page.click_other_ids()
@@ -1360,7 +1589,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "records": enriched
             }
             post_webhook(metadata, StageName.QUICKCAP, data1)
+            message = "Address added successfully"
             output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="in_progress",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=output_snapshot,
+                message=message,
+            )
             continue
 
             quickcap_page.driver_close()

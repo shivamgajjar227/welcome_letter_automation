@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     auth_token_url: Optional[str] = Field(None, env="AUTH_TOKEN_URL")
     auth_token_scope: Optional[str] = Field(None, env="AUTH_TOKEN_SCOPE")
     auth_token_cache_path: Optional[str] = Field(None, env="AUTH_TOKEN_CACHE_PATH")
+    auth_fixed_token: Optional[str] = Field("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxNzYyNDc1Mzg1fQ.3ioLR8__93A0lF-GB9MwzvOSBOQ1Fxa2VKofVMm8cCk", env="AUTH_TOKEN_CACHE_PATH")
+
 
     class Config:
         env_file = ".env"
