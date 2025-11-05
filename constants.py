@@ -86,6 +86,7 @@ CATEGORY_MAP = {
         "PA-C": "EX - EXTENDER",
         "APRN": "EX - EXTENDER",
         "APN": "EX - EXTENDER",
+        "DPT": "EX - EXTENDER",
     }
 
 STATE_DROPDOWN_MAP = {

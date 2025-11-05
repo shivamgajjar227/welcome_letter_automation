@@ -171,6 +171,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         health_plan = safe_str(record.get("health_plan"))
         effective_date = safe_str(record.get("effective_date"))
         lines_of_business = safe_str(record.get("lines_of_business"))
+        address = safe_str(record.get("address_line1"))
         remarks = safe_str(record.get("remarks"))
         attempt = int(record.get("attempt", 1) or 1)
         result_status = "completed"

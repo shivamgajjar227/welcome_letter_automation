@@ -139,7 +139,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         npis = monday_page.get_pr_site_npis()
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
-            if health_plan in ["Doctors", "Doctor health"]:
+            if health_plan in ["doctors", "doctor health"]:
                 record["health_plan"] = "Doctors Healthcare"
                 record["lines_of_business"] = "Doctors Healthcare"
         structured_log(
