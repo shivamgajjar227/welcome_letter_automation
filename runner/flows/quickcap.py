@@ -590,6 +590,10 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
+    """
+    TODO Yash:
+    In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
+    """
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
@@ -646,6 +650,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     if not records:
         stage_result.mark_finished(success=True)
+        """
+        TODO Yash: update task unit
+         complete stage
+        """
         stage_result.data["processed"] = []
         stage_result.data["failed"] = []
         finished_at = _dt.datetime.now(_dt.timezone.utc)
@@ -676,6 +684,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     try:
         quickcap_page.login(cred.username, cred.password)
+
         stage_result.artifacts.append(
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "after_login")
         )
@@ -782,7 +791,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
             if current_company and current_company.lower() == company_name.lower():
                 print(f"✅ Company '{company_name}' already logged in — skipping change.")
-
+                """
+                TODO Yash: update task unit
+                Logged into expected company 
+                """
                 try:
                     if quickcap_page.check_npi_search_field():
                         quickcap_page.enter_npi(npi_number)
@@ -858,6 +870,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "records": enriched
                             }
                             post_webhook(metadata, StageName.QUICKCAP, data1)
+                            """
+                            TODO Yash: update task unit
+                            Org is not found 
+                            """
                             print(f"NPI {npi_number} failed due to missing Org ID.\n")
                             status = "failed"
                             message = "org_id_not_found"
@@ -925,6 +941,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "records": enriched
                             }
                             post_webhook(metadata, StageName.QUICKCAP, data1)
+                            """
+                            TODO Yash: update task unit
+                            address already added 
+                            """
                             status = "completed"
                             message = "Address already added"
                             output_snapshot = {"npi_number": npi_number or npi, "error": message}
@@ -944,6 +964,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 quickcap_page.driver.close()
                                 quickcap_page.driver.switch_to.window(main_window)
                             continue
+                        """
+                        TODO Yash: update task unit
+                        Provider added successfully through Edit button 
+                        """
                         quickcap_page.click_healthplan_panel()
                         quickcap_page.switch_to_new_window1()
                         full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
@@ -951,6 +975,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.enter_membership_date(full_date or "")
                         quickcap_page.click_plus_button()
                         quickcap_page.click_save_healthplan()
+                        """
+                        TODO Yash: update task unit
+                        healthplan added successfully  
+                        """
                         quickcap_page.driver.close()
                         events.emit_npi_event(
                             task_id=metadata.task_id,
@@ -970,7 +998,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.click_provider_id(provider_id)
                         quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                         quickcap_page.click_save_taxonomy()
-
+                        """
+                        TODO Yash: update task unit
+                        taxonomy added successfully  
+                        """
                         if quickcap_page.driver.current_window_handle != main_window:
                             quickcap_page.driver.close()
                             quickcap_page.driver.switch_to.window(main_window)
@@ -1067,6 +1098,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "records": enriched
                     }
                     post_webhook(metadata, StageName.QUICKCAP, data1)
+                    """
+                    TODO Yash: update task unit
+                    org id not found 
+                    """
                     status = "failed"
                     message = "org_id_not_found"
                     output_snapshot = {"npi_number": npi_number or npi, "error": message}
@@ -1095,6 +1130,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.select_contract_template(company_name)
                 # time.sleep(3)
                 quickcap_page.click_save()
+                """
+                TODO Yash: update task unit
+                npi added successfully 
+                """
                 events.emit_npi_event(
                     task_id=metadata.task_id,
                     stage=StageName.QUICKCAP,
@@ -1122,6 +1161,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.enter_membership_date(full_date or "")
                 quickcap_page.click_plus_button()
                 quickcap_page.click_save_healthplan()
+                """
+                TODO Yash: update task unit
+                healthplan added successfully 
+                """
                 quickcap_page.driver.close()
                 events.emit_npi_event(
                     task_id=metadata.task_id,
@@ -1140,6 +1183,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.click_provider_id_for_A()
                 quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                 quickcap_page.click_save_taxonomy()
+                """
+                TODO Yash: update task unit
+                taxonomy added successfully 
+                """
                 if quickcap_page.driver.current_window_handle != main_window:
                     quickcap_page.driver.close()
                     quickcap_page.driver.switch_to.window(main_window)
@@ -1161,6 +1208,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "records": enriched
                 }
                 post_webhook(metadata, StageName.QUICKCAP, data1)
+                """
+                TODO Yash: update task unit
+                address already added 
+                """
                 message = "Address added successfully"
                 output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
                 events.emit_npi_event(
@@ -1184,6 +1235,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
             quickcap_page.enter_password_in_company_prompt("Pns@072025")
             quickcap_page.click_login_button_in_company_prompt()
+            """
+            TODO Yash: update task unit
+             change company
+            """
             # time.sleep(3)
             quickcap_page.switch_to_main()
             current_company = company_name
@@ -1271,6 +1326,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "records": enriched
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
+                        """
+                        TODO Yash: update task unit
+                        org id not found 
+                        """
                         print(f"NPI {npi_number} failed due to missing Org ID.\n")
                         status = "failed"
                         message = "org_id_not_found"
@@ -1299,6 +1358,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.enter_city1(city or "")
                     quickcap_page.click_primary()
                     quickcap_page.click_save1()
+
                     events.emit_npi_event(
                         task_id=metadata.task_id,
                         stage=StageName.QUICKCAP,
@@ -1339,6 +1399,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "records": enriched
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
+                        """
+                       TODO Yash: update task unit
+                       address alrady added
+                       """
                         status = "completed"
                         message = "Address already added"
                         output_snapshot = {"npi_number": npi_number or npi, "error": message}
@@ -1358,6 +1422,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             quickcap_page.driver.close()
                             quickcap_page.driver.switch_to.window(main_window)
                         continue
+                    """
+                   TODO Yash: update task unit
+                   npi added
+                   """
                     quickcap_page.click_healthplan_panel()
 
                     quickcap_page.switch_to_new_window1()
@@ -1366,6 +1434,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.enter_membership_date(full_date or "")
                     quickcap_page.click_plus_button()
                     quickcap_page.click_save_healthplan()
+                    """
+                   TODO Yash: update task unit
+                   healthplan added
+                   """
                     quickcap_page.driver.close()
                     events.emit_npi_event(
                         task_id=metadata.task_id,
@@ -1384,6 +1456,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_provider_id(provider_id)
                     quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                     quickcap_page.click_save_taxonomy()
+                    """
+                   TODO Yash: update task unit
+                   taxonomy added
+                   """
                     if quickcap_page.driver.current_window_handle != main_window:
                         quickcap_page.driver.close()
                         quickcap_page.driver.switch_to.window(main_window)
@@ -1523,6 +1599,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.enter_zip(zip_code or "")
             quickcap_page.select_contract_template(company_name)
             quickcap_page.click_save()
+            """
+           TODO Yash: update task unit
+           npi added
+           """
             events.emit_npi_event(
                 task_id=metadata.task_id,
                 stage=StageName.QUICKCAP,
@@ -1545,6 +1625,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.click_provider_button()
             quickcap_page.click_edit_for_healthplan_for_A()
             quickcap_page.click_healthplan_panel()
+            """
+           TODO Yash: update task unit
+           heathplan added(quick add)
+           """
             quickcap_page.switch_to_new_window1()
             full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
                 "%m/%d/%Y")
@@ -1569,6 +1653,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.click_provider_id_for_A()
             quickcap_page.enter_taxonomy_code(taxonomy_code or "")
             quickcap_page.click_save_taxonomy()
+            """
+           TODO Yash: update task unit
+           taxonomy added(quick add)
+           """
             if quickcap_page.driver.current_window_handle != main_window:
                 quickcap_page.driver.close()
                 quickcap_page.driver.switch_to.window(main_window)
@@ -1683,7 +1771,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         "failed": failures,
     }
     post_webhook(metadata, StageName.QUICKCAP, payload)
-
+    """
+   TODO Yash: update task unit
+   complete
+   """
     stage_result.data["processed"] = processed
     stage_result.data["failed"] = failures
     success = not failures

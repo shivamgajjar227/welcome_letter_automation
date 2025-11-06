@@ -204,6 +204,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         stage_result.artifacts.append(artifact)
 
         if not npis:
+            """
+            TODO Yash: update task units
+            we will hit api for completing stage(No npis found)
+            """
             structured_log(logger, "no_records_found", stage=StageName.MONDAY.value, task_id=metadata.task_id)
             stage_result.data["npi_records"] = []
             stage_result.mark_finished(success=True)
@@ -247,6 +251,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
         stage_result.data["npi_records"] = npis
         stage_result.mark_finished(success=True)
+
+        """
+        TODO Yash: update task units
+        we will hit api for completing stage
+        """
     except Exception as exc:  # pragma: no cover - requires live systems
         structured_log(
             logger,

@@ -25,6 +25,10 @@ def safe_str(value: Any) -> str:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.MONDAY_STATUS)
+    """
+    TODO Yash: create task unit
+    - In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
+    """
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
@@ -52,6 +56,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     )
 
     if not records:
+        """
+        TODO Yash: Update unit
+        stage: complete
+        """
         structured_log(
             logger,
             "no_records",
@@ -260,7 +268,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             "records": enriched
                         }
                         post_webhook(metadata, StageName.MONDAY_STATUS, data1)
-
+                        """
+                        TODO Yash: update unit
+                        marks as review
+                        """
                         # record.status = 3
                         # db.commit()
 
@@ -333,6 +344,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                                 "records": enriched
                             }
                             post_webhook(metadata, StageName.MONDAY_STATUS, data1)
+                            """
+                            TODO Yash: update unit
+                            marks as review
+                            """
                             # record.status = 6
                             # db.commit()
                             output_snapshot = {"npi_number": npi, "status": "roadblock"}
@@ -365,6 +380,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 else:
                     if monday_health_plans:
                         monday_plans_str = ", ".join(monday_health_plans)
+
                     else:
                         monday_plans_str = "No health plans found in UI"
                     structured_log(
@@ -449,7 +465,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         "failed": failures,
     }
     post_webhook(metadata, StageName.MONDAY_STATUS, payload)
-
+    """
+    TODO Yash: update unit
+    stage: complete
+    """
     stage_result.data["processed"] = processed
     stage_result.data["failed"] = failures
     success = not failures

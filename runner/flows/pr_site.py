@@ -57,6 +57,11 @@ def _inject_basic_auth(url: str, cred: CredentialRef) -> str:
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.PR_SITE)
     records: List[Dict] = list(metadata.request_payload.get("records", []))
+    """
+    TODO Yash:
+    In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
+    """
+
     if not records:
         payload = fetch_stage_payload(metadata, StageName.PR_SITE)
         if payload:
@@ -74,6 +79,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         stage_result.mark_finished(success=True)
         stage_result.data["records"] = []
         return stage_result
+        """
+        TODO Yash: update task unit
+         complete stage
+        """
 
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
@@ -148,6 +157,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "health_plan": record.get("health_plan"),
                 "lines_of_business": record.get("lines_of_business"),
             }
+            """
+            TODO Yash: update task unit
+             Update stage: fetched Provider personal details
+            """
             input_snapshot1 = {
                 "first_name": data["first_name"],
                 "last_name": data["last_name"],
@@ -172,8 +185,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 data["group_npi"] = group_npi
                 data["group_name"] = group_name
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
+                """
+               TODO Yash: update task unit
+                Update stage: fetched group address
+               """
                 if addresses:
                     data["practice_addresses"] = addresses
+                    """
+                    TODO Yash: update task unit
+                     Update stage: fetched Provider personal details
+                    """
                     input_snapshot2 = [
                         {
                             "address_line_1": addr.get("address_line_1", ""),
@@ -203,6 +224,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         output_snapshot=data,
                         message="No Addresses Found for this NPI",
                     )
+                    """
+                   TODO Yash: update task unit
+                    failed stage: No address found for this NPI
+                   """
                 #     payload = {
                 #         "task_id": metadata.task_id,
                 #         "stage": StageName.PR_SITE.value,
@@ -290,7 +315,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         "failed": failures,
     }
     post_webhook(metadata, StageName.PR_SITE, payload)
-
+    """
+    TODO Yash: update task unit
+    complete stage
+    """
     stage_result.data["records"] = enriched
     stage_result.data["failed"] = failures
     stage_result.mark_finished(success=not failures)
