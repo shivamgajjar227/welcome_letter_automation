@@ -68,6 +68,34 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         2. Collect NPIs in "Not Started" state.
         3. Insert fresh rows into `pr_site_data` with status=0.
         4. Capture artifacts (screenshot + JSON dump).
+
+    Rules:
+    TODO Yash:
+    - In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
+    - we will call api get_task_units(task_id) and it will provide us list of objects.
+    response:
+    [
+        {
+        task_unit_id: , task_unit_id: ,
+        task_unit_identifier:[Integer: npi in our case],
+        task_unit_current_state: [Integer: task state],
+        }
+    ]
+    - whenever we feel necessary, we will hit this api. to update stage of task unit.
+    update_task_units_details(task_id)
+    payload:
+    [
+        {
+        task_unit_id: , task_unit_id: ,
+        task_unit_identifier:[Integer: npi in our case],
+        task_unit_updated_state: [Integer: task state],
+        task_unit_updates: [{list of json dictionary with updates data}, {}, {}, {}]
+        }
+    ]
+    - in case of first stage of any task instead of get task unit details we will hit api
+    create_task_units(task_id)
+    payload:
+    [list of task unit identifiers.]
     """
     stage_result = StageResult(stage=StageName.MONDAY)
     stage_run_id = uuid4().hex
@@ -181,6 +209,12 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             return stage_result
 
         # 4. Send NPIs to external API for persistence
+        """
+        TODO Yash: We will hit api of the careloop to create task units for all the 
+        NPIs. In this api we will provide that create task units in which
+        - task unit identifier will be NPI
+        - task unit type will be welcome letter automation
+        """
         _send_records_to_api(npis, metadata)
 
         structured_log(
