@@ -43,6 +43,10 @@ class PRSitePage(BasePage):
     texonomy_code = (By.XPATH, "//span[@id='ctl00_MainContent_fm_Prov_Medical_Info_lblTaxonomyGroup']")
     inv_npi_list_table = (By.XPATH, "//div[@id='ctl00_MainContent_pnlGvListPractice']/div/table/tbody/tr")
     npi_list_expansion_arrow = (By.XPATH, "//a[contains(@id,'LnkExpandPract')]")
+    group_npi_search = (By.CSS_SELECTOR, "#ctl00_MainContent_uCSearchGroup_txtSearchGroup")
+    group_npi_search_dropdown = (By.CSS_SELECTOR, "#ctl00_MainContent_uCSearchGroup_AutoCompleteExtender1_completionListElem")
+    group_npi_search_button = (By.CSS_SELECTOR, "#ctl00_MainContent_uCSearchGroup_btn_Search")
+    group_tin = (By.CSS_SELECTOR, "#ctl00_MainContent_uCSearchGroup_fm_GroupMainInfo_lblTIN")
 
     def hover_over_provider_menu(self):
         provide_webelement = self.driver.find_element(*self.provider_menu)
@@ -139,7 +143,8 @@ class PRSitePage(BasePage):
             element = wait.until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_fm_Prov_Personal_Info_lblLName"))
             )
-            return element.text.strip()
+            name = element.text.strip()
+            return name.upper()
             logger.info(f"Out from get Last Name")
         except Exception as e:
             logger.warning("Could not find Last Name: %s", e)
@@ -150,7 +155,8 @@ class PRSitePage(BasePage):
         logger.info(f"Inside get First Name")
         try:
             element = self.driver.find_element(*self.first_name)
-            return element.text.strip()
+            name = element.text.strip()
+            return name.upper()
             logger.info(f"Out from get First Name")
         except NoSuchElementException:
             logger.warning("First name element not found.")
@@ -481,6 +487,7 @@ class PRSitePage(BasePage):
                                         "plan": plan,
                                         "effective_date": effective_date,
                                         "matches_effective_date": match_effective_date and not termination_date.strip(),
+
                                     })
                                     logger.info(f"Out from get address for NPI {record_npi} with address '{address}'")
 
@@ -534,4 +541,83 @@ class PRSitePage(BasePage):
                     return "Unknown Group"
 
 
+    def hover_over_group_menu(self, retries: int = 3):
+        logger.info("Inside Hover Over Practice Menu")
+        attempt = 0
+        while attempt < retries:
+            try:
+                # Hover over provider menu
+                provide_webelement = WebDriverWait(self.driver, 10).until(
+                    EC.visibility_of_element_located(self.provider_menu)
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", provide_webelement)
+                ActionChains(self.driver).move_to_element(provide_webelement).perform()
 
+                # Wait for submenu and click
+                sub_menu = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[@href='/Groups.aspx']"))
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", sub_menu)
+                sub_menu.click()
+
+                logger.info("Out from Hover Over Practice Menu")
+                return  # ✅ success, exit the function
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                attempt += 1
+                time.sleep(2)  # small wait before retry
+
+        raise Exception("Failed to hover and click practice menu after retries")
+
+    def enter_group_npi_search(self, value):
+        logger.info(f"Inside Enter NPI Search")
+        try:
+            self.enter_text(self.group_npi_search, value)
+            time.sleep(5)
+            dropdown_options = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located(self.group_npi_search_dropdown)
+            )
+            for options in dropdown_options:
+                if value in options.text:
+                    options.click()
+                    break
+            # clickable_option = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(self.group_npi_search_button))
+            # clickable_option.click()
+            logger.info(f"Out from NPI Search")
+        except Exception as e:
+            logger.exception("Unexpected error while entering NPI search: %s", e)
+
+    def get_group_tin(self):
+        logger.info(f"Inside get Group NPI")
+        try:
+            element = WebDriverWait(self.driver, 15).until(
+                EC.visibility_of_element_located(self.group_tin)
+            )
+            return element.text.strip()
+            logger.info(f"Out from get Group NPI")
+        except (TimeoutException, NoSuchElementException) as e:
+            logger.error("Error getting group NPI: %s", e)
+            return None
+
+    def click_search_group_npi(self):
+        logger.info(f"Inside Click Search NPI")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(self.group_npi_search_button)
+            )
+            element.click()
+            time.sleep(10)
+            logger.info(f"Out from Search NPI")
+        except Exception as e:
+            logger.exception("Unexpected error while clicking search NPI: %s", e)
+
+    def extract_number_from_string(self, text: str) -> str:
+
+        if not text:
+            return ""
+
+        # Split by '-' and take the last part
+        parts = text.split('-')
+        if len(parts) > 1:
+            return parts[-1].strip()  # remove spaces
+        return ""

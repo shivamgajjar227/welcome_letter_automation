@@ -11,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from pages.pr_site_page import PRSitePage
-
+import re
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
@@ -163,6 +163,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 output_snapshot=data,
             )
             try:
+
                 pr_site_page.hover_over_practice_menu()
                 pr_site_page.enter_npi_search(npi)
                 pr_site_page.click_search_npi()
@@ -172,12 +173,21 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 data["group_npi"] = group_npi
                 data["group_name"] = group_name
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
+
+                pr_site_page.hover_over_group_menu()
+                group_npi_num = pr_site_page.extract_number_from_string(group_npi)
+                match = re.search(r'\d+', group_npi)
+                group_npi_num1 = match.group() if match else group_npi
+                pr_site_page.enter_group_npi_search(group_npi_num)
+                pr_site_page.click_search_group_npi()
+                group_tin = pr_site_page.get_group_tin()
+                data["group_tin"] = group_tin
                 if addresses:
                     data["practice_addresses"] = addresses
                     input_snapshot2 = [
                         {
-                            "address_line_1": addr.get("address_line_1", ""),
-                            "address_line_2": addr.get("address_line_2", "")
+                            "address_line_1": address_line_1,
+                            "address_line_2": address_line_2,
                         }
                     ]
                     events.emit_npi_event(
@@ -210,7 +220,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 #         "failed": failures,
                 #     }
                 #     post_webhook(metadata, StageName.PR_SITE, payload)
-            except Exception as inner_exc:  # pragma: no cover
+            except Exception as inner_exc:
+                print(inner_exc)# pragma: no cover
                 structured_log(
                     logger,
                     "practice_lookup_failure",

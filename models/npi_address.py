@@ -19,7 +19,8 @@ class NPIAddress(Base):
     name = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now())
     updated_at = Column(DateTime, default=datetime.datetime.now())
-
+    group_tin = Column(Integer, nullable=True)
+    updated_group_tin = Column(Integer, nullable=false)
 
 
     # pr_site = relationship("PRSiteData", back_populates="npi_details")
