@@ -96,7 +96,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     create_task_units(task_id)
     payload:
     [list of task unit identifiers.]
+    - In every task we will create task unit dictionary in the beginning which will have all the task units
+    in the same.
+    task_unit_dict = {}
     """
+
+    task_unit_dict = {}
+
     stage_result = StageResult(stage=StageName.MONDAY)
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
@@ -165,6 +171,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         pre_collect_artifact = artifacts.capture_screenshot(driver, metadata, StageName.MONDAY, "before_collect_npis")
         stage_result.artifacts.append(pre_collect_artifact)
         npis = monday_page.get_pr_site_npis()
+        """
+        TODO Yash: Create task units
+        Here we will call api of task unit and 
+        and give output to task unit dict
+        - in case of first stage of any task instead of get task unit details we will hit api
+        create_task_units(task_id)
+        payload:
+        [list of task unit identifiers. in this case it will be npi] -> [list of npi]
+        
+        output of api will go into task unit dict
+        """
+        task_unit_dict = {}
+
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
             if health_plan in ["doctors", "doctor health"]:
