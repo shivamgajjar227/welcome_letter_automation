@@ -11,7 +11,7 @@ class NpiWlaTU:
     TU_DATA_FETCHED_FROM_MONDAY = 1 # update this when all the required data will be updated in monday.
     TU_PROVIDER_PERSONAL_DETAILS_FETCHED = 2  # update this when Provider personal details fetched from Update menu
     TU_GROUP_DETAILS_FETCHED = 3  # update this when Provider Group details fetched from groups menu
-    TU_GET_GROUP_ADDRESS = 4 # update this when group address fetched from Practice menu
+    TU_GROUP_ADDRESS_FETCHED = 4 # update this when group address fetched from Practice menu
     TU_LOGGED_INTO_COMPANY = 5  # Logged into expected company of NPI on QC
     TU_NEW_NPI_QUICK_ADDED = 6  # update this when New NPI added through Quick Add
     TU_ERROR_ORG_ID_NOT_FOUND = 7 # update this when org id not found error occurs for provider
