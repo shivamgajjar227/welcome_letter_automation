@@ -189,8 +189,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         }
         for identifier in npis:
             task_unit_payload["units"].append({"identifier":identifier["npi_number"]})
-        post_create_task_units(payload=task_unit_payload)
+        task_unit_dict = post_create_task_units(payload=task_unit_payload)
+        """
+        Todo shivam, check this task unit dict is populating properly or not
+        key shoul be npi
+        value shoul be object
+        """
 
+        """
+        Todo shivam, we will have to add these records in to task_unit_dict
+        """
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
             if health_plan in ["doctors", "doctor health"]:

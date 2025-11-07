@@ -9,6 +9,7 @@ from requests import RequestException
 
 from .auth import request_with_auth
 from .context import RunnerMetadata, StageName
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,15 @@ def post_create_task_units(payload):
     try:
         response = request_with_auth("POST", url, json=payload, timeout=30)
         logger.debug("Webhook posted", extra={"url": url, "status": response.status_code})
-        return True
+        """
+        Convert to task unit dict
+        key: identifier(like npi)
+        value: object of response
+        """
+        temp_task_unit_dict = {}
+        for resp_obj in response["created_units"]:
+            temp_task_unit_dict[resp_obj["identifier"]] = resp_obj
+        return deepcopy(temp_task_unit_dict)
     except RequestException as exc:
         logger.warning("Webhook post failed", extra={"url": url, "status": response.status_code,"error": str(exc)})
         return False
