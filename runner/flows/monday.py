@@ -15,7 +15,7 @@ from pages.monday_page import MondayPage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook,post_create_task_units
+from ..webhooks import post_webhook,post_create_task_units,post_update_state_task_units
 from monitoring import events
 from taskunits.wla_npi import NpiWlaTU
 
@@ -234,7 +234,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 """
                 Update state of task unit to data fetched from monday
                 """
-                task_unit_dict[npi]["current_state"] = NpiWlaTU.TU_DATA_FETCHED_FROM_MONDAY
+                task_unit_dict[npi_number]["current_state"] = NpiWlaTU.TU_DATA_FETCHED_FROM_MONDAY
         structured_log(
             logger,
             "npis_collected",
@@ -272,9 +272,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             state_update_call_payload["updates"].append(
                 {
                     "task_unit_id": task_unit_obj["task_unit_id"],
-                    "state": task_unit_obj["current_state"],
+                    "state": str(task_unit_obj["current_state"]),
                     "transition_reason": "NA for now",
-                    "mata_data": json.loads(task_unit_obj),
+                    "state_value":0,
+                    "meta_data": task_unit_obj,
                 }
             )
             micro_update_call_payload["updates"].append(
@@ -284,7 +285,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "message": "We have got following datat from Monday.com",
                 }
             )
-
+        post_update_state_task_units(payload=state_update_call_payload)
 
         structured_log(
             logger,

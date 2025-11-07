@@ -58,13 +58,14 @@ def post_create_task_units(payload):
         return False
 
 def post_update_state_task_units(payload):
-    """
-    TODO Shivam:
-    :param payload:
-    :return:
-    """
-    pass
-
+    try:
+        url = "http://0.0.0.0:10022/api/task_units/state_update"
+        response = request_with_auth("POST", url, json=payload, timeout=30)
+        logger.debug("Webhook posted", extra={"url": url, "status": response.status_code})
+        return response.json()
+    except RequestException as exc:
+        logger.warning("Webhook post failed", extra={"url": url, "status": response.status_code})
+        return False
 
 
 def get_stage_input_url(metadata: RunnerMetadata, stage: StageName) -> Optional[str]:
