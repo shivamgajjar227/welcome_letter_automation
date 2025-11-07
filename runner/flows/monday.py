@@ -58,7 +58,7 @@ def _send_records_to_api(npis, metadata: RunnerMetadata) -> None:
             task_id=metadata.task_id,
         )
 
-def create_task_units(task_id)
+def create_task_units(task_id):
     """
     We will hit task unit creation api .
     :param task_id: 
@@ -68,6 +68,7 @@ def create_task_units(task_id)
     """
     1 hit api
     """
+    response = None
     """
     2 convert response into the task_unit_id_dict
     """
