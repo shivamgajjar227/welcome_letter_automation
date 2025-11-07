@@ -132,7 +132,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         npi_value: str,
         new_state: int,
         message: str,
-        meta: Optional[Dict[str, Any]] = None,
+        data_payload: Optional[Dict[str, Any]] = None,
         micro_extra: Optional[Dict[str, Any]] = None,
     ) -> None:
         task_unit = _task_unit_for_npi(npi_value)
@@ -140,8 +140,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             logger.debug("Task unit not found for NPI %s; skipping state update", npi_value)
             return
         update_meta = {"npi": npi_value}
-        if meta:
-            update_meta.update(meta)
+        if data_payload:
+            update_meta.update(data_payload)
         state_update_payload["updates"].append(
             {
                 "task_unit_id": task_unit["task_unit_id"],
@@ -155,8 +155,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         update_data = {"message": message, "npi": npi_value}
         if micro_extra:
             update_data.update(micro_extra)
-        elif meta:
-            update_data.update(meta)
+        elif data_payload:
+            update_data.update(data_payload)
         micro_update_payload["updates"].append(
             {
                 "task_unit_id": task_unit["task_unit_id"],
@@ -259,19 +259,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "health_plan": record.get("health_plan"),
                 "lines_of_business": record.get("lines_of_business"),
             }
-            provider_details = {
-                "first_name": data["first_name"],
-                "last_name": data["last_name"],
-                "gender": data["gender"],
-                "city": data["city"],
-                "state": data["state"],
-                "taxonomy_code": data["taxonomy_code"],
-            }
             _record_state_transition(
                 npi,
                 NpiWlaTU.TU_PROVIDER_PERSONAL_DETAILS_FETCHED,
                 "Fetched provider personal details from PR Site",
-                meta={"provider_details": provider_details},
+                data_payload=data,
             )
             input_snapshot1 = {
                 "first_name": data["first_name"],
@@ -296,15 +288,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 group_name = pr_site_page.get_group_name()
                 data["group_npi"] = group_npi
                 data["group_name"] = group_name
-                group_details = {
-                    "group_npi": group_npi,
-                    "group_name": group_name,
-                }
                 _record_state_transition(
                     npi,
                     NpiWlaTU.TU_GROUP_DETAILS_FETCHED,
                     "Fetched group details from PR Site",
-                    meta={"group_details": group_details},
+                    data_payload=data,
                 )
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
                 if addresses:
@@ -313,7 +301,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         npi,
                         NpiWlaTU.TU_GROUP_ADDRESS_FETCHED,
                         "Fetched group practice addresses from PR Site",
-                        meta={"practice_addresses": addresses},
+                        data_payload=data,
                     )
                     input_snapshot2 = [
                         {
@@ -404,7 +392,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 npi,
                 NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
                 "Failed to enrich PR Site data",
-                meta={"error": str(exc)},
+                data_payload={"error": str(exc)},
                 micro_extra={"error": str(exc)},
             )
             stage_result.artifacts.append(
