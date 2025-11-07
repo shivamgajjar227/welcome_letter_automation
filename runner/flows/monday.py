@@ -58,6 +58,21 @@ def _send_records_to_api(npis, metadata: RunnerMetadata) -> None:
             task_id=metadata.task_id,
         )
 
+def create_task_units(task_id)
+    """
+    We will hit task unit creation api .
+    :param task_id: 
+    :response
+    :return: 
+    """
+    """
+    1 hit api
+    """
+    """
+    2 convert response into the task_unit_id_dict
+    """
+    pass
+
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     """
@@ -98,6 +113,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     [list of task unit identifiers.]
     - In every task we will create task unit dictionary in the beginning which will have all the task units
     in the same.
+
+
     task_unit_dict = {}
     """
 
@@ -182,7 +199,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         
         output of api will go into task unit dict
         """
-        task_unit_dict = {}
+        task_unit_dict = create_task_units(task_id=0)
 
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
