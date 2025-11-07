@@ -114,6 +114,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         return stage_result
 
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
+    record_lookup: Dict[str, Dict] = {}
+    for record in records:
+        record_npi = str(record.get("npi_number") or record.get("npi") or "").strip()
+        if not record_npi:
+            continue
+        record_lookup[record_npi] = record
+        normalized_record_npi = record_npi.lstrip("0")
+        if normalized_record_npi and normalized_record_npi not in record_lookup:
+            record_lookup[normalized_record_npi] = record
 
     def _task_unit_for_npi(npi_value: str) -> Optional[Dict[str, Any]]:
         normalized = str(npi_value or "").strip()
@@ -208,23 +217,48 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     enriched: List[Dict] = []
     failures: List[Dict] = []
 
-    for record in records:
-        raw_npi = record.get("npi_number") or record.get("npi")
-        npi = str(raw_npi or "").strip()
-        attempt = int(record.get("attempt", 1) or 1)
+    processed_task_unit_ids = set()
+    for identifier, task_unit in task_unit_dict.items():
+        task_unit_id = task_unit.get("task_unit_id")
+        if not task_unit_id or task_unit_id in processed_task_unit_ids:
+            continue
+        processed_task_unit_ids.add(task_unit_id)
+
+        npi = str(identifier or task_unit.get("identifier") or "").strip()
         if not npi:
-            failures.append({"reason": "missing_npi", "record": record})
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.PR_SITE,
-                npi="unknown",
-                status="failed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                message="missing_npi",
+            failures.append(
+                {
+                    "reason": "missing_task_unit_identifier",
+                    "task_unit_id": task_unit_id,
+                    "task_unit": task_unit,
+                }
+            )
+            _record_micro_update(
+                "unknown",
+                "Task unit missing identifier; skipping PR Site enrichment",
+                extra={"task_unit_id": task_unit_id},
             )
             continue
+
+        record = record_lookup.get(npi) or record_lookup.get(npi.lstrip("0"))
+        if record is None:
+            _record_micro_update(
+                npi,
+                "No PR Site record payload found for this task unit; skipping",
+                extra={"task_unit_id": task_unit_id},
+            )
+            failures.append(
+                {
+                    "reason": "missing_record_payload",
+                    "task_unit_id": task_unit_id,
+                    "npi": npi,
+                }
+            )
+            continue
+
+        record = dict(record)
+        record.setdefault("npi_number", npi)
+        attempt = int(record.get("attempt", 1) or 1)
 
         events.emit_npi_event(
             task_id=metadata.task_id,
