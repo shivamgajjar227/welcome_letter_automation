@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as _dt
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 from uuid import uuid4
 
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -16,10 +16,46 @@ from pages.quickcap_page import QuickcapPage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook, fetch_stage_payload
+from requests import RequestException
+
+from ..auth import request_with_auth
+from ..webhooks import (
+    post_webhook,
+    post_update_state_task_units,
+    post_micro_update_task_units,
+)
 from monitoring import events
+from taskunits.wla_npi import NpiWlaTU
 
 logger = logging.getLogger(__name__)
+
+TASK_UNITS_BASE_URL = "http://0.0.0.0:10022/api/task_units"
+
+
+def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
+    if not task_id:
+        return {}
+    url = f"{TASK_UNITS_BASE_URL}/{task_id}"
+    try:
+        response = request_with_auth("GET", url, timeout=30)
+        response.raise_for_status()
+        task_units = response.json()
+    except RequestException as exc:
+        logger.warning(
+            "Failed to fetch task units",
+            extra={"task_id": task_id, "url": url, "error": str(exc)},
+        )
+        return {}
+    mapping: Dict[str, Dict[str, Any]] = {}
+    for unit in task_units or []:
+        identifier = str(unit.get("identifier") or "").strip()
+        if not identifier:
+            continue
+        mapping[identifier] = unit
+        normalized = identifier.lstrip("0")
+        if normalized and normalized not in mapping:
+            mapping[normalized] = unit
+    return mapping
 
 
 class QuickcapValidationError(Exception):
@@ -282,9 +318,55 @@ class QuickcapProcessor:
     def __init__(self, page: QuickcapPage):
         self.page = page
         self.current_company: Optional[str] = None
+        self._state_callback: Optional[
+            Callable[[int, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]], None]
+        ] = None
+        self._micro_callback: Optional[
+            Callable[[str, Optional[Dict[str, Any]]], None]
+        ] = None
+        self._current_npi: Optional[str] = None
 
-    def process(self, raw_record: Mapping[str, Any]) -> Dict[str, Any]:
+    def _set_callbacks(
+        self,
+        npi_value: str,
+        state_callback: Optional[
+            Callable[[int, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]], None]
+        ],
+        micro_callback: Optional[Callable[[str, Optional[Dict[str, Any]]], None]],
+    ) -> None:
+        self._current_npi = npi_value
+        self._state_callback = state_callback
+        self._micro_callback = micro_callback
+
+    def _clear_callbacks(self) -> None:
+        self._current_npi = None
+        self._state_callback = None
+        self._micro_callback = None
+
+    def _notify_state(
+        self,
+        state: int,
+        message: str,
+        data: Optional[Dict[str, Any]] = None,
+        micro_extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if self._state_callback:
+            self._state_callback(state, message, data, micro_extra)
+
+    def _notify_micro(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        if self._micro_callback:
+            self._micro_callback(message, extra)
+
+    def process(
+        self,
+        raw_record: Mapping[str, Any],
+        state_callback: Optional[
+            Callable[[int, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]], None]
+        ] = None,
+        micro_callback: Optional[Callable[[str, Optional[Dict[str, Any]]], None]] = None,
+    ) -> Dict[str, Any]:
         data = _normalize_record(raw_record)
+        self._set_callbacks(data["npi_number"], state_callback, micro_callback)
         self._ensure_company(data["company_name"])
         self._ensure_practitioner_context()
         self._search_npi(data["npi_number"])
@@ -294,6 +376,7 @@ class QuickcapProcessor:
             self._update_healthplan_and_taxonomy(data)
         finally:
             self._cleanup_to_main()
+            self._clear_callbacks()
 
         return _build_processed_payload(data)
 
@@ -310,6 +393,11 @@ class QuickcapProcessor:
     def _ensure_company(self, company_name: str) -> None:
         """Switch company if needed."""
         if self.current_company and self.current_company.lower() == company_name.lower():
+            self._notify_state(
+                NpiWlaTU.TU_LOGGED_INTO_COMPANY,
+                "Using existing QuickCap company session",
+                {"company": company_name},
+            )
             return
 
 
@@ -322,6 +410,11 @@ class QuickcapProcessor:
         self.page.click_login_button_in_company_prompt()
         self.page.switch_to_main()
         self.current_company = company_name
+        self._notify_state(
+            NpiWlaTU.TU_LOGGED_INTO_COMPANY,
+            "Switched company in QuickCap",
+            {"company": company_name},
+        )
 
 
 
@@ -412,6 +505,7 @@ class QuickcapProcessor:
             self.page.driver.switch_to.window(self.main_window)
 
     def _run_quick_add_sequence(self, data: Mapping[str, Any]) -> None:
+        used_quick_add = True
         try:
             self.page.click_quick_add_button()
             self.page.switch_to_new_window1()
@@ -421,7 +515,27 @@ class QuickcapProcessor:
             self._save_contract_form()
         except Exception as exc:
             logger.debug("Quick add flow failed (%s); falling back to existing provider path", exc)
+            used_quick_add = False
             self._handle_existing_provider_flow(data)
+        state = (
+            NpiWlaTU.TU_NEW_NPI_QUICK_ADDED
+            if used_quick_add
+            else NpiWlaTU.TU_ANOTHER_NPI_ADDED
+        )
+        self._notify_state(
+            state,
+            "Completed provider entry in QuickCap",
+            {
+                "npi": data["npi_number"],
+                "company": data["company_name"],
+                "flow": "quick_add" if used_quick_add else "existing_provider",
+            },
+        )
+        self._notify_state(
+            NpiWlaTU.TU_NPI_QUICK_ENTRY_DONE,
+            "Completed QuickCap entry flow",
+            {"npi": data["npi_number"]},
+        )
 
     def _populate_quick_add_form(self, data: Mapping[str, Any]) -> None:
         if data.get("category_option"):
@@ -565,6 +679,15 @@ class QuickcapProcessor:
             self.page.driver.close()
         except Exception:
             logger.debug("Healthplan window already closed")
+        self._notify_state(
+            NpiWlaTU.TU_HEALTH_PLAN_ENTRY_DONE,
+            "Added health plan information in QuickCap",
+            {
+                "npi": data["npi_number"],
+                "health_plan": data["health_plan"],
+                "network": data["network"],
+            },
+        )
 
         self.page.switch_to_new_window()
         self.page.click_other_ids()
@@ -577,6 +700,11 @@ class QuickcapProcessor:
         if data.get("taxonomy_code"):
             self.page.enter_taxonomy_code(data["taxonomy_code"])
         self.page.click_save_taxonomy()
+        self._notify_state(
+            NpiWlaTU.TU_OTHER_IDS_ENTRY_DONE,
+            "Added taxonomy/other IDs in QuickCap",
+            {"npi": data["npi_number"], "taxonomy_code": data.get("taxonomy_code")},
+        )
 
     def _cleanup_to_main(self) -> None:
         try:
@@ -590,10 +718,6 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
-    """
-    TODO Yash:
-    In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
-    """
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
@@ -614,31 +738,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         started_at=stage_started_at.isoformat(),
     )
 
-    payload = fetch_stage_payload(metadata, StageName.QUICKCAP)
-    if not payload:
-        structured_log(
-            logger,
-            "input_payload_missing",
-            stage=StageName.QUICKCAP.value,
-            task_id=metadata.task_id,
-        )
-        stage_result.mark_finished(success=False, error="quickcap_input_unavailable")
-        finished_at = _dt.datetime.now(_dt.timezone.utc)
-        events.emit_stage_event(
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP,
-            event="stage_failed",
-            status="failed",
-            stage_run_id=stage_run_id,
-            started_at=stage_started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
-            message="quickcap_input_unavailable",
-            artifacts=[],
-        )
-        return stage_result
-
-    records: List[Dict[str, Any]] = list(payload.get("records", [])) or list(payload.get("processed", []))
+    task_unit_dict = _load_task_unit_dict(metadata.task_id)
+    records: List[Dict[str, Any]] = list(task_unit_dict.values())
 
     structured_log(
         logger,
@@ -649,13 +750,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     )
 
     if not records:
-        stage_result.mark_finished(success=True)
-        """
-        TODO Yash: update task unit
-         complete stage
-        """
         stage_result.data["processed"] = []
         stage_result.data["failed"] = []
+        stage_result.mark_finished(success=True)
         finished_at = _dt.datetime.now(_dt.timezone.utc)
         events.emit_stage_event(
             task_id=metadata.task_id,
@@ -676,7 +773,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     driver.get(base_url)
     quickcap_page = QuickcapPage(driver)
-    main_window = driver.current_window_handle
     try:
         quickcap_page.click_company()
     except Exception:
@@ -684,11 +780,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     try:
         quickcap_page.login(cred.username, cred.password)
-
-        stage_result.artifacts.append(
-            artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "after_login")
-        )
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         structured_log(
             logger,
             "login_failure",
@@ -714,991 +806,153 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             artifacts=[],
         )
         return stage_result
-    current_company = None
-    processed: List[Dict] = []
-    failures: List[Dict] = []
+
+    processed: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    processed_task_unit_ids = set()
     processor = QuickcapProcessor(quickcap_page)
 
-    for record in records:
-        npi = str(record.get("npi_number") or record.get("npi") or "").strip()
+    def _record_state_transition(
+        task_unit: Optional[Dict[str, Any]],
+        npi_value: str,
+        new_state: int,
+        message: str,
+        data_payload: Optional[Dict[str, Any]] = None,
+        micro_extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not task_unit:
+            logger.debug("Task unit missing for NPI %s; skipping state update", npi_value)
+            return
+        update_meta = {"npi": npi_value}
+        if data_payload:
+            update_meta.update(data_payload)
+        payload = {
+            "updates": [
+                {
+                    "task_unit_id": task_unit["task_unit_id"],
+                    "state": str(new_state),
+                    "transition_reason": message,
+                    "state_value": 0,
+                    "meta_data": update_meta,
+                }
+            ]
+        }
+        post_update_state_task_units(payload=payload)
+        task_unit["current_state"] = new_state
+        update_data = {"message": message, "npi": npi_value}
+        if micro_extra:
+            update_data.update(micro_extra)
+        elif data_payload:
+            update_data.update(data_payload)
+        post_micro_update_task_units(
+            payload={
+                "updates": [
+                    {
+                        "task_unit_id": task_unit["task_unit_id"],
+                        "update_state": new_state,
+                        "update_data": update_data,
+                    }
+                ]
+            }
+        )
+
+    def _record_micro_update(
+        task_unit: Optional[Dict[str, Any]],
+        npi_value: str,
+        message: str,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not task_unit:
+            logger.debug("Task unit missing for NPI %s; skipping micro update", npi_value)
+            return
+        update_data = {"message": message, "npi": npi_value}
+        if extra:
+            update_data.update(extra)
+        post_micro_update_task_units(
+            payload={
+                "updates": [
+                    {
+                        "task_unit_id": task_unit["task_unit_id"],
+                        "update_state": task_unit.get("current_state"),
+                        "update_data": update_data,
+                    }
+                ]
+            }
+        )
+
+    def _make_state_callback(task_unit: Dict[str, Any], npi_value: str):
+        def _callback(
+            state: int,
+            message: str,
+            data_payload: Optional[Dict[str, Any]] = None,
+            micro_extra: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            _record_state_transition(task_unit, npi_value, state, message, data_payload, micro_extra)
+
+        return _callback
+
+    def _make_micro_callback(task_unit: Dict[str, Any], npi_value: str):
+        def _callback(message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+            _record_micro_update(task_unit, npi_value, message, extra)
+
+        return _callback
+
+    for identifier, task_unit in task_unit_dict.items():
+        task_unit_id = task_unit.get("task_unit_id")
+        if not task_unit_id or task_unit_id in processed_task_unit_ids:
+            continue
+        processed_task_unit_ids.add(task_unit_id)
+
+        npi = str(
+            task_unit.get("identifier")
+            or task_unit.get("npi_number")
+            or identifier
+            or ""
+        ).strip()
+        if not npi:
+            failures.append(
+                {
+                    "reason": "missing_npi",
+                    "task_unit_id": task_unit_id,
+                }
+            )
+            _record_micro_update(
+                task_unit,
+                "unknown",
+                "Task unit missing identifier; skipping QuickCap run",
+                {"task_unit_id": task_unit_id},
+            )
+            continue
+
+        record = dict(task_unit)
+        record.setdefault("npi_number", npi)
         attempt = int(record.get("attempt", 1) or 1)
+
         events.emit_npi_event(
             task_id=metadata.task_id,
             stage=StageName.QUICKCAP,
-            npi=npi or "unknown",
+            npi=npi,
             status="in_progress",
             attempt=attempt,
             stage_run_id=stage_run_id,
             input_snapshot=record,
         )
+        artifact_start_idx = len(stage_result.artifacts)
         status = "completed"
         message: Optional[str] = None
-        output_snapshot: Dict[str, Any] = {
-            "npi_number": npi or record.get("npi"),
-            "status": "submitted",
-        }
-        artifact_start_idx = len(stage_result.artifacts)
+        output_snapshot: Dict[str, Any] = {"npi_number": npi, "status": "submitted"}
+        state_callback = _make_state_callback(task_unit, npi)
+        micro_callback = _make_micro_callback(task_unit, npi)
+
         try:
-            structured_log(
-                logger,
-                "record_start",
-                stage=StageName.QUICKCAP.value,
-                task_id=metadata.task_id,
-                npi=npi or "unknown",
+            result = processor.process(
+                record,
+                state_callback=state_callback,
+                micro_callback=micro_callback,
             )
-
-            npi_number = str(record.get("npi_number") or "")
-            network = safe_str(record.get("network"))
-            health_plan = safe_str(record.get("health_plan"))
-            last_name = safe_str(record.get("last_name"))
-            effective_date = safe_str(record.get("effective_date"))
-            first_name = safe_str(record.get("first_name"))
-            gender = safe_str(record.get("gender"))
-            category = safe_str(record.get("category"))
-            speciality = safe_str(record.get("speciality"))
-            state = safe_str(record.get("state"))
-            group_npi = str(record.get("group_npi") or "")
-            name = safe_str(record.get("name"))
-            address_line1 = safe_str(record.get("address_line1"))
-            address_line2 = safe_str(record.get("address_line2"))
-            zip_code = str(record.get("zip_code_clean") or "")
-            city = safe_str(record.get("city"))
-            status = safe_str(record.get("status"))
-            update = safe_str(record.get("update"))
-            taxonomy_code = safe_str(record.get("taxonomy_code"))
-            remarks = safe_str(record.get("remarks"))
-
-            network = (network or "").strip().lower()
-            health_plan = (health_plan or "").strip().lower()
-
-            company_name = constants.COMPANY_MAP.get(network, {}).get(health_plan)
-            if not company_name:
-                print(
-                    f"Could not map company for network '{network}' and health plan '{health_plan}', skipping.")
-                status = "failed"
-                message = "company_mapping_missing"
-                output_snapshot = {"npi_number": npi or npi_number or record.get("npi"), "error": message}
-                structured_log(
-                    logger,
-                    "company_mapping_missing",
-                    stage=StageName.QUICKCAP.value,
-                    task_id=metadata.task_id,
-                    npi=npi or "unknown",
-                )
-                continue
-
-            print(f"Mapped Company: {company_name}")
-
-            if current_company and current_company.lower() == company_name.lower():
-                print(f"✅ Company '{company_name}' already logged in — skipping change.")
-                """
-                TODO Yash: update task unit
-                Logged into expected company 
-                """
-                try:
-                    if quickcap_page.check_npi_search_field():
-                        quickcap_page.enter_npi(npi_number)
-                        quickcap_page.click_search_button()
-                    else:
-                        quickcap_page.ensure_credentialing_tab()
-                        quickcap_page.choose_credentialing_tab()
-                        quickcap_page.choose_practitioner_data()
-                        quickcap_page.enter_npi(npi_number)
-                        quickcap_page.click_search_button()
-                except Exception as e:
-                    print(e)
-
-                try:
-                    print(f"Handling Quick Add / Edit for {npi_number}")
-                    if not quickcap_page.is_edit_button_available():
-                        quickcap_page.click_quick_add_button()
-                        quickcap_page.switch_to_new_window1()
-                    else:
-                        # time.sleep(5)
-                        quickcap_page.click_edit_button()
-                        quickcap_page.switch_to_new_window1()
-                        print("Provider Setup")
-                        quickcap_page.click_provider_button()
-                        provider_id = quickcap_page.provider_table_rows()
-                        quickcap_page.click_add_provider()
-                        quickcap_page.switch_to_new_window1()
-                        quickcap_page.enter_provider_letter(provider_id)
-                        quickcap_page.enter_last_name(last_name or "")
-                        quickcap_page.enter_first_name(first_name or "")
-                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                            "%m/%d/%Y")
-                        quickcap_page.enter_effective_date(full_date)
-                        quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
-                        quickcap_page.select_speciality1(network)
-                        quickcap_page.select_payment_type("FEE FOR SERVICE")
-                        quickcap_page.enter_contract_from_date(full_date)
-                        quickcap_page.select_provider_type_dropdown1(category, network, speciality)
-                        quickcap_page.select_account1("0000-000 DEFAULT")
-                        quickcap_page.select_template1(company_name)
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi,
-                            status="in_progress",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
-                        )
-                        print("Organization linking")
-                        quickcap_page.click_organization()
-                        quickcap_page.switch_to_new_window1()
-                        quickcap_page.enter_npi_org(group_npi)
-                        quickcap_page.click_search_npi()
-                        success = quickcap_page.click_org_id(npi_number, address_line1)
-                        if not success:
-                            remarks_txt = "Org ID not found"
-                            enriched: List[Dict] = [
-                                {
-                                    "address_line1": address_line1,
-                                    "npi": npi_number,
-                                    "update": 0,
-                                    "effective_date": effective_date,
-                                    "health_plan": health_plan,
-                                    "update_status": 5,
-                                    "remarks": remarks_txt
-                                }
-                            ]
-                            data1 = {
-                                "task_id": metadata.task_id,
-                                "stage": StageName.QUICKCAP.value,
-                                "failed": failures,
-                                "records": enriched
-                            }
-                            post_webhook(metadata, StageName.QUICKCAP, data1)
-                            """
-                            TODO Yash: update task unit
-                            Org is not found 
-                            """
-                            print(f"NPI {npi_number} failed due to missing Org ID.\n")
-                            status = "failed"
-                            message = "org_id_not_found"
-                            output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                            events.emit_npi_event(
-                                task_id=metadata.task_id,
-                                stage=StageName.QUICKCAP,
-                                npi=npi or "unknown",
-                                status="completed" if status == "completed" else "failed",
-                                attempt=attempt,
-                                stage_run_id=stage_run_id,
-                                input_snapshot=record,
-                                output_snapshot=output_snapshot,
-                                artifacts=[],
-                                message=message,
-                            )
-                            continue
-                        quickcap_page.switch_to_new_window1()
-                        quickcap_page.click_add_new_location()
-                        quickcap_page.enter_name1(name)
-                        quickcap_page.enter_address2(address_line1 or "")
-                        quickcap_page.enter_address_line2(address_line2 or "")
-                        quickcap_page.select_state1("FL - FLORIDA")
-                        quickcap_page.enter_zip1(zip_code or "")
-                        quickcap_page.enter_city1(city or "")
-                        quickcap_page.click_primary()
-                        quickcap_page.click_save1()
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi,
-                            status="in_progress",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot={"address_line1": address_line1,"address_line2": address_line2,"zip_code": zip_code},
-                        )
-                        if quickcap_page.driver.current_window_handle != main_window:
-                            quickcap_page.driver.close()
-                            quickcap_page.driver.switch_to.window(main_window)
-                        print("Healthplan entry")
-                        quickcap_page.enter_npi(npi_number)
-                        quickcap_page.click_search_button()
-                        quickcap_page.click_edit_button()
-                        # time.sleep(3)
-                        quickcap_page.switch_to_new_window()
-                        quickcap_page.click_provider_button()
-                        success = quickcap_page.click_edit_for_healthplan(provider_id)
-                        if not success:
-                            remarks_txt = "Address already added"
-                            enriched: List[Dict] = [
-                                {
-                                    "address_line1": address_line1,
-                                    "npi": npi_number,
-                                    "update": 0,
-                                    "effective_date": effective_date,
-                                    "health_plan": health_plan,
-                                    "update_status": 2,
-                                    "remarks": remarks_txt
-                                }
-                            ]
-                            data1 = {
-                                "task_id": metadata.task_id,
-                                "stage": StageName.QUICKCAP.value,
-                                "failed": failures,
-                                "records": enriched
-                            }
-                            post_webhook(metadata, StageName.QUICKCAP, data1)
-                            """
-                            TODO Yash: update task unit
-                            address already added 
-                            """
-                            status = "completed"
-                            message = "Address already added"
-                            output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                            events.emit_npi_event(
-                                task_id=metadata.task_id,
-                                stage=StageName.QUICKCAP,
-                                npi=npi or "unknown",
-                                status="completed" if status == "completed" else "failed",
-                                attempt=attempt,
-                                stage_run_id=stage_run_id,
-                                input_snapshot=record,
-                                output_snapshot=output_snapshot,
-                                artifacts=[],
-                                message=message,
-                            )
-                            if quickcap_page.driver.current_window_handle != main_window:
-                                quickcap_page.driver.close()
-                                quickcap_page.driver.switch_to.window(main_window)
-                            continue
-                        """
-                        TODO Yash: update task unit
-                        Provider added successfully through Edit button 
-                        """
-                        quickcap_page.click_healthplan_panel()
-                        quickcap_page.switch_to_new_window1()
-                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                            "%m/%d/%Y")
-                        quickcap_page.enter_membership_date(full_date or "")
-                        quickcap_page.click_plus_button()
-                        quickcap_page.click_save_healthplan()
-                        """
-                        TODO Yash: update task unit
-                        healthplan added successfully  
-                        """
-                        quickcap_page.driver.close()
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi,
-                            status="in_progress",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
-                            message="Healthplan entry",
-                        )
-                        print("Taxonomy entry")
-                        quickcap_page.switch_to_new_window()
-                        quickcap_page.click_other_ids()
-                        quickcap_page.click_add_plus()
-                        quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                        quickcap_page.click_provider_id(provider_id)
-                        quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                        quickcap_page.click_save_taxonomy()
-                        """
-                        TODO Yash: update task unit
-                        taxonomy added successfully  
-                        """
-                        if quickcap_page.driver.current_window_handle != main_window:
-                            quickcap_page.driver.close()
-                            quickcap_page.driver.switch_to.window(main_window)
-
-                        enriched: List[Dict] = [
-                            {
-                                "address_line1": address_line1,
-                                "npi": npi_number,
-                                "update": 0,
-                                "effective_date": effective_date,
-                                "health_plan": health_plan,
-                                "update_status": 2,
-                            }
-                        ]
-                        data1 = {
-                            "task_id": metadata.task_id,
-                            "stage": StageName.QUICKCAP.value,
-                            "failed": failures,
-                            "records": enriched
-                        }
-                        post_webhook(metadata, StageName.QUICKCAP, data1)
-                        print(f" NPI {npi_number} processed successfully.\n")
-                        message = "Address added successfully"
-                        output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi,
-                            status="in_progress",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot=record,
-                            output_snapshot=output_snapshot,
-                            message=message,
-                        )
-                        continue
-                except TimeoutException:
-                    print("Timed out waiting for search results.")
-                    status = "failed"
-                    message = "timeout"
-                    output_snapshot = {"npi_number": npi or npi_number, "error": message}
-
-                selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
-                quickcap_page.select_category_dropdown(selected_category)
-                quickcap_page.select_provider_type_dropdown(category, network, speciality)
-                quickcap_page.select_speciality(network)
-                quickcap_page.click_quick_add_window_npi_button(npi_number)
-                quickcap_page.enter_provider_id(f"{npi_number}(A)")
-                quickcap_page.enter_last_first_name(last_name or "", first_name or "")
-                gender_map = {
-                    "Male": "M - Male", "M": "M - Male",
-                    "Female": "F - Female", "F": "F - Female"
-                }
-                selected_gender = gender_map.get(gender.strip(), "") if gender else ""
-                quickcap_page.select_gender(selected_gender)
-                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
-                quickcap_page.enter_contract_from_date(full_date)
-                quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
-                quickcap_page.select_payment_type("FEE FOR SERVICE")
-                quickcap_page.select_account("0000-000 DEFAULT")
-                events.emit_npi_event(
-                    task_id=metadata.task_id,
-                    stage=StageName.QUICKCAP,
-                    npi=npi,
-                    status="in_progress",
-                    attempt=attempt,
-                    stage_run_id=stage_run_id,
-                    input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
-                )
-                quickcap_page.click_organization()
-                quickcap_page.switch_to_new_window1()
-                quickcap_page.enter_npi_org(group_npi)
-                quickcap_page.click_search_npi()
-                # time.sleep(3)
-                success = quickcap_page.click_org_id(npi_number,
-                                                     address_line1)  # Need to add WebDriver Wait here inside the pages
-                if not success:
-                    remarks_txt = "Org ID not found"
-                    enriched: List[Dict] = [
-                        {
-                            "address_line1": address_line1,
-                            "npi": npi_number,
-                            "update": 0,
-                            "effective_date": effective_date,
-                            "health_plan": health_plan,
-                            "update_status": 5,
-                            "remarks": remarks_txt
-                        }
-                    ]
-                    data1 = {
-                        "task_id": metadata.task_id,
-                        "stage": StageName.QUICKCAP.value,
-                        "failed": failures,
-                        "records": enriched
-                    }
-                    post_webhook(metadata, StageName.QUICKCAP, data1)
-                    """
-                    TODO Yash: update task unit
-                    org id not found 
-                    """
-                    status = "failed"
-                    message = "org_id_not_found"
-                    output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi or "unknown",
-                        status="completed" if status == "completed" else "failed",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot=record,
-                        output_snapshot=output_snapshot,
-                        artifacts=[],
-                        message=message,
-                    )
-                    continue
-                quickcap_page.switch_to_previous_window()
-                quickcap_page.select_practice_type("GRP - GROUP")
-                quickcap_page.enter_name(name)
-                quickcap_page.enter_address1(address_line1 or "")
-                quickcap_page.enter_address_line_2(address_line2 or "")
-                state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
-                quickcap_page.select_state(state_value)
-                quickcap_page.enter_city(city or "")
-                quickcap_page.enter_zip(zip_code or "")
-                quickcap_page.select_contract_template(company_name)
-                # time.sleep(3)
-                quickcap_page.click_save()
-                """
-                TODO Yash: update task unit
-                npi added successfully 
-                """
-                events.emit_npi_event(
-                    task_id=metadata.task_id,
-                    stage=StageName.QUICKCAP,
-                    npi=npi,
-                    status="in_progress",
-                    attempt=attempt,
-                    stage_run_id=stage_run_id,
-                    input_snapshot={"address_line1": address_line1, "address_line2": address_line2,
-                                    "zip_code": zip_code},
-                )
-                if quickcap_page.driver.current_window_handle != main_window:
-                    quickcap_page.driver.close()
-                    quickcap_page.driver.switch_to.window(main_window)
-                quickcap_page.enter_npi(npi_number)
-                quickcap_page.click_search_button()
-                quickcap_page.click_edit_button()
-                # time.sleep(3)
-                quickcap_page.switch_to_new_window()
-                quickcap_page.click_provider_button()
-                quickcap_page.click_edit_for_healthplan_for_A()
-                quickcap_page.click_healthplan_panel()
-                quickcap_page.switch_to_new_window1()
-                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                    "%m/%d/%Y")
-                quickcap_page.enter_membership_date(full_date or "")
-                quickcap_page.click_plus_button()
-                quickcap_page.click_save_healthplan()
-                """
-                TODO Yash: update task unit
-                healthplan added successfully 
-                """
-                quickcap_page.driver.close()
-                events.emit_npi_event(
-                    task_id=metadata.task_id,
-                    stage=StageName.QUICKCAP,
-                    npi=npi,
-                    status="in_progress",
-                    attempt=attempt,
-                    stage_run_id=stage_run_id,
-                    input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
-                    message="Healthplan entry",
-                )
-                quickcap_page.switch_to_new_window()
-                quickcap_page.click_other_ids()
-                quickcap_page.click_add_plus()
-                quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                quickcap_page.click_provider_id_for_A()
-                quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                quickcap_page.click_save_taxonomy()
-                """
-                TODO Yash: update task unit
-                taxonomy added successfully 
-                """
-                if quickcap_page.driver.current_window_handle != main_window:
-                    quickcap_page.driver.close()
-                    quickcap_page.driver.switch_to.window(main_window)
-                enriched: List[Dict] = [
-                    {
-                        "address_line1": address_line1,
-                        "npi": npi_number,
-                        "update": 0,
-                        "effective_date": effective_date,
-                        "health_plan": health_plan,
-                        "update_status": 2
-
-                    }
-                ]
-                data1 = {
-                    "task_id": metadata.task_id,
-                    "stage": StageName.QUICKCAP.value,
-                    "failed": failures,
-                    "records": enriched
-                }
-                post_webhook(metadata, StageName.QUICKCAP, data1)
-                """
-                TODO Yash: update task unit
-                address already added 
-                """
-                message = "Address added successfully"
-                output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
-                events.emit_npi_event(
-                    task_id=metadata.task_id,
-                    stage=StageName.QUICKCAP,
-                    npi=npi,
-                    status="in_progress",
-                    attempt=attempt,
-                    stage_run_id=stage_run_id,
-                    input_snapshot=record,
-                    output_snapshot=output_snapshot,
-                    message=message,
-                )
-                continue
-            quickcap_page.store_main_window()
-            quickcap_page.click_change_company()
-            quickcap_page.switch_to_new_window1()
-            quickcap_page.choose_company(company_name)
-            # quickcap_page.get_company_xpath("DNSHUMANA")
-            # time.sleep(3)
-            quickcap_page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
-            quickcap_page.enter_password_in_company_prompt("Pns@072025")
-            quickcap_page.click_login_button_in_company_prompt()
-            """
-            TODO Yash: update task unit
-             change company
-            """
-            # time.sleep(3)
-            quickcap_page.switch_to_main()
-            current_company = company_name
-
-            try:
-                # quickcap_page.expand_menu_if_cigna(company_name="Cigna")
-                if quickcap_page.is_access_denied():
-                    quickcap_page.driver.back()
-                    # time.sleep(2)
-                    # try again expanding menu
-                    # quickcap_page.expand_menu_if_cigna(company_name="Cigna")
-                if quickcap_page.check_npi_search_field():
-                    quickcap_page.enter_npi(npi_number)
-                    quickcap_page.click_search_button()
-                    # time.sleep(5)
-                else:
-                    quickcap_page.ensure_credentialing_tab()
-                    quickcap_page.choose_credentialing_tab()
-                    quickcap_page.choose_practitioner_data()
-                    # time.sleep(5)
-                    quickcap_page.enter_npi(npi_number)
-                    quickcap_page.click_search_button()
-                    # time.sleep(5)
-            except Exception as e:
-                raise
-
-            try:
-                if not quickcap_page.is_edit_button_available():
-                    # time.sleep(3)
-                    quickcap_page.click_quick_add_button()
-                    quickcap_page.switch_to_new_window1()
-                else:
-                    quickcap_page.click_edit_button()
-                    # time.sleep(3)
-                    quickcap_page.switch_to_new_window1()
-                    quickcap_page.click_provider_button()
-                    provider_id = quickcap_page.provider_table_rows()
-                    quickcap_page.click_add_provider()
-                    quickcap_page.switch_to_new_window()
-                    quickcap_page.enter_provider_letter(provider_id)
-                    quickcap_page.enter_last_name(last_name or "")
-                    quickcap_page.enter_first_name(first_name or "")
-                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                        "%m/%d/%Y")
-                    quickcap_page.enter_effective_date(full_date)
-                    quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
-                    quickcap_page.select_speciality1(network)
-                    quickcap_page.select_payment_type("FEE FOR SERVICE")
-                    quickcap_page.enter_contract_from_date(full_date)
-                    quickcap_page.select_provider_type_dropdown1(category, network, speciality)
-                    quickcap_page.select_account1("0000-000 DEFAULT")
-                    quickcap_page.select_template1(company_name)
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi,
-                        status="in_progress",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
-                    )
-                    quickcap_page.click_organization()
-                    quickcap_page.switch_to_new_window1()
-                    quickcap_page.enter_npi_org(group_npi)
-                    quickcap_page.click_search_npi()
-                    success = quickcap_page.click_org_id(npi_number, address_line1)
-                    if not success:
-                        remarks_txt = "Org ID not found"
-                        enriched: List[Dict] = [
-                            {
-                                "address_line1": address_line1,
-                                "npi": npi_number,
-                                "update": 0,
-                                "effective_date": effective_date,
-                                "health_plan": health_plan,
-                                "update_status": 5,
-                                "remarks": remarks_txt,
-
-                            }
-                        ]
-                        data1 = {
-                            "task_id": metadata.task_id,
-                            "stage": StageName.QUICKCAP.value,
-                            "failed": failures,
-                            "records": enriched
-                        }
-                        post_webhook(metadata, StageName.QUICKCAP, data1)
-                        """
-                        TODO Yash: update task unit
-                        org id not found 
-                        """
-                        print(f"NPI {npi_number} failed due to missing Org ID.\n")
-                        status = "failed"
-                        message = "org_id_not_found"
-                        output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi or "unknown",
-                            status="completed" if status == "completed" else "failed",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot=record,
-                            output_snapshot=output_snapshot,
-                            artifacts=[],
-                            message=message,
-                        )
-                        continue
-                    quickcap_page.switch_to_previous_window()
-                    quickcap_page.click_add_new_location()
-                    quickcap_page.enter_name1(name)
-                    quickcap_page.enter_address2(address_line1 or "")
-                    quickcap_page.enter_address_line2(address_line2 or "")
-                    state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
-                    quickcap_page.select_state1(state_value)
-                    quickcap_page.enter_zip1(zip_code or "")
-                    quickcap_page.enter_city1(city or "")
-                    quickcap_page.click_primary()
-                    quickcap_page.click_save1()
-
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi,
-                        status="in_progress",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot={"address_line1": address_line1, "address_line2": address_line2,
-                                        "zip_code": zip_code},
-                    )
-                    if quickcap_page.driver.current_window_handle != main_window:
-                        quickcap_page.driver.close()
-                        quickcap_page.driver.switch_to.window(main_window)
-                    quickcap_page.enter_npi(npi_number)
-                    quickcap_page.click_search_button()
-                    quickcap_page.click_edit_button()
-                    # time.sleep(3)
-                    quickcap_page.switch_to_new_window()
-                    quickcap_page.click_provider_button()
-                    success = quickcap_page.click_edit_for_healthplan(provider_id)
-                    if not success:
-                        remarks_txt = "Address already added"
-                        enriched: List[Dict] = [
-                            {
-                                "address_line1": address_line1,
-                                "npi": npi_number,
-                                "update": 0,
-                                "effective_date": effective_date,
-                                "health_plan": health_plan,
-                                "update_status": 2,
-                                "remarks": remarks_txt
-                            }
-                        ]
-                        data1 = {
-                            "task_id": metadata.task_id,
-                            "stage": StageName.QUICKCAP.value,
-                            "failed": failures,
-                            "records": enriched
-                        }
-                        post_webhook(metadata, StageName.QUICKCAP, data1)
-                        """
-                       TODO Yash: update task unit
-                       address alrady added
-                       """
-                        status = "completed"
-                        message = "Address already added"
-                        output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi or "unknown",
-                            status="completed" if status == "completed" else "failed",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot=record,
-                            output_snapshot=output_snapshot,
-                            artifacts=[],
-                            message=message,
-                        )
-                        if quickcap_page.driver.current_window_handle != main_window:
-                            quickcap_page.driver.close()
-                            quickcap_page.driver.switch_to.window(main_window)
-                        continue
-                    """
-                   TODO Yash: update task unit
-                   npi added
-                   """
-                    quickcap_page.click_healthplan_panel()
-
-                    quickcap_page.switch_to_new_window1()
-                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                        "%m/%d/%Y")
-                    quickcap_page.enter_membership_date(full_date or "")
-                    quickcap_page.click_plus_button()
-                    quickcap_page.click_save_healthplan()
-                    """
-                   TODO Yash: update task unit
-                   healthplan added
-                   """
-                    quickcap_page.driver.close()
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi,
-                        status="in_progress",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
-                        message="Healthplan entry",
-                    )
-                    quickcap_page.switch_to_new_window()
-                    quickcap_page.click_other_ids()
-                    quickcap_page.click_add_plus()
-                    quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                    quickcap_page.click_provider_id(provider_id)
-                    quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                    quickcap_page.click_save_taxonomy()
-                    """
-                   TODO Yash: update task unit
-                   taxonomy added
-                   """
-                    if quickcap_page.driver.current_window_handle != main_window:
-                        quickcap_page.driver.close()
-                        quickcap_page.driver.switch_to.window(main_window)
-                    enriched: List[Dict] = [
-                        {
-                            "address_line1": address_line1,
-                            "npi": npi_number,
-                            "update": 0,
-                            "effective_date": effective_date,
-                            "health_plan": health_plan,
-                            "update_status": 2
-
-                        }
-                    ]
-                    data1 = {
-                        "task_id": metadata.task_id,
-                        "stage": StageName.QUICKCAP.value,
-                        "failed": failures,
-                        "records": enriched
-                    }
-                    post_webhook(metadata, StageName.QUICKCAP, data1)
-                    # db.query(PRSiteData).filter(PRSiteData.npi_number == npi_number).update(
-                    #     {"status": 2}, synchronize_session=False
-                    # )
-                    # db.query(NPIAddress).filter(
-                    #     NPIAddress.address_line1 == address_line1,
-                    #     NPIAddress.npi == npi_number,
-                    #     NPIAddress.update == 0
-                    # ).update({"update": 1}, synchronize_session=False)
-                    # db.commit()
-                    message = "Address added successfully"
-                    output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi,
-                        status="in_progress",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot=record,
-                        output_snapshot=output_snapshot,
-                        message=message,
-                    )
-                    continue
-
-            except Exception as e:
-                status = "failed"
-                message = str(e)
-                output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                structured_log(
-                    logger,
-                    "quickcap_internal_exception",
-                    stage=StageName.QUICKCAP.value,
-                    task_id=metadata.task_id,
-                    npi=npi or "unknown",
-                    error=str(e),
-                )
-                break
-
-            selected_category = constants.CATEGORY_MAP.get(category.strip(), "") if category else ""
-            quickcap_page.select_category_dropdown(selected_category)
-            quickcap_page.select_provider_type_dropdown(category, network, speciality)
-            quickcap_page.select_speciality(network)
-            quickcap_page.click_quick_add_window_npi_button(npi_number)
-            quickcap_page.enter_provider_id(f"{npi_number}(A)")
-            quickcap_page.enter_last_first_name(last_name or "", first_name or "")
-            gender_map = {
-                "Male": "M - Male", "M": "M - Male",
-                "Female": "F - Female", "F": "F - Female"
-            }
-            selected_gender = gender_map.get(gender.strip(), "") if gender else ""
-            quickcap_page.select_gender(selected_gender)
-            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
-            quickcap_page.enter_contract_from_date(full_date)
-            quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
-            quickcap_page.select_payment_type("FEE FOR SERVICE")
-            quickcap_page.select_account("0000-000 DEFAULT")
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi,
-                status="in_progress",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot={"last_name": last_name, "first_name": first_name, "network": network},
-            )
-            quickcap_page.click_organization()
-            quickcap_page.switch_to_new_window1()
-            quickcap_page.enter_npi_org(group_npi)
-            quickcap_page.click_search_npi()
-            success = quickcap_page.click_org_id(npi_number, address_line1)
-            if not success:
-                remarks_txt = "Org ID not found"
-                enriched: List[Dict] = [
-                    {
-                        "address_line1": address_line1,
-                        "npi": npi_number,
-                        "update": 0,
-                        "effective_date": effective_date,
-                        "health_plan": health_plan,
-                        "update_status": 5,
-                        "remarks": remarks_txt
-
-                    }
-                ]
-                data1 = {
-                    "task_id": metadata.task_id,
-                    "stage": StageName.QUICKCAP.value,
-                    "failed": failures,
-                    "records": enriched
-                }
-                post_webhook(metadata, StageName.QUICKCAP, data1)
-                status = "failed"
-                message = "org_id_not_found"
-                output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                events.emit_npi_event(
-                    task_id=metadata.task_id,
-                    stage=StageName.QUICKCAP,
-                    npi=npi or "unknown",
-                    status="completed" if status == "completed" else "failed",
-                    attempt=attempt,
-                    stage_run_id=stage_run_id,
-                    input_snapshot=record,
-                    output_snapshot=output_snapshot,
-                    artifacts=[],
-                    message=message,
-                )
-                continue
-            quickcap_page.switch_to_previous_window()
-            quickcap_page.select_practice_type("GRP - GROUP")
-            quickcap_page.enter_name(name)
-            quickcap_page.enter_address1(address_line1 or "")
-            quickcap_page.enter_address_line_2(address_line2 or "")
-            state_value = constants.STATE_DROPDOWN_MAP.get(state.strip(), "")
-            quickcap_page.select_state(state_value)
-            quickcap_page.enter_city(city or "")
-            quickcap_page.enter_zip(zip_code or "")
-            quickcap_page.select_contract_template(company_name)
-            quickcap_page.click_save()
-            """
-           TODO Yash: update task unit
-           npi added
-           """
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi,
-                status="in_progress",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot={"address_line1": address_line1, "address_line2": address_line2, "zip_code": zip_code},
-            )
-            quickcap_page.accept_alert()
-            quickcap_page.dismiss_alert()
-            quickcap_page.driver.close()
-            quickcap_page.switch_to_new_window1()
-            quickcap_page.switch_back_to_main()
-            quickcap_page.enter_npi(npi_number)
-            quickcap_page.click_search_button()
-            quickcap_page.click_edit_button()
-            # time.sleep(3)
-            quickcap_page.switch_to_new_window()
-            quickcap_page.click_provider_button()
-            quickcap_page.click_edit_for_healthplan_for_A()
-            quickcap_page.click_healthplan_panel()
-            """
-           TODO Yash: update task unit
-           heathplan added(quick add)
-           """
-            quickcap_page.switch_to_new_window1()
-            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                "%m/%d/%Y")
-            quickcap_page.enter_membership_date(full_date or "")
-            quickcap_page.click_plus_button()
-            quickcap_page.click_save_healthplan()
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi,
-                status="in_progress",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot={"effective_date": effective_date, "health_plan": health_plan},
-                message="Healthplan entry",
-            )
-            quickcap_page.driver.close()
-            quickcap_page.switch_to_new_window()
-            quickcap_page.click_other_ids()
-            quickcap_page.click_add_plus()
-            quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-            quickcap_page.click_provider_id_for_A()
-            quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-            quickcap_page.click_save_taxonomy()
-            """
-           TODO Yash: update task unit
-           taxonomy added(quick add)
-           """
-            if quickcap_page.driver.current_window_handle != main_window:
-                quickcap_page.driver.close()
-                quickcap_page.driver.switch_to.window(main_window)
-            enriched: List[Dict] = [
-                {
-                    "address_line1": address_line1,
-                    "npi": npi_number,
-                    "update": 0,
-                    "effective_date": effective_date,
-                    "health_plan": health_plan,
-                    "update_status": 2,
-                }
-            ]
-            data1 = {
-                "task_id": metadata.task_id,
-                "stage": StageName.QUICKCAP.value,
-                "failed": failures,
-                "records": enriched
-            }
-            post_webhook(metadata, StageName.QUICKCAP, data1)
-            message = "Address added successfully"
-            output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi,
-                status="in_progress",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                output_snapshot=output_snapshot,
-                message=message,
-            )
-            continue
-
-            quickcap_page.driver_close()
-
-
-            # result = processor.process(record)
-            # processed.append(result)
+            processed.append(result)
             screenshot = artifacts.capture_screenshot(
-                driver, metadata, StageName.QUICKCAP, f"success_{npi_number}"
+                driver, metadata, StageName.QUICKCAP, f"success_{npi}"
             )
             stage_result.artifacts.append(screenshot)
             structured_log(
@@ -1706,62 +960,110 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "record_complete",
                 stage=StageName.QUICKCAP.value,
                 task_id=metadata.task_id,
-                npi={npi_number},
+                npi=npi,
             )
-            output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+            artifact_refs = stage_result.artifacts[artifact_start_idx:]
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="completed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=result,
+                artifacts=artifact_refs,
+            )
         except QuickcapValidationError as exc:
-            failure_entry = {"npi_number": npi or record.get("npi"), "error": exc.reason or str(exc)}
+            status = "failed"
+            message = exc.reason or str(exc)
+            failure_entry = {"npi_number": npi, "error": message}
             failures.append(failure_entry)
             stage_result.artifacts.append(
-                artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, f"validation_failure_{npi or 'unknown'}")
+                artifacts.capture_screenshot(
+                    driver, metadata, StageName.QUICKCAP, f"validation_failure_{npi}"
+                )
             )
             structured_log(
                 logger,
                 "record_validation_failure",
                 stage=StageName.QUICKCAP.value,
                 task_id=metadata.task_id,
-                npi=npi or "unknown",
-                error=exc.reason,
+                npi=npi,
+                error=message,
             )
-            status = "failed"
-            message = exc.reason or str(exc)
-            output_snapshot = failure_entry
+            if exc.reason == "org_id_not_found":
+                _record_state_transition(
+                    task_unit,
+                    npi,
+                    NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
+                    "Organization ID not found in QuickCap",
+                    data_payload={"npi": npi},
+                    micro_extra={"error": message},
+                )
+            else:
+                _record_micro_update(
+                    task_unit,
+                    npi,
+                    "Validation failure during QuickCap run",
+                    {"error": message},
+                )
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="failed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=failure_entry,
+                artifacts=[],
+                message=message,
+            )
         except Exception as exc:  # pragma: no cover
-            failures.append({"npi_number": npi or record.get("npi"), "error": str(exc)})
+            status = "failed"
+            message = str(exc)
+            failure_entry = {"npi_number": npi, "error": message}
+            failures.append(failure_entry)
             stage_result.artifacts.append(
-                artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, f"failure_{npi or 'unknown'}")
+                artifacts.capture_screenshot(
+                    driver, metadata, StageName.QUICKCAP, f"failure_{npi}"
+                )
             )
             structured_log(
                 logger,
                 "record_failure",
                 stage=StageName.QUICKCAP.value,
                 task_id=metadata.task_id,
-                npi=npi or "unknown",
-                error=str(exc),
+                npi=npi,
+                error=message,
             )
-            status = "failed"
-            message = str(exc)
-            output_snapshot = {"npi_number": npi or record.get("npi"), "error": message}
+            _record_micro_update(
+                task_unit,
+                npi,
+                "Exception while processing QuickCap record",
+                {"error": message},
+            )
+            events.emit_npi_event(
+                task_id=metadata.task_id,
+                stage=StageName.QUICKCAP,
+                npi=npi,
+                status="failed",
+                attempt=attempt,
+                stage_run_id=stage_run_id,
+                input_snapshot=record,
+                output_snapshot=failure_entry,
+                artifacts=[],
+                message=message,
+            )
         finally:
             structured_log(
                 logger,
                 "record_finished",
                 stage=StageName.QUICKCAP.value,
                 task_id=metadata.task_id,
-                npi=npi or "unknown",
+                npi=npi,
                 status=status,
-            )
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi or "unknown",
-                status="completed" if status == "completed" else "failed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                output_snapshot=output_snapshot,
-                artifacts=[],
-                message=message,
             )
 
     payload = {
@@ -1771,10 +1073,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         "failed": failures,
     }
     post_webhook(metadata, StageName.QUICKCAP, payload)
-    """
-   TODO Yash: update task unit
-   complete
-   """
+
     stage_result.data["processed"] = processed
     stage_result.data["failed"] = failures
     success = not failures
