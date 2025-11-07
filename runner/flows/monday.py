@@ -17,6 +17,7 @@ from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook,post_create_task_units
 from monitoring import events
+from taskunits.wla_npi import NpiWlaTU
 
 logger = logging.getLogger(__name__)
 
@@ -217,15 +218,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         for identifier in npis:
             task_unit_payload["units"].append({"identifier":identifier["npi_number"]})
         task_unit_dict = post_create_task_units(payload=task_unit_payload)
-        """
-        Todo shivam, check this task unit dict is populating properly or not
-        key shoul be npi
-        value shoul be object
-        """
-
-        """
-        Todo shivam, we will have to add these records in to task_unit_dict
-        """
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
             if health_plan in ["doctors", "doctor health"]:
@@ -239,6 +231,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 task_unit_dict[npi_number].update({
                     k: v for k, v in npi.items() if k != 'npi_number'
                 })
+                """
+                Update state of task unit to data fetched from monday
+                """
+                task_unit_dict[npi]["current_state"] = NpiWlaTU.TU_DATA_FETCHED_FROM_MONDAY
         structured_log(
             logger,
             "npis_collected",
@@ -261,6 +257,34 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         - task unit type will be welcome letter automation
         """
         _send_records_to_api(npis, metadata)
+        """
+        TODO Shivam: Call update api of task unit.
+        - update state 4.3 in the document
+        - update micro updates 4.4 in the document
+        """
+        state_update_call_payload = {
+            "updates": []
+        }
+        micro_update_call_payload = {
+            "updates":[]
+        }
+        for npi, task_unit_obj in task_unit_dict.items():
+            state_update_call_payload["updates"].append(
+                {
+                    "task_unit_id": task_unit_obj["task_unit_id"],
+                    "state": task_unit_obj["current_state"],
+                    "transition_reason": "NA for now",
+                    "mata_data": json.loads(task_unit_obj),
+                }
+            )
+            micro_update_call_payload["updates"].append(
+                {
+                    "task_unit_id": task_unit_obj["task_unit_id"],
+                    "state": task_unit_obj["current_state"],
+                    "message": "We have got following datat from Monday.com",
+                }
+            )
+
 
         structured_log(
             logger,

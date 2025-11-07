@@ -57,6 +57,14 @@ def post_create_task_units(payload):
         logger.warning("Webhook post failed", extra={"url": url, "status": response.status_code,"error": str(exc)})
         return False
 
+def post_update_state_task_units(payload):
+    """
+    TODO Shivam:
+    :param payload:
+    :return:
+    """
+    pass
+
 
 
 def get_stage_input_url(metadata: RunnerMetadata, stage: StageName) -> Optional[str]:
