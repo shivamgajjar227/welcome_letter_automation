@@ -48,6 +48,7 @@ def post_create_task_units(payload):
         key: identifier(like npi)
         value: object of response
         """
+        response = response.json()
         temp_task_unit_dict = {}
         for resp_obj in response["created_units"]:
             temp_task_unit_dict[resp_obj["identifier"]] = resp_obj

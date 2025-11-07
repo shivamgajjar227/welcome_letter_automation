@@ -172,6 +172,33 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         pre_collect_artifact = artifacts.capture_screenshot(driver, metadata, StageName.MONDAY, "before_collect_npis")
         stage_result.artifacts.append(pre_collect_artifact)
         npis = monday_page.get_pr_site_npis()
+        if not npis:
+            """
+            TODO Yash: update task units
+            we will hit api for completing stage(No npis found)
+            """
+            structured_log(logger, "no_records_found", stage=StageName.MONDAY.value, task_id=metadata.task_id)
+            stage_result.data["npi_records"] = []
+            stage_result.mark_finished(success=True)
+            finished_at = _dt.datetime.now(_dt.timezone.utc)
+            artifact_refs = events.upload_artifacts(
+                task_id=metadata.task_id,
+                stage=StageName.MONDAY,
+                artifacts=stage_result.artifacts,
+            )
+            events.emit_stage_event(
+                task_id=metadata.task_id,
+                stage=StageName.MONDAY,
+                event="stage_completed",
+                status="completed",
+                stage_run_id=stage_run_id,
+                started_at=stage_started_at.isoformat(),
+                finished_at=finished_at.isoformat(),
+                duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
+                summary={"records_total": 0, "records_success": 0, "records_failed": 0},
+                artifacts=artifact_refs,
+            )
+            return stage_result
         """
         TODO Yash: Create task units
         Here we will call api of task unit and 
@@ -204,6 +231,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             if health_plan in ["doctors", "doctor health"]:
                 record["health_plan"] = "Doctors Healthcare"
                 record["lines_of_business"] = "Doctors Healthcare"
+        # Merge npis into task_unit_dict
+        for npi in npis:
+            npi_number = npi['npi_number']
+            if npi_number in task_unit_dict:
+                # Merge all keys except npi_number
+                task_unit_dict[npi_number].update({
+                    k: v for k, v in npi.items() if k != 'npi_number'
+                })
         structured_log(
             logger,
             "npis_collected",
@@ -217,34 +252,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
         artifact = artifacts.capture_json(npis, metadata, StageName.MONDAY, "npis")
         stage_result.artifacts.append(artifact)
-
-        if not npis:
-            """
-            TODO Yash: update task units
-            we will hit api for completing stage(No npis found)
-            """
-            structured_log(logger, "no_records_found", stage=StageName.MONDAY.value, task_id=metadata.task_id)
-            stage_result.data["npi_records"] = []
-            stage_result.mark_finished(success=True)
-            finished_at = _dt.datetime.now(_dt.timezone.utc)
-            artifact_refs = events.upload_artifacts(
-                task_id=metadata.task_id,
-                stage=StageName.MONDAY,
-                artifacts=stage_result.artifacts,
-            )
-            events.emit_stage_event(
-                task_id=metadata.task_id,
-                stage=StageName.MONDAY,
-                event="stage_completed",
-                status="completed",
-                stage_run_id=stage_run_id,
-                started_at=stage_started_at.isoformat(),
-                finished_at=finished_at.isoformat(),
-                duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
-                summary={"records_total": 0, "records_success": 0, "records_failed": 0},
-                artifacts=artifact_refs,
-            )
-            return stage_result
 
         # 4. Send NPIs to external API for persistence
         """
