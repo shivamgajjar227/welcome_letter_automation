@@ -345,12 +345,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "Fetched group practice addresses from PR Site",
                         data_payload=data,
                     )
-                    input_snapshot2 = [
-                        {
-                            "address_line_1": addr.get("address_line_1", ""),
-                            "address_line_2": addr.get("address_line_2", "")
-                        }
-                    ]
                     events.emit_npi_event(
                         task_id=metadata.task_id,
                         stage=StageName.PR_SITE,
@@ -358,7 +352,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         status="completed",
                         attempt=attempt,
                         stage_run_id=stage_run_id,
-                        input_snapshot=input_snapshot2,
                         output_snapshot=data,
                     )
 
