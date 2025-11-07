@@ -114,8 +114,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         return stage_result
 
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
-    state_update_payload = {"updates": []}
-    micro_update_payload = {"updates": []}
 
     def _task_unit_for_npi(npi_value: str) -> Optional[Dict[str, Any]]:
         normalized = str(npi_value or "").strip()
@@ -142,26 +140,33 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         update_meta = {"npi": npi_value}
         if data_payload:
             update_meta.update(data_payload)
-        state_update_payload["updates"].append(
-            {
-                "task_unit_id": task_unit["task_unit_id"],
-                "state": str(new_state),
-                "transition_reason": message,
-                "state_value": 0,
-                "meta_data": update_meta,
-            }
-        )
+        state_update_payload = {
+            "updates": [
+                {
+                    "task_unit_id": task_unit["task_unit_id"],
+                    "state": str(new_state),
+                    "transition_reason": message,
+                    "state_value": 0,
+                    "meta_data": update_meta,
+                }
+            ]
+        }
+        post_update_state_task_units(payload=state_update_payload)
         task_unit["current_state"] = new_state
         update_data = {"message": message, "npi": npi_value}
         if micro_extra:
             update_data.update(micro_extra)
         elif data_payload:
             update_data.update(data_payload)
-        micro_update_payload["updates"].append(
-            {
-                "task_unit_id": task_unit["task_unit_id"],
-                "update_state": new_state,
-                "update_data": update_data,
+        post_micro_update_task_units(
+            payload={
+                "updates": [
+                    {
+                        "task_unit_id": task_unit["task_unit_id"],
+                        "update_state": new_state,
+                        "update_data": update_data,
+                    }
+                ]
             }
         )
 
@@ -178,13 +183,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         update_data = {"message": message, "npi": npi_value}
         if extra:
             update_data.update(extra)
-        micro_update_payload["updates"].append(
-            {
-                "task_unit_id": task_unit["task_unit_id"],
-                "update_state": state_override if state_override is not None else task_unit.get("current_state"),
-                "update_data": update_data,
-            }
-        )
+        payload = {
+            "updates": [
+                {
+                    "task_unit_id": task_unit["task_unit_id"],
+                    "update_state": state_override if state_override is not None else task_unit.get("current_state"),
+                    "update_data": update_data,
+                }
+            ]
+        }
+        post_micro_update_task_units(payload=payload)
 
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
@@ -427,11 +435,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 artifacts=artifact_refs,
                 message=str(exc),
             )
-
-    if state_update_payload["updates"]:
-        post_update_state_task_units(payload=state_update_payload)
-    if micro_update_payload["updates"]:
-        post_micro_update_task_units(payload=micro_update_payload)
 
     payload = {
         "task_id": metadata.task_id,
