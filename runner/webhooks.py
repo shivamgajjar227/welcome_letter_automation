@@ -70,7 +70,7 @@ def post_update_state_task_units(payload):
 
 def post_micro_update_task_units(payload):
     try:
-        url = "http://0.0.0.0:10022/api/task_units/micro_updates"
+        url = "http://0.0.0.0:10022/api/task_units/micro_update"
         response = request_with_auth("POST", url, json=payload, timeout=30)
         logger.debug("Webhook posted", extra={"url": url, "status": response.status_code})
         return response.json()

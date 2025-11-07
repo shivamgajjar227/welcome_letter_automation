@@ -286,8 +286,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             micro_update_call_payload["updates"].append(
                 {
                     "task_unit_id": task_unit_obj["task_unit_id"],
-                    "state": task_unit_obj["current_state"],
-                    "message": "We have got following datat from Monday.com",
+                    "update_state": task_unit_obj["current_state"],
+                    "update_data": task_unit_obj,
                 }
             )
         post_update_state_task_units(payload=state_update_call_payload)
