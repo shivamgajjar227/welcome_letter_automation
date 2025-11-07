@@ -15,7 +15,7 @@ from pages.monday_page import MondayPage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook
+from ..webhooks import post_webhook,post_create_task_units
 from monitoring import events
 
 logger = logging.getLogger(__name__)
@@ -57,23 +57,6 @@ def _send_records_to_api(npis, metadata: RunnerMetadata) -> None:
             stage=StageName.MONDAY.value,
             task_id=metadata.task_id,
         )
-
-def create_task_units(task_id):
-    """
-    We will hit task unit creation api .
-    :param task_id: 
-    :response
-    :return: 
-    """
-    """
-    1 hit api
-    """
-    response = None
-    """
-    2 convert response into the task_unit_id_dict
-    """
-    pass
-
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     """
@@ -200,7 +183,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         
         output of api will go into task unit dict
         """
-        task_unit_dict = create_task_units(task_id=0)
+        task_unit_payload = {
+            "celery_task_id": metadata.task_id,
+            "units": []
+        }
+        for identifier in npis:
+            task_unit_payload["units"].append({"identifier":identifier["npi_number"]})
+        post_create_task_units(payload=task_unit_payload)
 
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()
