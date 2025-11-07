@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 from urllib.parse import urlparse, urlunparse
 
@@ -15,8 +15,18 @@ from pages.pr_site_page import PRSitePage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook, fetch_stage_payload
+from ..webhooks import (
+    post_webhook,
+    fetch_stage_payload,
+    post_update_state_task_units,
+    post_micro_update_task_units,
+)
+from ..auth import request_with_auth
+from requests import RequestException
 from monitoring import events
+from taskunits.wla_npi import NpiWlaTU
+
+TASK_UNITS_BASE_URL = "http://0.0.0.0:10022/api/task_units"
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +64,36 @@ def _inject_basic_auth(url: str, cred: CredentialRef) -> str:
     return urlunparse(parsed._replace(netloc=netloc))
 
 
+def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
+    if not task_id:
+        return {}
+    url = f"{TASK_UNITS_BASE_URL}/{task_id}"
+    try:
+        response = request_with_auth("GET", url, timeout=30)
+        response.raise_for_status()
+        task_units = response.json()
+    except RequestException as exc:
+        logger.warning(
+            "Failed to fetch task units",
+            extra={"task_id": task_id, "url": url, "error": str(exc)},
+        )
+        return {}
+    mapping: Dict[str, Dict[str, Any]] = {}
+    for unit in task_units or []:
+        identifier = str(unit.get("identifier") or "").strip()
+        if not identifier:
+            continue
+        mapping[identifier] = unit
+        normalized = identifier.lstrip("0")
+        if normalized and normalized not in mapping:
+            mapping[normalized] = unit
+    return mapping
+
+
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.PR_SITE)
     records: List[Dict] = list(metadata.request_payload.get("records", []))
-    """
-    TODO Yash:
-    In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
-    """
+    task_unit_dict: Dict[str, Dict[str, Any]] = {}
 
     if not records:
         payload = fetch_stage_payload(metadata, StageName.PR_SITE)
@@ -79,10 +112,79 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         stage_result.mark_finished(success=True)
         stage_result.data["records"] = []
         return stage_result
-        """
-        TODO Yash: update task unit
-         complete stage
-        """
+
+    task_unit_dict = _load_task_unit_dict(metadata.task_id)
+    state_update_payload = {"updates": []}
+    micro_update_payload = {"updates": []}
+
+    def _task_unit_for_npi(npi_value: str) -> Optional[Dict[str, Any]]:
+        normalized = str(npi_value or "").strip()
+        if not normalized:
+            return None
+        if normalized in task_unit_dict:
+            return task_unit_dict[normalized]
+        alt_identifier = normalized.lstrip("0")
+        if alt_identifier and alt_identifier in task_unit_dict:
+            return task_unit_dict[alt_identifier]
+        return None
+
+    def _record_state_transition(
+        npi_value: str,
+        new_state: int,
+        message: str,
+        meta: Optional[Dict[str, Any]] = None,
+        micro_extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        task_unit = _task_unit_for_npi(npi_value)
+        if not task_unit:
+            logger.debug("Task unit not found for NPI %s; skipping state update", npi_value)
+            return
+        update_meta = {"npi": npi_value}
+        if meta:
+            update_meta.update(meta)
+        state_update_payload["updates"].append(
+            {
+                "task_unit_id": task_unit["task_unit_id"],
+                "state": str(new_state),
+                "transition_reason": message,
+                "state_value": 0,
+                "meta_data": update_meta,
+            }
+        )
+        task_unit["current_state"] = new_state
+        update_data = {"message": message, "npi": npi_value}
+        if micro_extra:
+            update_data.update(micro_extra)
+        elif meta:
+            update_data.update(meta)
+        micro_update_payload["updates"].append(
+            {
+                "task_unit_id": task_unit["task_unit_id"],
+                "update_state": new_state,
+                "update_data": update_data,
+            }
+        )
+
+    def _record_micro_update(
+        npi_value: str,
+        message: str,
+        extra: Optional[Dict[str, Any]] = None,
+        state_override: Optional[int] = None,
+    ) -> None:
+        task_unit = _task_unit_for_npi(npi_value)
+        if not task_unit:
+            logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
+            return
+        update_data = {"message": message, "npi": npi_value}
+        if extra:
+            update_data.update(extra)
+        micro_update_payload["updates"].append(
+            {
+                "task_unit_id": task_unit["task_unit_id"],
+                "update_state": state_override if state_override is not None else task_unit.get("current_state"),
+                "update_data": update_data,
+            }
+        )
 
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
@@ -157,10 +259,20 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "health_plan": record.get("health_plan"),
                 "lines_of_business": record.get("lines_of_business"),
             }
-            """
-            TODO Yash: update task unit
-             Update stage: fetched Provider personal details
-            """
+            provider_details = {
+                "first_name": data["first_name"],
+                "last_name": data["last_name"],
+                "gender": data["gender"],
+                "city": data["city"],
+                "state": data["state"],
+                "taxonomy_code": data["taxonomy_code"],
+            }
+            _record_state_transition(
+                npi,
+                NpiWlaTU.TU_PROVIDER_PERSONAL_DETAILS_FETCHED,
+                "Fetched provider personal details from PR Site",
+                meta={"provider_details": provider_details},
+            )
             input_snapshot1 = {
                 "first_name": data["first_name"],
                 "last_name": data["last_name"],
@@ -184,17 +296,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 group_name = pr_site_page.get_group_name()
                 data["group_npi"] = group_npi
                 data["group_name"] = group_name
+                group_details = {
+                    "group_npi": group_npi,
+                    "group_name": group_name,
+                }
+                _record_state_transition(
+                    npi,
+                    NpiWlaTU.TU_GROUP_DETAILS_FETCHED,
+                    "Fetched group details from PR Site",
+                    meta={"group_details": group_details},
+                )
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
-                """
-               TODO Yash: update task unit
-                Update stage: fetched group address
-               """
                 if addresses:
                     data["practice_addresses"] = addresses
-                    """
-                    TODO Yash: update task unit
-                     Update stage: fetched Provider personal details
-                    """
+                    _record_state_transition(
+                        npi,
+                        NpiWlaTU.TU_GROUP_ADDRESS_FETCHED,
+                        "Fetched group practice addresses from PR Site",
+                        meta={"practice_addresses": addresses},
+                    )
                     input_snapshot2 = [
                         {
                             "address_line_1": addr.get("address_line_1", ""),
@@ -224,10 +344,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         output_snapshot=data,
                         message="No Addresses Found for this NPI",
                     )
-                    """
-                   TODO Yash: update task unit
-                    failed stage: No address found for this NPI
-                   """
+                    _record_micro_update(
+                        npi,
+                        "No practice addresses found for this NPI on PR Site",
+                    )
                 #     payload = {
                 #         "task_id": metadata.task_id,
                 #         "stage": StageName.PR_SITE.value,
@@ -243,6 +363,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     task_id=metadata.task_id,
                     npi=npi,
                     error=str(inner_exc),
+                )
+                _record_micro_update(
+                    npi,
+                    "Failed to fetch group or practice details from PR Site",
+                    extra={"error": str(inner_exc)},
                 )
 
             stage_result.artifacts.append(
@@ -275,6 +400,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             )
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi, "error": str(exc)})
+            _record_state_transition(
+                npi,
+                NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
+                "Failed to enrich PR Site data",
+                meta={"error": str(exc)},
+                micro_extra={"error": str(exc)},
+            )
             stage_result.artifacts.append(
                 artifacts.capture_screenshot(driver, metadata, StageName.PR_SITE, f"failure_{npi}")
             )
@@ -308,6 +440,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 message=str(exc),
             )
 
+    if state_update_payload["updates"]:
+        post_update_state_task_units(payload=state_update_payload)
+    if micro_update_payload["updates"]:
+        post_micro_update_task_units(payload=micro_update_payload)
+
     payload = {
         "task_id": metadata.task_id,
         "stage": StageName.PR_SITE.value,
@@ -315,10 +452,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         "failed": failures,
     }
     post_webhook(metadata, StageName.PR_SITE, payload)
-    """
-    TODO Yash: update task unit
-    complete stage
-    """
     stage_result.data["records"] = enriched
     stage_result.data["failed"] = failures
     stage_result.mark_finished(success=not failures)
