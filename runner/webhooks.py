@@ -68,6 +68,17 @@ def post_update_state_task_units(payload):
         return False
 
 
+def post_micro_update_task_units(payload):
+    try:
+        url = "http://0.0.0.0:10022/api/task_units/micro_updates"
+        response = request_with_auth("POST", url, json=payload, timeout=30)
+        logger.debug("Webhook posted", extra={"url": url, "status": response.status_code})
+        return response.json()
+    except RequestException as exc:
+        logger.warning("Webhook post failed", extra={"url": url, "error": str(exc)})
+        return False
+
+
 def get_stage_input_url(metadata: RunnerMetadata, stage: StageName) -> Optional[str]:
     config = metadata.stage_config.get(stage)
     if not config:

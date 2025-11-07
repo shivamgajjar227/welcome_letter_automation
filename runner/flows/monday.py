@@ -15,7 +15,12 @@ from pages.monday_page import MondayPage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook,post_create_task_units,post_update_state_task_units
+from ..webhooks import (
+    post_webhook,
+    post_create_task_units,
+    post_update_state_task_units,
+    post_micro_update_task_units,
+)
 from monitoring import events
 from taskunits.wla_npi import NpiWlaTU
 
@@ -286,6 +291,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 }
             )
         post_update_state_task_units(payload=state_update_call_payload)
+        post_micro_update_task_units(payload=micro_update_call_payload)
 
         structured_log(
             logger,
