@@ -153,9 +153,16 @@ def _flatten_quickcap_records(records: List[Dict[str, Any]]) -> List[Dict[str, A
             for key, value in address.items():
                 if value is None:
                     continue
-                expanded[key] = value
+                if key not in expanded:
+                    expanded[key] = value
             flattened.append(expanded)
     return flattened
+
+
+def _record_payload(record: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not record:
+        return {}
+    return {k: v for k, v in record.items() if not k.startswith("_")}
 
 
 # def _normalize_record(raw_record: Mapping[str, Any]) -> Dict[str, Any]:
@@ -731,7 +738,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping state update", npi_value)
             return
-        update_meta = {"npi": npi_value}
+        update_meta = _record_payload(record)
+        update_meta["npi"] = npi_value
         if data_payload:
             update_meta.update(data_payload)
         payload = {
@@ -784,7 +792,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
             return
-        update_data = {"message": message, "npi": npi_value}
+        update_data = _record_payload(record)
+        update_data["message"] = message
+        update_data["npi"] = npi_value
         if extra:
             update_data.update(extra)
         current_address = record.get("_current_address")
@@ -944,7 +954,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     npi,
                     NpiWlaTU.TU_LOGGED_INTO_COMPANY,
                     "Using active QuickCap company session",
-                    data_payload={"company": company_name},
+                    data_payload=record,
                 )
                 try:
                     if quickcap_page.check_npi_search_field():
@@ -1398,7 +1408,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 npi,
                 NpiWlaTU.TU_LOGGED_INTO_COMPANY,
                 "Switched company in QuickCap",
-                data_payload={"company": company_name},
+                data_payload=record,
             )
 
             try:
