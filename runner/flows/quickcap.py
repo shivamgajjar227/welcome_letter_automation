@@ -148,8 +148,7 @@ def _flatten_quickcap_records(records: List[Dict[str, Any]]) -> List[Dict[str, A
             for key, value in address.items():
                 if value is None:
                     continue
-                if not expanded.get(key):
-                    expanded[key] = value
+                expanded[key] = value
             flattened.append(expanded)
     return flattened
 
@@ -876,8 +875,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             state = safe_str(record.get("state"))
             group_npi = str(record.get("group_npi") or "")
             name = safe_str(record.get("name"))
-            address_line1 = safe_str(record.get("address_line1"))
-            address_line2 = safe_str(record.get("address_line2"))
+            address_line1 = safe_str(record.get("address_line_1"))
+            address_line2 = safe_str(record.get("address_line_2"))
             zip_code = str(record.get("zip_code_clean") or "")
             city = safe_str(record.get("city"))
             status = safe_str(record.get("status"))
@@ -1220,7 +1219,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "stage": StageName.QUICKCAP.value,
                         "failed": failures,
                         "records": enriched
-                    }
+                       }
                     post_webhook(metadata, StageName.QUICKCAP, data1)
                     """
                     TODO Yash: update task unit
