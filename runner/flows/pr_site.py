@@ -174,32 +174,48 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 data["group_name"] = group_name
                 addresses = pr_site_page.get_ind_npi_list_with_grp_npi_locations(record, group_npi)
 
-                pr_site_page.hover_over_group_menu()
-                group_npi_num = pr_site_page.extract_number_from_string(group_npi)
-                match = re.search(r'\d+', group_npi)
-                group_npi_num1 = match.group() if match else group_npi
-                pr_site_page.enter_group_npi_search(group_npi_num)
-                pr_site_page.click_search_group_npi()
-                group_tin = pr_site_page.get_group_tin()
-                data["group_tin"] = group_tin
                 if addresses:
+                    unique_group_npis = {addr["group_npi"] for addr in addresses if addr.get("group_npi")}
+                    group_tin_map = {}
+
+                    for grp_npi in unique_group_npis:
+                        try:
+                            pr_site_page.hover_over_group_menu()
+                            pr_site_page.enter_group_npi_search(group_npi)
+                            pr_site_page.click_search_group_npi()
+                            group_tin = pr_site_page.get_group_tin()
+
+                            if group_tin:
+                                group_tin_map[grp_npi] = group_tin
+                                logger.info(f"Fetched TIN {group_tin} for group NPI {grp_npi}")
+
+                            time.sleep(2)
+
+                        except Exception as e:
+                            logger.warning(f"Failed to fetch group TIN for {grp_npi}: {e}")
+                            continue
+
+                    # 🟣 Attach group_tin to each address
+                    for addr in addresses:
+                        grp_npi = addr.get("group_npi")
+                        addr["group_tin"] = group_tin_map.get(grp_npi)
                     data["practice_addresses"] = addresses
-                    input_snapshot2 = [
-                        {
-                            "address_line_1": address_line_1,
-                            "address_line_2": address_line_2,
-                        }
-                    ]
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.PR_SITE,
-                        npi=npi,
-                        status="completed",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot=input_snapshot2,
-                        output_snapshot=data,
-                    )
+                    # input_snapshot2 = [
+                    #     {
+                    #         "address_line_1": address_line_1,
+                    #         "address_line_2": address_line_2,
+                    #     }
+                    # ]
+                    # events.emit_npi_event(
+                    #     task_id=metadata.task_id,
+                    #     stage=StageName.PR_SITE,
+                    #     npi=npi,
+                    #     status="completed",
+                    #     attempt=attempt,
+                    #     stage_run_id=stage_run_id,
+                    #     input_snapshot=input_snapshot2,
+                    #     output_snapshot=data,
+                    # )
 
                 else:
                     events.emit_npi_event(
