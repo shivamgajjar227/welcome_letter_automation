@@ -716,6 +716,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         message: str,
         micro_extra: Optional[Dict[str, Any]] = None,
     ) -> None:
+        task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
         payload = {
             "updates": [
                 {
@@ -757,7 +758,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
             return
-        update_data = _record_payload(record)
         update_data["message"] = message
         update_data["npi"] = npi_value
         if extra:
