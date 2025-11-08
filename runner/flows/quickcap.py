@@ -135,6 +135,53 @@ def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
     return mapping
 
 
+def _flatten_quickcap_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    flattened: List[Dict[str, Any]] = []
+    for record in records:
+        addresses = record.get("practice_addresses") or []
+        if not addresses:
+            flattened.append(dict(record))
+            continue
+        for address in addresses:
+            expanded = dict(record)
+            expanded["practice_addresses"] = [address]
+            expanded["practice_name"] = (
+                address.get("practice_name")
+                or address.get("name")
+                or expanded.get("practice_name")
+                or expanded.get("name")
+                or ""
+            )
+            expanded["address_line1"] = (
+                address.get("address_line_1")
+                or address.get("address_line1")
+                or expanded.get("address_line1")
+                or ""
+            )
+            expanded["address_line2"] = (
+                address.get("address_line_2")
+                or address.get("address_line2")
+                or expanded.get("address_line2")
+                or ""
+            )
+            expanded["city"] = address.get("city") or expanded.get("city") or ""
+            expanded["state"] = address.get("state") or expanded.get("state") or ""
+            expanded["zip_code"] = (
+                address.get("zip_code")
+                or address.get("zipcode")
+                or expanded.get("zip_code")
+                or ""
+            )
+            expanded["zip_code_clean"] = (
+                address.get("zip_code_clean")
+                or expanded.get("zip_code_clean")
+                or expanded.get("zip_code")
+                or ""
+            )
+            flattened.append(expanded)
+    return flattened
+
+
 # def _normalize_record(raw_record: Mapping[str, Any]) -> Dict[str, Any]:
 #     npi_number = str(raw_record.get("npi_number") or raw_record.get("npi") or "").strip()
 #     if not npi_number:
@@ -650,7 +697,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     )
 
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
-    records: List[Dict[str, Any]] = list(task_unit_dict.values())
+    records: List[Dict[str, Any]] = _flatten_quickcap_records(list(task_unit_dict.values()))
 
     structured_log(
         logger,
