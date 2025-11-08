@@ -251,6 +251,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             time.sleep(3)
 
             data = {
+                "identifier": npi,
+                "task_unit_id": task_unit_id,
                 "npi_number": npi,
                 "last_name": pr_site_page.get_last_name(),
                 "first_name": pr_site_page.get_first_name(),
