@@ -1295,7 +1295,7 @@ class QuickcapPage(BasePage):
             try:
                 element.click()  # normal Selenium click
                 print("Save button clicked successfully.")
-            except Exception:
+            except Exception as e:
                 # fallback to JS click if normal click fails
                 self.driver.execute_script("arguments[0].click();", element)
                 print("Save button clicked successfully via JS.")
