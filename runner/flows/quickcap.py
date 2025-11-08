@@ -16,10 +16,19 @@ from pages.quickcap_page import QuickcapPage
 from .. import artifacts
 from ..context import CredentialRef, RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
-from ..webhooks import post_webhook, fetch_stage_payload
+from ..webhooks import (
+    post_webhook,
+    post_update_state_task_units,
+    post_micro_update_task_units,
+)
+from ..auth import request_with_auth
+from requests import RequestException
 from monitoring import events
+from taskunits.wla_npi import NpiWlaTU
 
 logger = logging.getLogger(__name__)
+
+TASK_UNITS_BASE_URL = "http://0.0.0.0:10022/api/task_units"
 
 
 class QuickcapValidationError(Exception):
@@ -98,6 +107,32 @@ def _select_primary_address(record: Mapping[str, Any]) -> Dict[str, Any]:
         return {}
     prioritized = next((addr for addr in addresses if addr.get("matches_effective_date")), None)
     return prioritized or addresses[0]
+
+
+def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
+    if not task_id:
+        return {}
+    url = f"{TASK_UNITS_BASE_URL}/{task_id}"
+    try:
+        response = request_with_auth("GET", url, timeout=30)
+        response.raise_for_status()
+        task_units = response.json()
+    except RequestException as exc:
+        logger.warning(
+            "Failed to fetch task units",
+            extra={"task_id": task_id, "url": url, "error": str(exc)},
+        )
+        return {}
+    mapping: Dict[str, Dict[str, Any]] = {}
+    for unit in task_units or []:
+        identifier = str(unit.get("identifier") or "").strip()
+        if not identifier:
+            continue
+        mapping[identifier] = unit
+        normalized = identifier.lstrip("0")
+        if normalized and normalized not in mapping:
+            mapping[normalized] = unit
+    return mapping
 
 
 # def _normalize_record(raw_record: Mapping[str, Any]) -> Dict[str, Any]:
@@ -614,31 +649,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         started_at=stage_started_at.isoformat(),
     )
 
-    payload = fetch_stage_payload(metadata, StageName.QUICKCAP)
-    if not payload:
-        structured_log(
-            logger,
-            "input_payload_missing",
-            stage=StageName.QUICKCAP.value,
-            task_id=metadata.task_id,
-        )
-        stage_result.mark_finished(success=False, error="quickcap_input_unavailable")
-        finished_at = _dt.datetime.now(_dt.timezone.utc)
-        events.emit_stage_event(
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP,
-            event="stage_failed",
-            status="failed",
-            stage_run_id=stage_run_id,
-            started_at=stage_started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
-            message="quickcap_input_unavailable",
-            artifacts=[],
-        )
-        return stage_result
-
-    records: List[Dict[str, Any]] = list(payload.get("records", [])) or list(payload.get("processed", []))
+    task_unit_dict = _load_task_unit_dict(metadata.task_id)
+    records: List[Dict[str, Any]] = list(task_unit_dict.values())
 
     structured_log(
         logger,
@@ -650,10 +662,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     if not records:
         stage_result.mark_finished(success=True)
-        """
-        TODO Yash: update task unit
-         complete stage
-        """
         stage_result.data["processed"] = []
         stage_result.data["failed"] = []
         finished_at = _dt.datetime.now(_dt.timezone.utc)
@@ -670,6 +678,85 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             artifacts=stage_artifact_refs,
         )
         return stage_result
+
+    def _task_unit_for_npi(npi_value: str) -> Optional[Dict[str, Any]]:
+        normalized = str(npi_value or "").strip()
+        if not normalized:
+            return None
+        if normalized in task_unit_dict:
+            return task_unit_dict[normalized]
+        alt_identifier = normalized.lstrip("0")
+        if alt_identifier and alt_identifier in task_unit_dict:
+            return task_unit_dict[alt_identifier]
+        return None
+
+    def _record_state_transition(
+        npi_value: str,
+        new_state: int,
+        message: str,
+        data_payload: Optional[Dict[str, Any]] = None,
+        micro_extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        task_unit = _task_unit_for_npi(npi_value)
+        if not task_unit:
+            logger.debug("Task unit not found for NPI %s; skipping state update", npi_value)
+            return
+        update_meta = {"npi": npi_value}
+        if data_payload:
+            update_meta.update(data_payload)
+        payload = {
+            "updates": [
+                {
+                    "task_unit_id": task_unit["task_unit_id"],
+                    "state": str(new_state),
+                    "transition_reason": message,
+                    "state_value": 0,
+                    "meta_data": update_meta,
+                }
+            ]
+        }
+        post_update_state_task_units(payload=payload)
+        task_unit["current_state"] = new_state
+        update_data = {"message": message, "npi": npi_value}
+        if micro_extra:
+            update_data.update(micro_extra)
+        elif data_payload:
+            update_data.update(data_payload)
+        post_micro_update_task_units(
+            payload={
+                "updates": [
+                    {
+                        "task_unit_id": task_unit["task_unit_id"],
+                        "update_state": new_state,
+                        "update_data": update_data,
+                    }
+                ]
+            }
+        )
+
+    def _record_micro_update(
+        npi_value: str,
+        message: str,
+        extra: Optional[Dict[str, Any]] = None,
+        state_override: Optional[int] = None,
+    ) -> None:
+        task_unit = _task_unit_for_npi(npi_value)
+        if not task_unit:
+            logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
+            return
+        update_data = {"message": message, "npi": npi_value}
+        if extra:
+            update_data.update(extra)
+        payload = {
+            "updates": [
+                {
+                    "task_unit_id": task_unit["task_unit_id"],
+                    "update_state": state_override if state_override is not None else task_unit.get("current_state"),
+                    "update_data": update_data,
+                }
+            ]
+        }
+        post_micro_update_task_units(payload=payload)
 
     cred = _get_credential(metadata)
     base_url = _get_base_url(metadata)
@@ -720,8 +807,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     processor = QuickcapProcessor(quickcap_page)
 
     for record in records:
-        npi = str(record.get("npi_number") or record.get("npi") or "").strip()
+        npi = str(
+            record.get("npi_number") or record.get("npi") or record.get("identifier") or ""
+        ).strip()
         attempt = int(record.get("attempt", 1) or 1)
+        record.setdefault("npi_number", npi)
         events.emit_npi_event(
             task_id=metadata.task_id,
             stage=StageName.QUICKCAP,
@@ -731,6 +821,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             stage_run_id=stage_run_id,
             input_snapshot=record,
         )
+        if not npi:
+            failures.append({"reason": "missing_npi", "record": record})
+            _record_micro_update(
+                "unknown",
+                "Task unit missing NPI; skipping QuickCap processing",
+                extra={"record": record},
+            )
+            continue
         status = "completed"
         message: Optional[str] = None
         output_snapshot: Dict[str, Any] = {
@@ -785,16 +883,23 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     task_id=metadata.task_id,
                     npi=npi or "unknown",
                 )
+                _record_micro_update(
+                    npi,
+                    "Unable to map company for QuickCap submission",
+                    extra={"network": network, "health_plan": health_plan},
+                )
                 continue
 
             print(f"Mapped Company: {company_name}")
 
             if current_company and current_company.lower() == company_name.lower():
                 print(f"✅ Company '{company_name}' already logged in — skipping change.")
-                """
-                TODO Yash: update task unit
-                Logged into expected company 
-                """
+                _record_state_transition(
+                    npi,
+                    NpiWlaTU.TU_LOGGED_INTO_COMPANY,
+                    "Using active QuickCap company session",
+                    data_payload={"company": company_name},
+                )
                 try:
                     if quickcap_page.check_npi_search_field():
                         quickcap_page.enter_npi(npi_number)
@@ -1242,6 +1347,12 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             # time.sleep(3)
             quickcap_page.switch_to_main()
             current_company = company_name
+            _record_state_transition(
+                npi,
+                NpiWlaTU.TU_LOGGED_INTO_COMPANY,
+                "Switched company in QuickCap",
+                data_payload={"company": company_name},
+            )
 
             try:
                 # quickcap_page.expand_menu_if_cigna(company_name="Cigna")
@@ -1726,6 +1837,20 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             status = "failed"
             message = exc.reason or str(exc)
             output_snapshot = failure_entry
+            if exc.reason == "org_id_not_found":
+                _record_state_transition(
+                    npi,
+                    NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
+                    "Organization ID not found in QuickCap",
+                    data_payload=failure_entry,
+                    micro_extra={"error": message},
+                )
+            else:
+                _record_micro_update(
+                    npi,
+                    "Validation failure during QuickCap processing",
+                    extra={"error": message},
+                )
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi or record.get("npi"), "error": str(exc)})
             stage_result.artifacts.append(
@@ -1742,6 +1867,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             status = "failed"
             message = str(exc)
             output_snapshot = {"npi_number": npi or record.get("npi"), "error": message}
+            _record_micro_update(
+                npi,
+                "Unexpected exception during QuickCap processing",
+                extra={"error": message},
+            )
         finally:
             structured_log(
                 logger,
@@ -1763,6 +1893,19 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 artifacts=[],
                 message=message,
             )
+            if status == "completed":
+                _record_state_transition(
+                    npi,
+                    NpiWlaTU.TU_UPDATE_STATUS_ON_MONDAY,
+                    "QuickCap submission completed",
+                    data_payload=output_snapshot,
+                )
+            else:
+                _record_micro_update(
+                    npi,
+                    "QuickCap submission failed",
+                    extra={"error": message or "unknown"},
+                )
 
     payload = {
         "task_id": metadata.task_id,
