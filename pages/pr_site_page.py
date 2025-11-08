@@ -479,7 +479,6 @@ class PRSitePage(BasePage):
                                         "group_npi": npi_number,
                                         "name": npi_name.upper(),
                                         "plan": plan,
-                                        "effective_date": effective_date,
                                         "matches_effective_date": match_effective_date and not termination_date.strip(),
                                     })
                                     logger.info(f"Out from get address for NPI {record_npi} with address '{address}'")
