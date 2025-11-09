@@ -221,7 +221,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             "units": []
         }
         for identifier in npis:
-            task_unit_payload["units"].append({"identifier":identifier["npi_number"]})
+            task_unit_payload["units"].append({"identifier":identifier["npi_number"],"task_unit_type_id": NpiWlaTU.TU_TYPE_ID})
         task_unit_dict = post_create_task_units(payload=task_unit_payload)
         for record in npis:
             health_plan = str(record.get("health_plan", "")).strip().lower()

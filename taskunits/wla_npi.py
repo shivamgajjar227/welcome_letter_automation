@@ -2,6 +2,7 @@
 
 class NpiWlaTU:
 
+    TU_TYPE_ID = 1
     """
     TODO Yash:
     - In any task unit class, first their states will be defined.
