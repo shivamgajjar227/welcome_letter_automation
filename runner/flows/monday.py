@@ -288,6 +288,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "task_unit_id": task_unit_obj["task_unit_id"],
                     "update_state": task_unit_obj["current_state"],
                     "update_data": task_unit_obj,
+                    "update_type": 1,
+                    "message": "NPI Fetched Successfully"
                 }
             )
         post_update_state_task_units(payload=state_update_call_payload)

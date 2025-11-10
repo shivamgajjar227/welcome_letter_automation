@@ -644,6 +644,7 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
+    metadata.task_id = "79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
     """
     TODO Yash:
     In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
@@ -742,6 +743,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "task_unit_id": task_unit["task_unit_id"],
                         "update_state": new_state,
                         "update_data": update_data,
+                        "update_type": micro_extra.get("update_type",0),
+                        "message": message
                     }
                 ]
             }
@@ -771,6 +774,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "task_unit_id": task_unit["task_unit_id"],
                     "update_state": state_override if state_override is not None else task_unit.get("current_state"),
                     "update_data": update_data,
+                    "update_type": extra.get("update_type",0),
+                    "message": message
                 }
             ]
         }
@@ -919,6 +924,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     npi,
                     NpiWlaTU.TU_LOGGED_INTO_COMPANY,
                     "Using active QuickCap company session",
+                    micro_extra={"update_type":0}
                 )
                 try:
                     if quickcap_page.check_npi_search_field():
@@ -1863,14 +1869,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     npi,
                     NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
                     "Organization ID not found in QuickCap",
-                    micro_extra={"error": message},
+                    micro_extra={"error": message,"update_type":3},
                 )
             else:
                 _record_micro_update(
                     record,
                     npi,
                     "Validation failure during QuickCap processing",
-                    extra={"error": message},
+                    extra={"error": message,"update_type":3},
                 )
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi or record.get("npi"), "error": str(exc)})
@@ -1921,13 +1927,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     npi,
                     NpiWlaTU.TU_UPDATE_STATUS_ON_MONDAY,
                     "QuickCap submission completed",
+                    micro_extra={"update_type":1}
                 )
             else:
                 _record_micro_update(
                     record,
                     npi,
                     "QuickCap submission failed",
-                    extra={"error": message or "unknown"},
+                    extra={"error": message or "unknown","update_type":3},
                 )
 
     payload = {

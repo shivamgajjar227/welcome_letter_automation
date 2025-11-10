@@ -90,6 +90,7 @@ def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
 
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
+    metadata.task_id="79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
     stage_result = StageResult(stage=StageName.PR_SITE)
     task_unit_dict: Dict[str, Dict[str, Any]] = _load_task_unit_dict(metadata.task_id)
 
@@ -179,6 +180,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     "task_unit_id": task_unit["task_unit_id"],
                     "update_state": state_override if state_override is not None else task_unit.get("current_state"),
                     "update_data": update_data,
+                    "update_type": extra.get("update_type",0),
+                    "message": message
                 }
             ]
         }
@@ -217,7 +220,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             _record_micro_update(
                 "unknown",
                 "Task unit missing identifier; skipping PR Site enrichment",
-                extra={"task_unit_id": task_unit_id},
+                extra={"task_unit_id": task_unit_id,
+                       "update_type":3
+                       }
             )
             continue
 
@@ -337,6 +342,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     _record_micro_update(
                         npi,
                         "No practice addresses found for this NPI on PR Site",
+                        extra={
+                            "update_type":3
+                        }
                     )
                 #     payload = {
                 #         "task_id": metadata.task_id,
@@ -357,7 +365,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 _record_micro_update(
                     npi,
                     "Failed to fetch group or practice details from PR Site",
-                    extra={"error": str(inner_exc)},
+                    extra={"error": str(inner_exc),
+                           "update_type": 3
+                           }
                 )
 
             stage_result.artifacts.append(
