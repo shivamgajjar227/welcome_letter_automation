@@ -9,10 +9,15 @@ from pages.quickcap_page import QuickcapPage, logger
 from pages.sql_server_page import SqlServerPage
 from pages.quickcap_case_page import QuickcapCasePage
 from pages.monday_status_page import MondayStatusPage
+from pages.google_page import  GooglePage
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service as ChromeService, Service
+from selenium.webdriver.common.keys import Keys
+import time, random
+import undetected_chromedriver as uc
 
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store", default="chrome")
@@ -21,6 +26,7 @@ def pytest_addoption(parser):
     parser.addoption("--base-url2", action="store", default="https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1")
     parser.addoption("--base-url3", action="store", default="https://larch.ad.pns-mgmt.com/Reports_PROD/browse")
     parser.addoption("--base-url4", action="store", default="https://pns-mgmt.monday.com/")
+    parser.addoption("--base-url5", action="store", default="https://www.google.com/")
     """Add custom command line options"""
     try:
         parser.addoption("--base-url", action="store", default="", help="Base URL for tests")
@@ -34,11 +40,15 @@ def pytest_addoption(parser):
             raise
 
 
+class ChromeDriverManager:
+    pass
+
 
 @pytest.fixture(scope="function")
 def driver(request):
-    browser = request.config.getoption("--browser")
-    driver = get_driver(browser)
+    driver = uc.Chrome()
+    # browser = request.config.getoption("--browser")
+    # driver = get_driver(browser)
     yield driver
     driver.quit()
 
@@ -148,3 +158,8 @@ def browser(request):
     yield driver
     driver.quit()
 
+@pytest.fixture(scope="function")
+def google_search(driver, request):
+    base_url = request.config.getoption("--base-url5")
+    driver.get(base_url)
+    return GooglePage(driver)
