@@ -300,6 +300,50 @@ class QuickcapPage(BasePage):
             print(f"Error selecting category '{value}': {e}")
         # self.click(self.categories_drowpdown)
 
+    def select_suffix_dropdown(self, value):
+        logger.info(f"Inside Select Category Dropdown:{value}")
+        try:
+            # Wait until dropdown is present
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//select[@id='Taslt_prof_suffix']"))
+            )
+            dropdown = Select(element)
+            fallback_values = [value, "PA - PHYSICIAN ASSISTANT", "PA - PA"]
+            for option_text in fallback_values:
+                try:
+                    dropdown.select_by_visible_text(option_text)
+                    print(f"Category '{option_text}' selected successfully.")
+                    logger.info(f"Out from Select Category Dropdown: {option_text}")
+                    return
+                except Exception:
+                    logger.warning(f"Option '{option_text}' not found, trying next...")
+                    continue
+            raise Exception(f"None of the options {fallback_values} found in dropdown.")
+        except Exception as e:
+            print(f"Error selecting category '{value}': {e}")
+
+    def select_suffix_dropdown1(self, value):
+        logger.info(f"Inside Select Category Dropdown:{value}")
+        try:
+            # Wait until dropdown is present
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//select[@id='Taslt_Suffix']"))
+            )
+            dropdown = Select(element)
+            fallback_values = [value, "PA - PHYSICIAN ASSISTANT", "PA - PA"]
+            for option_text in fallback_values:
+                try:
+                    dropdown.select_by_visible_text(option_text)
+                    print(f"Category '{option_text}' selected successfully.")
+                    logger.info(f"Out from Select Category Dropdown: {option_text}")
+                    return
+                except Exception:
+                    logger.warning(f"Option '{option_text}' not found, trying next...")
+                    continue
+            raise Exception(f"None of the options {fallback_values} found in dropdown.")
+        except Exception as e:
+            print(f"Error selecting category '{value}': {e}")
+
     def click_quick_add_window_npi_button(self, npi):
         logger.info(f"Inside Click Quick Add Window NPI Button:{npi}")
         try:

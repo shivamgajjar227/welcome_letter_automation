@@ -90,7 +90,6 @@ def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
 
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
-    metadata.task_id="79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
     stage_result = StageResult(stage=StageName.PR_SITE)
     task_unit_dict: Dict[str, Dict[str, Any]] = _load_task_unit_dict(metadata.task_id)
 
