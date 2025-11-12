@@ -177,7 +177,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         )
         pre_collect_artifact = artifacts.capture_screenshot(driver, metadata, StageName.MONDAY, "before_collect_npis")
         stage_result.artifacts.append(pre_collect_artifact)
-        npis = monday_page.get_pr_site_npis()
+        # npis = monday_page.get_pr_site_npis()
+        npis = monday_page.get_fcc_npis()
         if not npis:
             """
             TODO Yash: update task units

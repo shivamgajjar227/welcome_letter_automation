@@ -117,7 +117,7 @@ class MondayPage(BasePage):
         # Locate the "PR Site" section
         group = self.wait.until(
             EC.presence_of_element_located(
-                (By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='PR Site']")
+                (By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='FCC - November 2025 - Cardiology']")
             )
         )
 
@@ -200,3 +200,76 @@ class MondayPage(BasePage):
             return False
 
 
+    def get_fcc_npis(self):
+        time.sleep(2)
+        logger.info("Inside get PR Site Npis")
+        group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='FCC - November 2025 - Cardiology']")
+        group_container = self.driver.find_element(By.XPATH, "//div[@id='board-wrapper-first-level-content']")
+
+        npis = []
+        last_height = 0
+        same_height_count = 0  # to detect when we've reached the bottom
+
+        while True:
+            rows = group_container.find_elements(By.XPATH, ".//div[contains(@data-testid, 'item-')]")
+
+            for row in rows:
+                try:
+                    status = row.find_element(By.XPATH,
+                                              ".//div[contains(@class, 'col-identifier-status')]//div[@data-testid='text']").text
+                    if status.strip() == "Not Started":
+                        npi_number = row.find_element(By.XPATH,
+                                                      ".//div[contains(@class, 'col-identifier-text_mkt42ppc')]//div[@data-testid='text']").text
+                        effective_date = row.find_element(By.XPATH,
+                                                          ".//div[contains(@class, 'col-identifier-date4')]//span[contains(@class,'ds-text-component-content-text')]").text
+                        health_plan = row.find_element(By.XPATH,
+                                                       ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
+                        lob_list = []
+                        try:
+                            # Try finding the usual chips list container (for multiple LoBs)
+                            lob_containers = row.find_elements(By.XPATH,
+                                                               ".//div[contains(@class, 'chips-list-module_chips__CTQcD')]")
+
+                            if lob_containers:
+                                # Case 1: Multiple LoBs
+                                lob_chips = lob_containers[0].find_elements(By.XPATH, ".//div[@data-testid='chip']")
+                                for chip in lob_chips:
+                                    lob_text = chip.find_element(By.XPATH, ".//div[@data-testid='text']").text.strip()
+                                    if lob_text:
+                                        lob_list.append(lob_text)
+                            else:
+                                # Case 2: Single LoB (like 'Medicare')
+                                single_lob = row.find_element(By.XPATH,
+                                                              ".//div[@data-testid='chip']//div[@data-testid='text']").text.strip()
+                                lob_list.append(single_lob)
+
+                        except Exception as lob_error:
+                            print(f"Error extracting LoB: {lob_error}")
+
+                        lines_of_business = ", ".join(lob_list)
+                        entry = {
+                            "npi_number": npi_number.strip(),
+                            "effective_date": effective_date.strip(),
+                            "health_plan": health_plan.strip(),
+                            "lines_of_business": lines_of_business.strip()
+                        }
+                        if entry not in npis:
+                            npis.append(entry)
+                except Exception as e:
+                    print(f"Error in Monday.com while fetching data: {e}")
+
+            self.driver.execute_script("arguments[0].scrollBy(0, 500);", group_container)
+            time.sleep(1.5)
+
+            new_height = self.driver.execute_script("return arguments[0].scrollTop", group_container)
+            if new_height == last_height:
+                same_height_count += 1
+            else:
+                same_height_count = 0
+            last_height = new_height
+
+            if same_height_count > 2:
+                break
+            logger.info("Out from get PR Site Npis")
+
+        return npis
