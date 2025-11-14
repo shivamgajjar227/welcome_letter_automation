@@ -89,32 +89,6 @@ CATEGORY_MAP = {
         "DPT": "EX - EXTENDER",
     }
 
-SUFFIX_MAP = {
-        "ARNP": "ARNP",
-        "CRNA": "CRNA",
-        "CRNP": "CRNP",
-        "DC": "DC",
-        "DDS": "DDS",
-        "DO": "DO",
-        "DPM": "DPM",
-        "FNP": "FNP",
-        "LM": "LMW",
-        "MD": "MD",
-        "MID": "PA",
-        "ND": "ND",
-        "NMW": "NMW",
-        "NP": "NP",
-        "PA": "PA",
-        "PHD": "PHD",
-        "PT": "PT",
-        "RD": "RD",
-        "RN": "RN",
-        "PA-C": "PA-C",
-        "APRN": "PA",
-        "APN": "APN",
-        "DPT": "PA",
-    }
-
 STATE_DROPDOWN_MAP = {
         "Alabama": "AL - ALABAMA",
         "Alaska": "AK - ALASKA",
