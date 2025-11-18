@@ -28,7 +28,8 @@ class NpiWlaTU:
     TU_COMPANY_CHANGE_ANOTHER_NPI_ADDED = 18  # After company change, another NPI added through Edit
     TU_COMPANY_CHANGE_ANOTHER_HEALTH_PLAN_ADDED = 19  # After company change, health plan added for another NPI
     TU_COMPANY_CHANGE_ANOTHER_OTHER_IDS_ADDED = 20  # After company change,taxonomy and other IDs for another NPI added
-    TU_UPDATE_STATUS_ON_MONDAY = 21 # update this when successfully added npi on qc, mark as a review on monday or if data is not found(org data) mark as a roadblock
+    TU_SUCESSFULLY_ADDED = 21 #  All location add sucessfully in qc
+    TU_UPDATE_STATUS_ON_MONDAY = 22 # update this when successfully added npi on qc, mark as a review on monday or if data is not found(org data) mark as a roadblock
 
 
 
