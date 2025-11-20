@@ -71,15 +71,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
 
     try:
         structured_log(logger, "step_start", stage=StageName.PR_SITE_LG.value, task_id=metadata.task_id, step="login")
-        if prsite.is_login_page():
-            prsite.click_advanced()
-        else:
-            structured_log(
-                logger,
-                "login_skipped",
-                stage=StageName.PR_SITE_LG.value,
-                task_id=metadata.task_id,
-            )
         login_artifact = artifacts.capture_screenshot(driver, metadata, StageName.PR_SITE_LG, "after_login")
         stage_result.artifacts.append(login_artifact)
         structured_log(
@@ -92,7 +83,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         )
 
         structured_log(logger, "step_start", stage=StageName.PR_SITE_LG.value, task_id=metadata.task_id, step="open_board")
-        prsite.click_proceed_link()
         board_artifact = artifacts.capture_screenshot(driver, metadata, StageName.PR_SITE_LG, "board_loaded")
         stage_result.artifacts.append(board_artifact)
         structured_log(

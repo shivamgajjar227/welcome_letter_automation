@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     monday_status_enabled: bool = Field(True, env="MONDAY_STATUS_ENABLED")
     pr_site_enabled: bool = Field(True, env="PR_SITE_ENABLED")
     quickcap_enabled: bool = Field(True, env="QUICKCAP_ENABLED")
+    monday_lg_enabled: bool = Field(True, env="MONDAY_LG_ENABLED")
+    pr_site_lg_enabled: bool = Field(True, env="PR_SITE_LG_ENABLED")
+    sunbiz_lg_enabled: bool = Field(True, env="SUNBIZ_LG_ENABLED")
+    npi_registry_lg_enabled: bool = Field(True, env="NPI_REGISTRY_LG_ENABLED")
+
 
     auth_client_id: Optional[str] = Field(None, env="AUTH_CLIENT_ID")
     auth_client_secret: Optional[str] = Field(None, env="AUTH_CLIENT_SECRET")

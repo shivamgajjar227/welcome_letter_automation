@@ -128,6 +128,10 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
         StageName.MONDAY_STATUS: settings.monday_status_enabled,
         StageName.PR_SITE: settings.pr_site_enabled,
         StageName.QUICKCAP: settings.quickcap_enabled,
+        StageName.MONDAY_LG: settings.monday_lg_enabled,
+        StageName.PR_SITE_LG: settings.pr_site_lg_enabled,
+        StageName.NPI_REGISTRY_LG: settings.npi_registry_enabled,
+        StageName.SUNBIZ_LG: settings.sunbiz_enabled,
     }
 
     def register_stage(stage: StageName) -> None:
