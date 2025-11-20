@@ -15,7 +15,7 @@ from ..context import RunnerMetadata, StageName, StageResult
 from ..logging import structured_log
 from ..webhooks import post_webhook, fetch_stage_payload
 from monitoring import events
-
+from taskunits.wla_npi import NpiWlaTU
 logger = logging.getLogger(__name__)
 
 TASK_UNITS_BASE_URL = "http://0.0.0.0:10022/api/task_units"
@@ -59,7 +59,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
-    metadata.task_id = "9d52bd8d-b23d-4e5a-974d-72681deb8e8f"
     task_unit_dict: Dict[str, Dict[str, Any]] = _load_task_unit_dict(metadata.task_id)
     if not task_unit_dict:
         stage_result.mark_finished(success=True)
@@ -307,7 +306,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             continue
 
         try:
-            if record_status in {"21", "7"}:
+            if record_status in {"5", "7"}:
                 if first_iteration:
                     monday_page.click_search_button()
                     first_iteration = False
@@ -332,7 +331,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             break
 
                 if health_plan_match:
-                    if record_status == "21":
+                    if record_status == "5":
                         monday_page.click_not_started_for_matching_health_plans(
                             db_health_plan=health_plan)
                         monday_page.click_review_button()
@@ -522,13 +521,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             # time.sleep(1)
 
             # processed.append({"npi_number": npi, "status": "done"})
-            _record_state_transition(
-                record,
-                npi,
-                NpiWlaTU.TU_UPDATE_STATUS_ON_MONDAY,
-                "Monday Status updated",
-                micro_extra={"update_type": 1}
-            )
+
 
         except Exception as exc:  # pragma: no cover
             structured_log(
@@ -554,6 +547,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 input_snapshot=record,
                 output_snapshot=output_snapshot,
                 message=result_message,
+            )
+            _record_state_transition(
+                record,
+                npi,
+                NpiWlaTU.TU_UPDATE_STATUS_ON_MONDAY,
+                "Monday Status updated",
+                micro_extra={"update_type": 1}
             )
 
     payload = {

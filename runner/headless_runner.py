@@ -12,7 +12,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from . import artifacts
 from .browser import browser_session
 from .context import RunnerMetadata, RunnerResult, StageConfig, StageName, StageResult
-from .flows import monday, monday_status, pr_site, quickcap
+from .flows import monday, monday_status, pr_site, quickcap, monday_lg, pr_site_lg, sunbiz_lg, npi_registry_lg
 from .logging import configure_logging, structured_log
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,13 @@ StageCallable = Callable[[WebDriver, RunnerMetadata], StageResult]
 
 STAGE_IMPLEMENTATIONS: Dict[StageName, StageCallable] = {
     StageName.MONDAY: monday.run,
-    StageName.MONDAY_STATUS: monday_status.run,
     StageName.PR_SITE: pr_site.run,
     StageName.QUICKCAP: quickcap.run,
+    StageName.MONDAY_STATUS: monday_status.run,
+    StageName.MONDAY_LG: monday_lg.run,
+    StageName.PR_SITE_LG: pr_site_lg.run,
+    # StageName.SUNBIZ_LG: sunbiz_lg.run,
+    # StageName.NPI_REGISTRY_LG: npi_registry_lg.run,
 }
 
 

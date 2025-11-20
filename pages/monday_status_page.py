@@ -263,10 +263,10 @@ class MondayStatusPage(BasePage):
 
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located(
-                    (By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]"))
+                    (By.XPATH, "//div[@data-testid='chip']/div[@data-testid='text']"))
             )
 
-            all_chips = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+            all_chips = self.driver.find_elements(By.XPATH, "//div[@data-testid='chip']/div[@data-testid='text']")
             non_healthplans = ['Medicare', 'Medicaid', 'Commercial']
 
             for chip in all_chips:
@@ -278,9 +278,9 @@ class MondayStatusPage(BasePage):
             logger.info("Collected health plans from UI", extra={"count": len(health_plans)})
             return health_plans
 
-        except Exception:
+        except Exception as e:
             logger.exception("Error while collecting health plans from UI")
-            return None
+            return e
 
     def process_rows_and_enter_remarks(self, db_health_plan, db_effective_date, remarks_text):
         """
@@ -420,7 +420,7 @@ class MondayStatusPage(BasePage):
 
             # Get all rows
             rows = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'pulse-component-wrapper')]"))
+                EC.presence_of_all_elements_located((By.XPATH, ".//*[contains(text(), 'Not Started')]"))
             )
             logger.info("Found rows to evaluate for status updates", extra={"row_count": len(rows)})
 
@@ -433,7 +433,7 @@ class MondayStatusPage(BasePage):
                 row_health_plan = None
                 try:
                     health_plan_elements = row.find_elements(By.XPATH,
-                                                             ".//div[contains(@class, 'chips-list-module_chip__gp-E8')]")
+                                                             "//div[@data-testid='chip']/div[@data-testid='text']")
                     for element in health_plan_elements:
                         text = element.text.strip()
                         if text and text not in ['Medicare', 'Medicaid', 'Commercial']:
@@ -459,7 +459,7 @@ class MondayStatusPage(BasePage):
                     try:
                         # Click Not Started for this row
                         not_started_btn = row.find_element(By.XPATH,
-                                                           ".//div[contains(@class, 'status-cell-component')]")
+                                                           "//div[contains(@class, 'status-cell-component')]")
                         not_started_btn.click()
                         time.sleep(1)
                         logger.info(
@@ -468,8 +468,11 @@ class MondayStatusPage(BasePage):
                         )
 
                         matching_rows_count += 1
+                        break
+
 
                     except Exception as e:
+
                         logger.exception(
                             "Failed to click Not Started on row",
                             extra={"row_index": row_index + 1},

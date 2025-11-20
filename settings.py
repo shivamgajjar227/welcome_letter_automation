@@ -46,7 +46,7 @@ DEFAULT_USER_LOGIN_TOKEN_EXPIRATION_TIME = 43200
 APP_URL = f"{os.environ.get('APP_URI', 'https://mockurl.com')}"
 RESET_PASS_URL = f"{APP_URL}/resetpassword"
 SIGNUP_URL = f"{APP_URL}/signup"
-TWO_FACTOR_AUTHENTICATION = True
+TWO_FACTOR_AUTHENTICATION = False
 
 DEFAULT_ADMIN_NAME = "Admin"
 

@@ -72,18 +72,25 @@ class MondayPage(BasePage):
                                                        ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
                         lob_list = []
                         try:
-                            lob_container = row.find_element(By.XPATH,
-                                                             ".//div[contains(@class, 'chips-list-module_chips__CTQcD')]")
-                            lob_chips = lob_container.find_elements(By.XPATH,
-                                                                    ".//div[contains(@class, 'chips_e501d98fba')]")
+                            # Try finding the usual chips list container (for multiple LoBs)
+                            lob_containers = row.find_elements(By.XPATH,
+                                                               ".//div[contains(@class, 'chips-list-module_chips__CTQcD')]")
 
-                            for chip in lob_chips:
-                                lob_text = chip.find_element(By.XPATH,
-                                                             ".//div[contains(@class, 'text_6bad4c857c')]").text.strip()
-                                if lob_text:
-                                    lob_list.append(lob_text)
+                            if lob_containers:
+                                # Case 1: Multiple LoBs
+                                lob_chips = lob_containers[0].find_elements(By.XPATH, ".//div[@data-testid='chip']")
+                                for chip in lob_chips:
+                                    lob_text = chip.find_element(By.XPATH, ".//div[@data-testid='text']").text.strip()
+                                    if lob_text:
+                                        lob_list.append(lob_text)
+                            else:
+                                # Case 2: Single LoB (like 'Medicare')
+                                single_lob = row.find_element(By.XPATH,
+                                                              ".//div[@data-testid='chip']//div[@data-testid='text']").text.strip()
+                                lob_list.append(single_lob)
+
                         except Exception as lob_error:
-                            print(f"Error extracting LoB: {lob_error}")
+                                print(f"Error extracting LoB: {lob_error}")
 
                         lines_of_business = ", ".join(lob_list)
                         entry = {

@@ -90,7 +90,6 @@ def _load_task_unit_dict(task_id: str) -> Dict[str, Dict[str, Any]]:
 
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
-    metadata.task_id="79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
     stage_result = StageResult(stage=StageName.PR_SITE)
     task_unit_dict: Dict[str, Dict[str, Any]] = _load_task_unit_dict(metadata.task_id)
 
@@ -230,15 +229,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         record.setdefault("npi_number", npi)
         attempt = int(record.get("attempt", 1) or 1)
 
-        events.emit_npi_event(
-            task_id=metadata.task_id,
-            stage=StageName.PR_SITE,
-            npi=npi,
-            status="in_progress",
-            attempt=attempt,
-            stage_run_id=stage_run_id,
-            input_snapshot=record,
-        )
         artifact_start = len(stage_result.artifacts)
 
         try:
@@ -279,20 +269,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "Fetched provider personal details from PR Site",
                 data_payload=data,
             )
-            input_snapshot1 = {
-                "first_name": data["first_name"],
-                "last_name": data["last_name"],
-            }
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.PR_SITE,
-                npi=npi,
-                status="completed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=input_snapshot1,
-                output_snapshot=data,
-            )
+
             try:
                 pr_site_page.hover_over_practice_menu()
                 pr_site_page.enter_npi_search(npi)
@@ -317,28 +294,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "Fetched group practice addresses from PR Site",
                         data_payload=data,
                     )
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.PR_SITE,
-                        npi=npi,
-                        status="completed",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        output_snapshot=data,
-                    )
 
                 else:
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.PR_SITE,
-                        npi=npi,
-                        status="completed",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot={"npi": npi},
-                        output_snapshot=data,
-                        message="No Addresses Found for this NPI",
-                    )
                     _record_micro_update(
                         npi,
                         "No practice addresses found for this NPI on PR Site",
@@ -387,17 +344,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 stage=StageName.PR_SITE,
                 artifacts=npi_artifacts,
             )
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.PR_SITE,
-                npi=npi,
-                status="completed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                output_snapshot=data,
-                artifacts=artifact_refs,
-            )
         except Exception as exc:  # pragma: no cover
             failures.append({"npi_number": npi, "error": str(exc)})
             _record_state_transition(
@@ -427,18 +373,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 stage=StageName.PR_SITE,
                 artifacts=npi_artifacts,
             )
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.PR_SITE,
-                npi=npi,
-                status="failed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                output_snapshot={"error": str(exc)},
-                artifacts=artifact_refs,
-                message=str(exc),
-            )
+
 
     payload = {
         "task_id": metadata.task_id,

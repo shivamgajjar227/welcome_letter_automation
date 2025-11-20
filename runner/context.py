@@ -18,6 +18,11 @@ class StageName(str, Enum):
     PR_SITE = "pr_site_enrichment"
     QUICKCAP = "quickcap_submission"
     MONDAY_STATUS = "monday_status_update"
+    MONDAY_LG = "monday_lg"
+    PR_SITE_LG = "pr_site_lg"
+    SUNBIZ_LG = "sunbiz_lg"
+    NPI_REGISTRY_LG = "npi_registry_lg"
+
 
 
 def _default_task_id() -> str:

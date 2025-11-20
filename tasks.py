@@ -112,6 +112,16 @@ def build_metadata(enabled_stages: Iterable[StageName]) -> RunnerMetadata:
             settings.quickcap_password,
             settings.quickcap_base_url,
         ),
+        StageName.MONDAY_LG: (
+            settings.monday_username,
+            settings.monday_password,
+            settings.monday_base_url,
+        ),
+        StageName.PR_SITE_LG: (
+            settings.pr_site_username,
+            settings.pr_site_password,
+            settings.pr_site_login_url or settings.pr_site_base_url,
+        ),
     }
     stage_toggles = {
         StageName.MONDAY: settings.monday_enabled,
@@ -427,6 +437,190 @@ def run_pipeline(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]
             }
             for stage, record in result.stages.items()
         },
+    }
+
+@celery_app.task(name="tasks.run_monday_lg")
+def run_monday_lg(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
+    """Execute only the Monday ingestion stage."""
+    metadata = build_metadata(enabled_stages=[StageName.MONDAY_LG])
+    _ensure_stage_enabled(metadata, StageName.MONDAY_LG)
+    if task_id:
+        metadata.task_id = task_id
+    if payload:
+        metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.MONDAY_LG.value,
+    )
+    try:
+        result = run_headless_flow(metadata)
+    except Exception as exc:
+        send_status_update(
+            current_task_id,
+            "failed",
+            stage=StageName.MONDAY_LG.value,
+            message=str(exc),
+        )
+        raise
+
+    stage = result.stages.get(StageName.MONDAY_LG)
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
+    send_status_update(
+        current_task_id,
+        "completed" if stage and stage.success else "failed",
+        stage=StageName.MONDAY_LG.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
+    )
+    return {
+        "task_id": result.task_id,
+        "success": bool(stage and stage.success),
+        "artifacts": artifacts,
+        "data": stage.data if stage else {},
+    }
+
+@celery_app.task(name="tasks.run_pr_site_lg")
+def run_pr_site_lg(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
+    """Execute only the PR Site enrichment stage."""
+    metadata = build_metadata(enabled_stages=[StageName.PR_SITE_LG])
+    _ensure_stage_enabled(metadata, StageName.PR_SITE_LG)
+    if task_id:
+        metadata.task_id = task_id
+    if payload:
+        metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.PR_SITE_LG.value,
+    )
+    try:
+        result = run_headless_flow(metadata)
+    except Exception as exc:
+        send_status_update(
+            current_task_id,
+            "failed",
+            stage=StageName.PR_SITE_LG.value,
+            message=str(exc),
+        )
+        raise
+    stage = result.stages.get(StageName.PR_SITE_LG)
+    artifact = stage.artifacts
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
+    send_status_update(
+        current_task_id,
+        "completed" if stage and stage.success else "failed",
+        stage=StageName.PR_SITE_LG.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
+    )
+    return {
+        "task_id": result.task_id,
+        "success": bool(stage and stage.success),
+        "artifacts": artifacts,
+        "data": stage.data if stage else {},
+    }
+
+@celery_app.task(name="tasks.run_sunbiz_lg")
+def run_sunbiz_lg(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
+    """Execute only the PR Site enrichment stage."""
+    metadata = build_metadata(enabled_stages=[StageName.SUNBIZ_LG])
+    _ensure_stage_enabled(metadata, StageName.SUNBIZ_LG)
+    if task_id:
+        metadata.task_id = task_id
+    if payload:
+        metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.SUNBIZ_LG.value,
+    )
+    try:
+        result = run_headless_flow(metadata)
+    except Exception as exc:
+        send_status_update(
+            current_task_id,
+            "failed",
+            stage=StageName.SUNBIZ_LG.value,
+            message=str(exc),
+        )
+        raise
+    stage = result.stages.get(StageName.SUNBIZ_LG)
+    artifact = stage.artifacts
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
+    send_status_update(
+        current_task_id,
+        "completed" if stage and stage.success else "failed",
+        stage=StageName.SUNBIZ_LG.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
+    )
+    return {
+        "task_id": result.task_id,
+        "success": bool(stage and stage.success),
+        "artifacts": artifacts,
+        "data": stage.data if stage else {},
+    }
+
+@celery_app.task(name="tasks.run_npi_registry_lg")
+def run_npi_registry_lg(task_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None) -> dict:
+    """Execute only the PR Site enrichment stage."""
+    metadata = build_metadata(enabled_stages=[StageName.NPI_REGISTRY_LG])
+    _ensure_stage_enabled(metadata, StageName.NPI_REGISTRY_LG)
+    if task_id:
+        metadata.task_id = task_id
+    if payload:
+        metadata.request_payload = payload
+        if "headless" in payload:
+            metadata.headless = bool(payload["headless"])
+    current_task_id = task_id or metadata.task_id
+    send_status_update(
+        current_task_id,
+        "in_progress",
+        stage=StageName.NPI_REGISTRY_LG.value,
+    )
+    try:
+        result = run_headless_flow(metadata)
+    except Exception as exc:
+        send_status_update(
+            current_task_id,
+            "failed",
+            stage=StageName.NPI_REGISTRY_LG.value,
+            message=str(exc),
+        )
+        raise
+    stage = result.stages.get(StageName.NPI_REGISTRY_LG)
+    artifact = stage.artifacts
+    artifacts = [asdict(artifact) for artifact in stage.artifacts] if stage else []
+    send_status_update(
+        current_task_id,
+        "completed" if stage and stage.success else "failed",
+        stage=StageName.NPI_REGISTRY_LG.value,
+        result={
+            "data": stage.data if stage else {},
+            "artifacts": artifacts,
+        },
+    )
+    return {
+        "task_id": result.task_id,
+        "success": bool(stage and stage.success),
+        "artifacts": artifacts,
+        "data": stage.data if stage else {},
     }
 
 

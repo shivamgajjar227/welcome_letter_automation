@@ -15,7 +15,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 
 def pytest_addoption(parser):
-    parser.addoption("--browser", action="store", default="chrome")
+    parser.addoption("--browser", action="store", default="firefox")
     parser.addoption("--base-url", action="store", default="https://pnstest.quickcap.net")
     parser.addoption("--base-url1", action="store", default="https://pns-mgmt.monday.com/")
     parser.addoption("--base-url2", action="store", default="https://pss.ad.pns-mgmt.com/ProvPractice.aspx#s1")
@@ -24,7 +24,7 @@ def pytest_addoption(parser):
     """Add custom command line options"""
     try:
         parser.addoption("--base-url", action="store", default="", help="Base URL for tests")
-        parser.addoption("--browser", action="store", default="chrome", help="Browser to use")
+        parser.addoption("--browser", action="store", default="firefox", help="Browser to use")
         parser.addoption("--headless", action="store_true", help="Run in headless mode")
     except ValueError as e:
         # Options already exist, ignore the error
@@ -37,7 +37,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function")
 def driver(request):
-    browser = request.config.getoption("--browser")
+    browser = request.config.getoption("--firefox")
     driver = get_driver(browser)
     yield driver
     driver.quit()

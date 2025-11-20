@@ -177,8 +177,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         )
         pre_collect_artifact = artifacts.capture_screenshot(driver, metadata, StageName.MONDAY, "before_collect_npis")
         stage_result.artifacts.append(pre_collect_artifact)
-        # npis = monday_page.get_pr_site_npis()
-        npis = monday_page.get_fcc_npis()
+        npis = monday_page.get_pr_site_npis()
+        # npis = monday_page.get_fcc_npis()
         if not npis:
             """
             TODO Yash: update task units
@@ -373,16 +373,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         npi_value = str(record.get("npi_number") or record.get("npi") or record.get("id") or "")
         if not npi_value:
             continue
-        events.emit_npi_event(
-            task_id=metadata.task_id,
-            stage=StageName.MONDAY,
-            npi=npi_value,
-            status="completed",
-            attempt=int(record.get("attempt", 1) or 1),
-            stage_run_id=stage_run_id,
-            input_snapshot=record,
-            output_snapshot={"queued": True, "position": index},
-            artifacts=artifact_refs,
-        )
 
+    print("MONDAY SUCCESS =", stage_result.success)
     return stage_result
