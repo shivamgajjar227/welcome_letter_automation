@@ -24,11 +24,12 @@ class RequestAPi:
         response = requests.post(url, json=payload)
         return response.json()
 
-    def get_provider_id(plan_data):
+    def get_provider_id(plan_data, health_plan):
         url = "http://0.0.0.0:10022/api/check_missing_ids"
 
         payload = {
-            "ids": plan_data
+            "ids": plan_data,
+            "health_plan": health_plan,
         }
         response = requests.post(url, json=payload)
         return response.json()

@@ -1391,7 +1391,8 @@ class QuickcapPage(BasePage):
                 ],
                 "dermatology": [
                     "//li[contains(normalize-space(), 'D - DERMATOLOGY')]",
-                    "//li[contains(normalize-space(), 'D - Dermatology')]"
+                    "//li[contains(normalize-space(), 'D - Dermatology')]",
+                    "//li[contains(normalize-space(), 'DE - Dermatology')]",
                 ],
                 "orthopedic": [
                     "//li[contains(normalize-space(), 'ORT - ORTHOPEDICS')]",
@@ -1401,7 +1402,8 @@ class QuickcapPage(BasePage):
                     "//li[contains(normalize-space(), 'APM - Anesthesiology/Pain Management')]"
                 ],
                 "cardiology": [
-                    "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]"
+                    "//li[contains(normalize-space(), 'CAR - CARDIOLOGY')]",
+                    "//li[contains(normalize-space(), 'CA - Cardiology')]",
                 ],
                 "neurology": [
                     "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]"
@@ -1462,7 +1464,7 @@ class QuickcapPage(BasePage):
 
         return "A"
 
-    def provider_table_rows(self):
+    def provider_table_rows(self, health_plan):
         logger.info(f"Inside Provider Table Rows")
         try:
             rows = WebDriverWait(self.driver, 10).until(
@@ -1477,7 +1479,7 @@ class QuickcapPage(BasePage):
                     plan_data.append(plan)
 
                     # Get provider_id from API
-                    provider_id = api.pr_site_data.RequestAPi.get_provider_id(plan_data)
+                    provider_id = api.pr_site_data.RequestAPi.get_provider_id(plan_data,health_plan)
 
                 except Exception as e:
                     print(e)
@@ -1709,6 +1711,80 @@ class QuickcapPage(BasePage):
             print(f"Error in click_provider_id: {e}")
             return False
 
+    def click_provider_id_01(self, provider_id: str):
+        logger.info("Inside Click Provider ID")
+        try:
+            dropdown_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.provider_id_dropdown)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", dropdown_element)
+
+            select = Select(dropdown_element)
+
+            last_letter = provider_id.strip()[-2] if provider_id else '(01)'
+            if not last_letter:
+                logger.error("Target provider_id is empty")
+                return False
+
+            matched = False
+            for option in select.options:
+                option_text = option.text.strip()
+                if option_text.endswith(f"({last_letter})"):
+                    select.select_by_visible_text(option_text)
+                    logger.info(f"Selected Provider ID from dropdown: {option_text}")
+                    matched = True
+                    break
+
+            if not matched:
+                logger.warning(f"No Provider ID matched with last letter: {last_letter}")
+                return False
+
+            logger.info("Out from Click Provider ID")
+            return True
+
+        except Exception as e:
+            print(f"Error in click_provider_id: {e}")
+            return False
+
+    def click_provider_id_01(self, provider_id: str):
+        logger.info("Inside Click Provider ID")
+        try:
+            dropdown_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(self.provider_id_dropdown)
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", dropdown_element)
+
+            select = Select(dropdown_element)
+
+            if not provider_id:
+                logger.error("Target provider_id is empty")
+                return False
+
+            # Extract last 2 digits → ensure format is 01, 02, 03...
+            last_two = provider_id.strip()[-2:].rjust(2, "0")
+            target_suffix = f"({last_two})"
+            logger.info(f"Looking for provider suffix: {target_suffix}")
+
+            matched = False
+            for option in select.options:
+                option_text = option.text.strip()
+                if option_text.endswith(target_suffix):
+                    select.select_by_visible_text(option_text)
+                    logger.info(f"Selected Provider ID: {option_text}")
+                    matched = True
+                    break
+
+            if not matched:
+                logger.warning(f"No Provider ID matched with suffix: {target_suffix}")
+                return False
+
+            logger.info("Out from Click Provider ID")
+            return True
+
+        except Exception as e:
+            print(f"Error in click_provider_id: {e}")
+            return False
+
     def enter_taxonomy_code(self, value):
         logger.info(f"Inside Enter Taxonomy Code:{value}")
         try:
@@ -1772,6 +1848,36 @@ class QuickcapPage(BasePage):
             print(f"Error in click_edit_for_healthplan_for_A: {e}")
             return False
 
+    def click_edit_for_healthplan_for_01(self):
+        logger.info("Inside Click Edit Button for Healthplan (looking for IDs ending with 'A')")
+        try:
+            rows = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//tr[@onmouseover='QL_MOver(this)']"))
+            )
+
+            for row in rows:
+                try:
+                    provider_id_text = row.find_element(By.XPATH, "./td[2]").text.strip()
+
+                    if provider_id_text and provider_id_text.endswith("(01)"):
+                        logger.info(f"Found matching provider row: {provider_id_text}")
+                        edit_btn = row.find_element(By.XPATH, ".//img[@title='Edit']")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
+                        edit_btn.click()
+                        logger.info("Clicked Edit Button successfully")
+                        return True
+
+                except Exception as inner_e:
+                    logger.warning(f"Skipping row due to error: {inner_e}")
+                    continue
+
+            logger.error("No provider ID found in table ending with 'A'")
+            return False
+
+        except Exception as e:
+            print(f"Error in click_edit_for_healthplan_for_01: {e}")
+            return False
+
     def click_provider_id_for_A(self):
         try:
             # Step 1: Locate the select element
@@ -1796,6 +1902,32 @@ class QuickcapPage(BasePage):
         except Exception as e:
             print(f"❌ Error in select_npi_ending_with_A: {e}")
             return False
+
+    def click_provider_id_for_01(self):
+        try:
+            # Step 1: Locate the select element
+            select_element = self.wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//tbody/tr/td/select[contains(@name,'new_provider_id')]"))
+            )
+
+            # Step 2: Wrap it with Select
+            select = Select(select_element)
+
+            # Step 3: Loop through options to find one ending with (A)
+            for option in select.options:
+                text = option.text.strip()
+                if text.endswith("(01)"):
+                    select.select_by_visible_text(text)
+                    print(f"✅ Selected NPI: {text}")
+                    return True
+
+            print("⚠️ No NPI ending with (01) found.")
+            return False
+
+        except Exception as e:
+            print(f"❌ Error in select_npi_ending_with_01: {e}")
+            return False
+
 
     def expand_menu_if_cigna(self, company_name: str):
         """

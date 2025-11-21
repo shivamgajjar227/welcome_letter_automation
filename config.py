@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     pr_site_login_url: Optional[str] = Field(None, env="PR_SITE_LOGIN_URL")
 
     quickcap_username: Optional[str] = Field("autoprocess@pns-mgmt.com", env="QUICKCAP_USERNAME")
-    quickcap_password: Optional[str] = Field("Pns@072025", env="QUICKCAP_PASSWORD")
+    quickcap_password: Optional[str] = Field("Pns@#111125", env="QUICKCAP_PASSWORD")
     quickcap_base_url: str = Field("https://pnstest.quickcap.net", env="QUICKCAP_BASE_URL")
 
     selenium_url: Optional[str] = Field(None, env="SELENIUM_URL")

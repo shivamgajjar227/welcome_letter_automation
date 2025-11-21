@@ -644,7 +644,7 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
-    metadata.task_id = "79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
+
     """
     TODO Yash:
     In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
@@ -652,23 +652,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
-
-    structured_log(
-        logger,
-        "stage_started",
-        stage=StageName.QUICKCAP.value,
-        task_id=metadata.task_id,
-        stage_run_id=stage_run_id,
-    )
-    events.emit_stage_event(
-        task_id=metadata.task_id,
-        stage=StageName.QUICKCAP,
-        event="stage_started",
-        status="in_progress",
-        stage_run_id=stage_run_id,
-        started_at=stage_started_at.isoformat(),
-    )
-
+    metadata.task_id = "52b0ca7d-8381-4fca-bf74-9ee4c8b9b6ae"
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
     records: List[Dict[str, Any]] = _flatten_quickcap_records(list(task_unit_dict.values()))
 
@@ -685,18 +669,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         stage_result.data["processed"] = []
         stage_result.data["failed"] = []
         finished_at = _dt.datetime.now(_dt.timezone.utc)
-        events.emit_stage_event(
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP,
-            event="stage_completed",
-            status="completed",
-            stage_run_id=stage_run_id,
-            started_at=stage_started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
-            summary={"records_total": 0, "records_success": 0, "records_failed": 0},
-            artifacts=stage_artifact_refs,
-        )
         return stage_result
 
     def _task_unit_for_npi(npi_value: str) -> Optional[Dict[str, Any]]:
@@ -711,25 +683,31 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         return None
 
     def _record_state_transition(
-        record: Dict[str, Any],
-        npi_value: str,
-        new_state: int,
-        message: str,
-        micro_extra: Optional[Dict[str, Any]] = None,
+            npi_value: str,
+            new_state: int,
+            message: str,
+            data_payload: Optional[Dict[str, Any]] = None,
+            micro_extra: Optional[Dict[str, Any]] = None,
     ) -> None:
-        task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
-        payload = {
+        task_unit = _task_unit_for_npi(npi_value)
+        if not task_unit:
+            logger.debug("Task unit not found for NPI %s; skipping state update", npi_value)
+            return
+        update_meta = {"npi": npi_value}
+        if data_payload:
+            update_meta.update(data_payload)
+        state_update_payload = {
             "updates": [
                 {
                     "task_unit_id": task_unit["task_unit_id"],
                     "state": str(new_state),
                     "transition_reason": message,
                     "state_value": 0,
-                    "meta_data": task_unit,
+                    "meta_data": update_meta,
                 }
             ]
         }
-        post_update_state_task_units(payload=payload)
+        post_update_state_task_units(payload=state_update_payload)
         task_unit["current_state"] = new_state
         update_data = {"message": message, "npi": npi_value}
         if micro_extra:
@@ -743,8 +721,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         "task_unit_id": task_unit["task_unit_id"],
                         "update_state": new_state,
                         "update_data": update_data,
-                        "update_type": micro_extra.get("update_type",0),
-                        "message": message
                     }
                 ]
             }
@@ -810,24 +786,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             artifacts.capture_screenshot(driver, metadata, StageName.QUICKCAP, "login_failure")
         )
         stage_result.mark_finished(success=False, error=str(exc))
-        finished_at = _dt.datetime.now(_dt.timezone.utc)
-        events.emit_stage_event(
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP,
-            event="stage_failed",
-            status="failed",
-            stage_run_id=stage_run_id,
-            started_at=stage_started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            duration_ms=int((finished_at - stage_started_at).total_seconds() * 1000),
-            message=str(exc),
-            artifacts=[],
-        )
         return stage_result
     current_company = None
     processed: List[Dict] = []
     failures: List[Dict] = []
-    processor = QuickcapProcessor(quickcap_page)
 
     for record in records:
         npi = str(
@@ -835,15 +797,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         ).strip()
         attempt = int(record.get("attempt", 1) or 1)
         record.setdefault("npi_number", npi)
-        events.emit_npi_event(
-            task_id=metadata.task_id,
-            stage=StageName.QUICKCAP,
-            npi=npi or "unknown",
-            status="in_progress",
-            attempt=attempt,
-            stage_run_id=stage_run_id,
-            input_snapshot=record,
-        )
+
         if not npi:
             failures.append({"reason": "missing_npi", "record": record})
             _record_micro_update(
@@ -859,7 +813,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             "npi_number": npi or record.get("npi"),
             "status": "submitted",
         }
-        artifact_start_idx = len(stage_result.artifacts)
+
         try:
             structured_log(
                 logger,
@@ -893,7 +847,16 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             network = (network or "").strip().lower()
             health_plan = (health_plan or "").strip().lower()
 
-            company_name = constants.COMPANY_MAP.get(network, {}).get(health_plan)
+            if not taxonomy_code:
+                status = "completed"
+                continue
+            if not address_line1:
+                status = "completed"
+                continue
+            if health_plan == "fcc":
+                company_name = "FCC Plans"
+            else:
+                company_name = constants.COMPANY_MAP.get(network, {}).get(health_plan)
             if not company_name:
                 print(
                     f"Could not map company for network '{network}' and health plan '{health_plan}', skipping.")
@@ -950,7 +913,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.switch_to_new_window1()
                         print("Provider Setup")
                         quickcap_page.click_provider_button()
-                        provider_id = quickcap_page.provider_table_rows()
+                        provider_id = quickcap_page.provider_table_rows(health_plan)
                         quickcap_page.click_add_provider()
                         quickcap_page.switch_to_new_window1()
                         quickcap_page.enter_provider_letter(provider_id)
@@ -1126,7 +1089,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.click_other_ids()
                         quickcap_page.click_add_plus()
                         quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                        quickcap_page.click_provider_id(provider_id)
+                        if health_plan == "fcc":
+                            quickcap_page.click_provider_id_01(provider_id)
+                        else:
+                            quickcap_page.click_provider_id(provider_id)
                         quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                         quickcap_page.click_save_taxonomy()
                         """
@@ -1180,6 +1146,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.select_provider_type_dropdown(category, network, speciality)
                 quickcap_page.select_speciality(network)
                 quickcap_page.click_quick_add_window_npi_button(npi_number)
+                if health_plan == "fcc":
+                    quickcap_page.enter_provider_id(f"{npi_number}(01)")
                 quickcap_page.enter_provider_id(f"{npi_number}(A)")
                 quickcap_page.enter_last_first_name(last_name or "", first_name or "")
                 gender_map = {
@@ -1284,7 +1252,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 # time.sleep(3)
                 quickcap_page.switch_to_new_window()
                 quickcap_page.click_provider_button()
-                quickcap_page.click_edit_for_healthplan_for_A()
+                if health_plan == "fcc":
+                    quickcap_page.click_edit_for_healthplan_for_01()
+                else:
+                    quickcap_page.click_edit_for_healthplan_for_A()
                 quickcap_page.click_healthplan_panel()
                 quickcap_page.switch_to_new_window1()
                 full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
@@ -1311,7 +1282,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.click_other_ids()
                 quickcap_page.click_add_plus()
                 quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                quickcap_page.click_provider_id_for_A()
+                if health_plan == "fcc":
+                    quickcap_page.click_provider_id_for_01()
+                else:
+                    quickcap_page.click_provider_id_for_A()
                 quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                 quickcap_page.click_save_taxonomy()
                 """
@@ -1364,14 +1338,15 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             # quickcap_page.get_company_xpath("DNSHUMANA")
             # time.sleep(3)
             quickcap_page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
-            quickcap_page.enter_password_in_company_prompt("Pns@072025")
+            quickcap_page.enter_password_in_company_prompt("Pns@#111125")
             quickcap_page.click_login_button_in_company_prompt()
             """
             TODO Yash: update task unit
              change company
             """
             # time.sleep(3)
-            quickcap_page.switch_to_main()
+            # quickcap_page.switch_to_main()
+            quickcap_page.switch_back_to_main()
             current_company = company_name
             _record_state_transition(
                 record,
@@ -1412,7 +1387,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     # time.sleep(3)
                     quickcap_page.switch_to_new_window1()
                     quickcap_page.click_provider_button()
-                    provider_id = quickcap_page.provider_table_rows()
+                    provider_id = quickcap_page.provider_table_rows(health_plan)
                     quickcap_page.click_add_provider()
                     quickcap_page.switch_to_new_window()
                     quickcap_page.enter_provider_letter(provider_id)
@@ -1590,7 +1565,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_other_ids()
                     quickcap_page.click_add_plus()
                     quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                    quickcap_page.click_provider_id(provider_id)
+                    if health_plan == "fcc":
+                        quickcap_page.click_provider_id_01(provider_id)
+                    else:
+                        quickcap_page.click_provider_id(provider_id)
                     quickcap_page.enter_taxonomy_code(taxonomy_code or "")
                     quickcap_page.click_save_taxonomy()
                     """
@@ -1661,7 +1639,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.select_provider_type_dropdown(category, network, speciality)
             quickcap_page.select_speciality(network)
             quickcap_page.click_quick_add_window_npi_button(npi_number)
-            quickcap_page.enter_provider_id(f"{npi_number}(A)")
+            if health_plan == "fcc":
+                quickcap_page.enter_provider_id(f"{npi_number}(01)")
+            else:
+                quickcap_page.enter_provider_id(f"{npi_number}(A)")
             quickcap_page.enter_last_first_name(last_name or "", first_name or "")
             gender_map = {
                 "Male": "M - Male", "M": "M - Male",
@@ -1760,7 +1741,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             # time.sleep(3)
             quickcap_page.switch_to_new_window()
             quickcap_page.click_provider_button()
-            quickcap_page.click_edit_for_healthplan_for_A()
+            if health_plan == "fcc":
+                quickcap_page.click_edit_for_healthplan_for_01()
+            else:
+                quickcap_page.click_edit_for_healthplan_for_A()
             quickcap_page.click_healthplan_panel()
             """
            TODO Yash: update task unit
@@ -1787,7 +1771,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.click_other_ids()
             quickcap_page.click_add_plus()
             quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-            quickcap_page.click_provider_id_for_A()
+            if health_plan == "fcc":
+                quickcap_page.click_edit_for_healthplan_for_01()
+            else:
+                quickcap_page.click_edit_for_healthplan_for_A()
             quickcap_page.enter_taxonomy_code(taxonomy_code or "")
             quickcap_page.click_save_taxonomy()
             """
@@ -1847,6 +1834,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             )
             output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
         except QuickcapValidationError as exc:
+
             failure_entry = {"npi_number": npi or record.get("npi"), "error": exc.reason or str(exc)}
             failures.append(failure_entry)
             stage_result.artifacts.append(
@@ -1925,7 +1913,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 _record_state_transition(
                     record,
                     npi,
-                    NpiWlaTU.TU_UPDATE_STATUS_ON_MONDAY,
+                    NpiWlaTU.TU_SUCESSFULLY_ADDED,
                     "QuickCap submission completed",
                     micro_extra={"update_type":1}
                 )
