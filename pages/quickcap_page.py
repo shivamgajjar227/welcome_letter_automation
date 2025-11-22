@@ -11,6 +11,7 @@ from pages.base_page import BasePage
 from selenium.common.exceptions import TimeoutException, NoSuchElementException,ElementClickInterceptedException
 from core import loggin_utils
 import logging
+from datetime import datetime
 
 log_name =  "QuickcapPage"
 logger_setup = loggin_utils.setup_logger(log_name, level='INFO')
@@ -661,7 +662,10 @@ class QuickcapPage(BasePage):
                 ],
                 "neurology": [
                     "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]"
-                ]
+                ],
+                # "chiropractic": [
+                #     "//li[contains(normalize-space(), 'CH - Chiropractic')]"
+                # ]
             }
 
             # Step 3: Get XPaths for given network
@@ -1407,6 +1411,9 @@ class QuickcapPage(BasePage):
                 ],
                 "neurology": [
                     "//li[contains(normalize-space(), 'NEU - NEUROLOGY')]"
+                ],
+                "chiropractic": [
+                    "//li[contains(normalize-space(), 'CH - Chiropractic')]"
                 ]
             }
 
@@ -1956,6 +1963,30 @@ class QuickcapPage(BasePage):
         except:
             return False
 
+    def parse_effective_date(self, effective_date: str) -> str:
+        effective_date = effective_date.strip()
+
+        # Try multiple formats
+        possible_formats = [
+            "%b %d, %Y",  # Apr 30, 2024
+            "%b %d %Y",  # Apr 30 2024
+            "%b %d",  # Nov 1   (no year)
+        ]
+
+        for fmt in possible_formats:
+            try:
+                # If year not present, add a default year
+                if fmt == "%b %d":
+                    dt = datetime.strptime(effective_date, fmt)
+                    dt = dt.replace(year=2025)
+                else:
+                    dt = datetime.strptime(effective_date, fmt)
+
+                return dt.strftime("%m/%d/%Y")
+            except ValueError:
+                continue
+
+        raise ValueError(f"Unknown date format: {effective_date}")
 
 
 

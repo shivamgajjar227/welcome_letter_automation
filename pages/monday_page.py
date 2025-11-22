@@ -203,7 +203,7 @@ class MondayPage(BasePage):
     def get_fcc_npis(self):
         time.sleep(2)
         logger.info("Inside get PR Site Npis")
-        group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='FCC - November 2025 - Cardiology']")
+        group = self.driver.find_element(By.XPATH, "//div[contains(@data-testid, 'heading')]//text2[text()='FCC - November 2025 - Chiropractic']")
         group_container = self.driver.find_element(By.XPATH, "//div[@id='board-wrapper-first-level-content']")
 
         npis = []
