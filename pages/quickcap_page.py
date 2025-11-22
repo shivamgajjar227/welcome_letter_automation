@@ -1718,40 +1718,6 @@ class QuickcapPage(BasePage):
             print(f"Error in click_provider_id: {e}")
             return False
 
-    def click_provider_id_01(self, provider_id: str):
-        logger.info("Inside Click Provider ID")
-        try:
-            dropdown_element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(self.provider_id_dropdown)
-            )
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", dropdown_element)
-
-            select = Select(dropdown_element)
-
-            last_letter = provider_id.strip()[-2] if provider_id else '(01)'
-            if not last_letter:
-                logger.error("Target provider_id is empty")
-                return False
-
-            matched = False
-            for option in select.options:
-                option_text = option.text.strip()
-                if option_text.endswith(f"({last_letter})"):
-                    select.select_by_visible_text(option_text)
-                    logger.info(f"Selected Provider ID from dropdown: {option_text}")
-                    matched = True
-                    break
-
-            if not matched:
-                logger.warning(f"No Provider ID matched with last letter: {last_letter}")
-                return False
-
-            logger.info("Out from Click Provider ID")
-            return True
-
-        except Exception as e:
-            print(f"Error in click_provider_id: {e}")
-            return False
 
     def click_provider_id_01(self, provider_id: str):
         logger.info("Inside Click Provider ID")

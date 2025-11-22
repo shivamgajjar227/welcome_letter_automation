@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
 from uuid import uuid4
 
+from selenium.common import TimeoutException
 from selenium.webdriver.remote.webdriver import WebDriver
 
 import constants
@@ -652,7 +653,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
-    metadata.task_id = "52b0ca7d-8381-4fca-bf74-9ee4c8b9b6ae"
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
     records: List[Dict[str, Any]] = _flatten_quickcap_records(list(task_unit_dict.values()))
 
@@ -732,7 +732,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         message: str,
         extra: Optional[Dict[str, Any]] = None,
         state_override: Optional[int] = None,
-    ) -> None:
+    update_data=None) -> None:
         task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
@@ -919,8 +919,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.enter_provider_letter(provider_id)
                         quickcap_page.enter_last_name(last_name or "")
                         quickcap_page.enter_first_name(first_name or "")
-                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                            "%m/%d/%Y")
+                        # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                        #     "%m/%d/%Y")
+                        quickcap_page.parse_effective_date(effective_date)
                         quickcap_page.enter_effective_date(full_date)
                         quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
                         quickcap_page.select_speciality1(network)
@@ -1064,8 +1065,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         """
                         quickcap_page.click_healthplan_panel()
                         quickcap_page.switch_to_new_window1()
-                        full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                            "%m/%d/%Y")
+                        # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                        #     "%m/%d/%Y")
+                        full_date = quickcap_page.parse_effective_date(effective_date)
                         quickcap_page.enter_membership_date(full_date or "")
                         quickcap_page.click_plus_button()
                         quickcap_page.click_save_healthplan()
@@ -1089,19 +1091,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         quickcap_page.click_other_ids()
                         quickcap_page.click_add_plus()
                         quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                        if health_plan == "fcc":
-                            quickcap_page.click_provider_id_01(provider_id)
-                        else:
-                            quickcap_page.click_provider_id(provider_id)
-                        quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                        quickcap_page.click_save_taxonomy()
-                        """
-                        TODO Yash: update task unit
-                        taxonomy added successfully  
-                        """
-                        if quickcap_page.driver.current_window_handle != main_window:
-                            quickcap_page.driver.close()
-                            quickcap_page.driver.switch_to.window(main_window)
+                        try:
+                            if health_plan == "fcc":
+                                quickcap_page.click_provider_id_01(provider_id)
+                            else:
+                                quickcap_page.click_provider_id(provider_id)
+                            quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                            quickcap_page.click_save_taxonomy()
+                            """
+                            TODO Yash: update task unit
+                            taxonomy added successfully  
+                            """
+                            if quickcap_page.driver.current_window_handle != main_window:
+                                quickcap_page.driver.close()
+                                quickcap_page.driver.switch_to.window(main_window)
+                        except Exception as e:
+                            status = "failed"
+                            message = "Taxonomy entry failed"
+                            output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                            continue
 
                         enriched: List[Dict] = [
                             {
@@ -1121,8 +1129,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         }
                         post_webhook(metadata, StageName.QUICKCAP, data1)
                         print(f" NPI {npi_number} processed successfully.\n")
+                        status = "completed"
                         message = "Address added successfully"
-                        output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                        output_snapshot = {"npi_number": npi_number or npi, "status": "completed"}
                         events.emit_npi_event(
                             task_id=metadata.task_id,
                             stage=StageName.QUICKCAP,
@@ -1156,7 +1165,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 }
                 selected_gender = gender_map.get(gender.strip(), "") if gender else ""
                 quickcap_page.select_gender(selected_gender)
-                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+                # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+                full_date = quickcap_page.parse_effective_date(effective_date)
                 quickcap_page.enter_contract_from_date(full_date)
                 quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
                 quickcap_page.select_payment_type("FEE FOR SERVICE")
@@ -1258,8 +1268,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_edit_for_healthplan_for_A()
                 quickcap_page.click_healthplan_panel()
                 quickcap_page.switch_to_new_window1()
-                full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                    "%m/%d/%Y")
+                # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                #     "%m/%d/%Y")
+                full_date = quickcap_page.parse_effective_date(effective_date)
                 quickcap_page.enter_membership_date(full_date or "")
                 quickcap_page.click_plus_button()
                 quickcap_page.click_save_healthplan()
@@ -1282,19 +1293,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 quickcap_page.click_other_ids()
                 quickcap_page.click_add_plus()
                 quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                if health_plan == "fcc":
-                    quickcap_page.click_provider_id_for_01()
-                else:
-                    quickcap_page.click_provider_id_for_A()
-                quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                quickcap_page.click_save_taxonomy()
-                """
-                TODO Yash: update task unit
-                taxonomy added successfully 
-                """
-                if quickcap_page.driver.current_window_handle != main_window:
-                    quickcap_page.driver.close()
-                    quickcap_page.driver.switch_to.window(main_window)
+                try:
+                    if health_plan == "fcc":
+                        quickcap_page.click_provider_id_for_01()
+                    else:
+                        quickcap_page.click_provider_id_for_A()
+                    quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                    quickcap_page.click_save_taxonomy()
+                    """
+                    TODO Yash: update task unit
+                    taxonomy added successfully 
+                    """
+                    if quickcap_page.driver.current_window_handle != main_window:
+                        quickcap_page.driver.close()
+                        quickcap_page.driver.switch_to.window(main_window)
+                except Exception as e:
+                    status = "failed"
+                    message = "Taxonomy entry failed"
+                    output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                    continue
                 enriched: List[Dict] = [
                     {
                         "address_line1": address_line1,
@@ -1318,7 +1335,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 address already added 
                 """
                 message = "Address added successfully"
-                output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                output_snapshot = {"npi_number": npi_number or npi, "status": "completed"}
                 events.emit_npi_event(
                     task_id=metadata.task_id,
                     stage=StageName.QUICKCAP,
@@ -1393,8 +1410,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.enter_provider_letter(provider_id)
                     quickcap_page.enter_last_name(last_name or "")
                     quickcap_page.enter_first_name(first_name or "")
-                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                        "%m/%d/%Y")
+                    # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                    #     "%m/%d/%Y")
+                    full_date = quickcap_page.parse_effective_date(effective_date)
                     quickcap_page.enter_effective_date(full_date)
                     quickcap_page.select_contract_type1("CONTRACT FEE FOR SERVICE")
                     quickcap_page.select_speciality1(network)
@@ -1541,8 +1559,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_healthplan_panel()
 
                     quickcap_page.switch_to_new_window1()
-                    full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                        "%m/%d/%Y")
+                    # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+                    #     "%m/%d/%Y")
+                    full_date = quickcap_page.parse_effective_date(effective_date)
                     quickcap_page.enter_membership_date(full_date or "")
                     quickcap_page.click_plus_button()
                     quickcap_page.click_save_healthplan()
@@ -1565,19 +1584,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_other_ids()
                     quickcap_page.click_add_plus()
                     quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-                    if health_plan == "fcc":
-                        quickcap_page.click_provider_id_01(provider_id)
-                    else:
-                        quickcap_page.click_provider_id(provider_id)
-                    quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-                    quickcap_page.click_save_taxonomy()
-                    """
-                   TODO Yash: update task unit
-                   taxonomy added
-                   """
-                    if quickcap_page.driver.current_window_handle != main_window:
-                        quickcap_page.driver.close()
-                        quickcap_page.driver.switch_to.window(main_window)
+                    try:
+                        if health_plan == "fcc":
+                            quickcap_page.click_provider_id_01(provider_id)
+                        else:
+                            quickcap_page.click_provider_id(provider_id)
+                        quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                        quickcap_page.click_save_taxonomy()
+                        """
+                       TODO Yash: update task unit
+                       taxonomy added
+                       """
+                        if quickcap_page.driver.current_window_handle != main_window:
+                            quickcap_page.driver.close()
+                            quickcap_page.driver.switch_to.window(main_window)
+                    except Exception as e:
+                        status = "failed"
+                        message = "Taxonomy entry failed"
+                        output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                        continue
                     enriched: List[Dict] = [
                         {
                             "address_line1": address_line1,
@@ -1606,7 +1631,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     # ).update({"update": 1}, synchronize_session=False)
                     # db.commit()
                     message = "Address added successfully"
-                    output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+                    output_snapshot = {"npi_number": npi_number or npi, "status": "completed"}
                     events.emit_npi_event(
                         task_id=metadata.task_id,
                         stage=StageName.QUICKCAP,
@@ -1650,7 +1675,8 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             }
             selected_gender = gender_map.get(gender.strip(), "") if gender else ""
             quickcap_page.select_gender(selected_gender)
-            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+            # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime("%m/%d/%Y")
+            full_date = quickcap_page.parse_effective_date(effective_date)
             quickcap_page.enter_contract_from_date(full_date)
             quickcap_page.select_contract_type("CONTRACT FEE FOR SERVICE")
             quickcap_page.select_payment_type("FEE FOR SERVICE")
@@ -1751,8 +1777,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
            heathplan added(quick add)
            """
             quickcap_page.switch_to_new_window1()
-            full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
-                "%m/%d/%Y")
+            # full_date = datetime.strptime(effective_date.strip() + " 2025", "%b %d %Y").strftime(
+            #     "%m/%d/%Y")
+            full_date = quickcap_page.parse_effective_date(effective_date)
             quickcap_page.enter_membership_date(full_date or "")
             quickcap_page.click_plus_button()
             quickcap_page.click_save_healthplan()
@@ -1771,19 +1798,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.click_other_ids()
             quickcap_page.click_add_plus()
             quickcap_page.select_taxonomy("TAXONOMY - TAXONOMY")
-            if health_plan == "fcc":
-                quickcap_page.click_edit_for_healthplan_for_01()
-            else:
-                quickcap_page.click_edit_for_healthplan_for_A()
-            quickcap_page.enter_taxonomy_code(taxonomy_code or "")
-            quickcap_page.click_save_taxonomy()
-            """
-           TODO Yash: update task unit
-           taxonomy added(quick add)
-           """
-            if quickcap_page.driver.current_window_handle != main_window:
-                quickcap_page.driver.close()
-                quickcap_page.driver.switch_to.window(main_window)
+            try:
+                if health_plan == "fcc":
+                    quickcap_page.click_edit_for_healthplan_for_01()
+                else:
+                    quickcap_page.click_edit_for_healthplan_for_A()
+                quickcap_page.enter_taxonomy_code(taxonomy_code or "")
+                quickcap_page.click_save_taxonomy()
+                """
+               TODO Yash: update task unit
+               taxonomy added(quick add)
+               """
+                if quickcap_page.driver.current_window_handle != main_window:
+                    quickcap_page.driver.close()
+                    quickcap_page.driver.switch_to.window(main_window)
+            except Exception as e:
+                status = "failed"
+                message = "Taxonomy entry failed"
+                output_snapshot = {"npi_number": npi_number or npi, "error": message}
+                continue
             enriched: List[Dict] = [
                 {
                     "address_line1": address_line1,
@@ -1801,8 +1834,9 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 "records": enriched
             }
             post_webhook(metadata, StageName.QUICKCAP, data1)
+            status = "completed"
             message = "Address added successfully"
-            output_snapshot = {"npi_number": npi_number or npi, "status": "submitted"}
+            output_snapshot = {"npi_number": npi_number or npi, "status": "completed"}
             events.emit_npi_event(
                 task_id=metadata.task_id,
                 stage=StageName.QUICKCAP,
@@ -1911,15 +1945,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             )
             if status == "completed":
                 _record_state_transition(
-                    record,
-                    npi,
+                    records,
                     NpiWlaTU.TU_SUCESSFULLY_ADDED,
                     "QuickCap submission completed",
                     micro_extra={"update_type":1}
                 )
             else:
                 _record_micro_update(
-                    record,
                     npi,
                     "QuickCap submission failed",
                     extra={"error": message or "unknown","update_type":3},
