@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
 from uuid import uuid4
 
+from selenium.common import TimeoutException
 from selenium.webdriver.remote.webdriver import WebDriver
 
 import constants
@@ -716,7 +717,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         new_state: int,
         message: str,
         micro_extra: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    data_payload=None) -> None:
         task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
         payload = {
             "updates": [
@@ -756,7 +757,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         message: str,
         extra: Optional[Dict[str, Any]] = None,
         state_override: Optional[int] = None,
-    ) -> None:
+    update_data=None) -> None:
         task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
@@ -1364,7 +1365,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             # quickcap_page.get_company_xpath("DNSHUMANA")
             # time.sleep(3)
             quickcap_page.enter_username_in_company_prompt("autoprocess@pns-mgmt.com")
-            quickcap_page.enter_password_in_company_prompt("Pns@072025")
+            quickcap_page.enter_password_in_company_prompt("Pns@#111125")
             quickcap_page.click_login_button_in_company_prompt()
             """
             TODO Yash: update task unit
