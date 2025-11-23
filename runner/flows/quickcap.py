@@ -644,7 +644,7 @@ class QuickcapProcessor:
 
 def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_result = StageResult(stage=StageName.QUICKCAP)
-    metadata.task_id = "79b7e2b7-64a6-4eac-bd60-e68d6cb1aa3b"
+
     """
     TODO Yash:
     In the beginning of any task or stage, we will initialise the relevant task unit dictionary.
