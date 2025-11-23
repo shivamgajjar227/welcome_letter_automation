@@ -1945,7 +1945,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             )
             if status == "completed":
                 _record_state_transition(
-                    records,
+                    record,
                     NpiWlaTU.TU_SUCESSFULLY_ADDED,
                     "QuickCap submission completed",
                     micro_extra={"update_type":1}
