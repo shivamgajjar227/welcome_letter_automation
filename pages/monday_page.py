@@ -71,19 +71,26 @@ class MondayPage(BasePage):
                         health_plan = row.find_element(By.XPATH,
                                                        ".//div[contains(@class, 'col-identifier-dropdown_mkt4m1wd')]//div[@data-testid='text']").text
                         lob_list = []
+
                         try:
-                            lob_container = row.find_element(By.XPATH,
-                                                             ".//div[contains(@class, 'chips-list-module_chips__CTQcD')]")
-                            lob_chips = lob_container.find_elements(By.XPATH,
-                                                                    ".//div[contains(@class, 'chips_e501d98fba')]")
+                            # Target ONLY the correct LOB column
+                            lob_column = row.find_element(
+                                By.XPATH,
+                                ".//div[contains(@class, 'col-identifier-dropdown_mkt4r6zg')]"
+                            )
+
+                            # Get all LoB chips
+                            lob_chips = lob_column.find_elements(By.XPATH, ".//div[@data-testid='chip']")
 
                             for chip in lob_chips:
-                                lob_text = chip.find_element(By.XPATH,
-                                                             ".//div[contains(@class, 'text_6bad4c857c')]").text.strip()
-                                if lob_text:
+                                lob_text = chip.find_element(By.XPATH, ".//div[@data-testid='text']").text.strip()
+
+                                # Skip Health Plan when LoB matches
+                                if lob_text and lob_text != health_plan.strip():
                                     lob_list.append(lob_text)
-                        except Exception as lob_error:
-                            print(f"Error extracting LoB: {lob_error}")
+
+                        except Exception as e:
+                            print(f"Error extracting LOB: {e}")
 
                         lines_of_business = ", ".join(lob_list)
                         entry = {
