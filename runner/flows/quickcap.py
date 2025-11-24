@@ -653,6 +653,7 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
     stage_run_id = uuid4().hex
     stage_started_at = _dt.datetime.now(_dt.timezone.utc)
     stage_artifact_refs: List[Dict[str, Any]] = []
+    metadata.task_id = "8611e369-d079-430e-8150-9b8c4095bce6"
     task_unit_dict = _load_task_unit_dict(metadata.task_id)
     records: List[Dict[str, Any]] = _flatten_quickcap_records(list(task_unit_dict.values()))
 
@@ -727,30 +728,25 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         )
 
     def _record_micro_update(
-        record: Dict[str, Any],
-        npi_value: str,
-        message: str,
-        extra: Optional[Dict[str, Any]] = None,
-        state_override: Optional[int] = None,
-    update_data=None) -> None:
-        task_unit = task_unit_dict[npi_value] if npi_value in task_unit_dict else None
+            npi_value: str,
+            message: str,
+            extra: Optional[Dict[str, Any]] = None,
+            state_override: Optional[int] = None,
+    ) -> None:
+        task_unit = _task_unit_for_npi(npi_value)
         if not task_unit:
             logger.debug("Task unit not found for NPI %s; skipping micro update", npi_value)
             return
-        update_data["message"] = message
-        update_data["npi"] = npi_value
+        update_data = {"message": message, "npi": npi_value}
         if extra:
             update_data.update(extra)
-        current_address = record.get("_current_address")
-        if current_address:
-            update_data.setdefault("address", current_address)
         payload = {
             "updates": [
                 {
                     "task_unit_id": task_unit["task_unit_id"],
                     "update_state": state_override if state_override is not None else task_unit.get("current_state"),
                     "update_data": update_data,
-                    "update_type": extra.get("update_type",0),
+                    "update_type": extra.get("update_type", 0),
                     "message": message
                 }
             ]
@@ -801,7 +797,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
         if not npi:
             failures.append({"reason": "missing_npi", "record": record})
             _record_micro_update(
-                record,
                 "unknown",
                 "Task unit missing NPI; skipping QuickCap processing",
                 extra={"record": record},
@@ -871,7 +866,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     npi=npi or "unknown",
                 )
                 _record_micro_update(
-                    record,
                     npi,
                     "Unable to map company for QuickCap submission",
                     extra={"network": network, "health_plan": health_plan},
@@ -883,11 +877,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             if current_company and current_company.lower() == company_name.lower():
                 print(f"✅ Company '{company_name}' already logged in — skipping change.")
                 _record_state_transition(
-                    record,
                     npi,
                     NpiWlaTU.TU_LOGGED_INTO_COMPANY,
                     "Using active QuickCap company session",
-                    micro_extra={"update_type":0}
+                    data_payload={"company": company_name},
                 )
                 try:
                     if quickcap_page.check_npi_search_field():
@@ -973,18 +966,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                             status = "failed"
                             message = "org_id_not_found"
                             output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                            events.emit_npi_event(
-                                task_id=metadata.task_id,
-                                stage=StageName.QUICKCAP,
-                                npi=npi or "unknown",
-                                status="completed" if status == "completed" else "failed",
-                                attempt=attempt,
-                                stage_run_id=stage_run_id,
-                                input_snapshot=record,
-                                output_snapshot=output_snapshot,
-                                artifacts=[],
-                                message=message,
-                            )
                             continue
                         quickcap_page.switch_to_new_window1()
                         quickcap_page.click_add_new_location()
@@ -1366,10 +1347,10 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             quickcap_page.switch_back_to_main()
             current_company = company_name
             _record_state_transition(
-                record,
                 npi,
                 NpiWlaTU.TU_LOGGED_INTO_COMPANY,
                 "Switched company in QuickCap",
+                data_payload={"company": company_name},
             )
 
             try:
@@ -1489,16 +1470,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                     quickcap_page.click_primary()
                     quickcap_page.click_save1()
 
-                    events.emit_npi_event(
-                        task_id=metadata.task_id,
-                        stage=StageName.QUICKCAP,
-                        npi=npi,
-                        status="in_progress",
-                        attempt=attempt,
-                        stage_run_id=stage_run_id,
-                        input_snapshot={"address_line1": address_line1, "address_line2": address_line2,
-                                        "zip_code": zip_code},
-                    )
                     if quickcap_page.driver.current_window_handle != main_window:
                         quickcap_page.driver.close()
                         quickcap_page.driver.switch_to.window(main_window)
@@ -1531,23 +1502,11 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                         post_webhook(metadata, StageName.QUICKCAP, data1)
                         """
                        TODO Yash: update task unit
-                       address alrady added
+                       address already added
                        """
                         status = "completed"
                         message = "Address already added"
                         output_snapshot = {"npi_number": npi_number or npi, "error": message}
-                        events.emit_npi_event(
-                            task_id=metadata.task_id,
-                            stage=StageName.QUICKCAP,
-                            npi=npi or "unknown",
-                            status="completed" if status == "completed" else "failed",
-                            attempt=attempt,
-                            stage_run_id=stage_run_id,
-                            input_snapshot=record,
-                            output_snapshot=output_snapshot,
-                            artifacts=[],
-                            message=message,
-                        )
                         if quickcap_page.driver.current_window_handle != main_window:
                             quickcap_page.driver.close()
                             quickcap_page.driver.switch_to.window(main_window)
@@ -1887,15 +1846,14 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             output_snapshot = failure_entry
             if exc.reason == "org_id_not_found":
                 _record_state_transition(
-                    record,
                     npi,
                     NpiWlaTU.TU_ERROR_ORG_ID_NOT_FOUND,
                     "Organization ID not found in QuickCap",
+                    data_payload=failure_entry,
                     micro_extra={"error": message,"update_type":3},
                 )
             else:
                 _record_micro_update(
-                    record,
                     npi,
                     "Validation failure during QuickCap processing",
                     extra={"error": message,"update_type":3},
@@ -1917,7 +1875,6 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
             message = str(exc)
             output_snapshot = {"npi_number": npi or record.get("npi"), "error": message}
             _record_micro_update(
-                record,
                 npi,
                 "Unexpected exception during QuickCap processing",
                 extra={"error": message},
@@ -1931,24 +1888,13 @@ def run(driver: WebDriver, metadata: RunnerMetadata) -> StageResult:
                 npi=npi or "unknown",
                 status=status,
             )
-            events.emit_npi_event(
-                task_id=metadata.task_id,
-                stage=StageName.QUICKCAP,
-                npi=npi or "unknown",
-                status="completed" if status == "completed" else "failed",
-                attempt=attempt,
-                stage_run_id=stage_run_id,
-                input_snapshot=record,
-                output_snapshot=output_snapshot,
-                artifacts=[],
-                message=message,
-            )
+
             if status == "completed":
                 _record_state_transition(
-                    record,
+                    npi,
                     NpiWlaTU.TU_SUCESSFULLY_ADDED,
                     "QuickCap submission completed",
-                    micro_extra={"update_type":1}
+                    data_payload=output_snapshot,
                 )
             else:
                 _record_micro_update(
